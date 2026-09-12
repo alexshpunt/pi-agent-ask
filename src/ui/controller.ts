@@ -1,4 +1,7 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme } from "@earendil-works/pi-tui";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
@@ -65,8 +68,11 @@ type Tui = CustomCallbackArgs[0];
 type Theme = CustomCallbackArgs[1];
 type Keybindings = CustomCallbackArgs[2];
 type Done = (result: AskResult) => void;
+type AskEvents = Pick<ExtensionAPI["events"], "emit">;
+
 interface AskFlowOptions {
 	allowFreeform?: boolean;
+	herdrEvents?: AskEvents;
 	presentSingleAsMulti?: boolean;
 	remote?: {
 		runtime: RemoteAskRuntime;
@@ -119,16 +125,32 @@ export async function runAskFlow(
 			cancelled: true,
 		};
 	}
-	return ctx.ui.custom<AskResult>((...args) =>
-		createAskFlowController(args, {
-			...params,
-			config,
-			configNotice: notice?.text,
-			cwd: ctx.cwd,
-			ctx,
-			flowOptions,
-		})
-	);
+	emitHerdrBlocked(options.herdrEvents, true);
+	try {
+		return await ctx.ui.custom<AskResult>((...args) =>
+			createAskFlowController(args, {
+				...params,
+				config,
+				configNotice: notice?.text,
+				cwd: ctx.cwd,
+				ctx,
+				flowOptions,
+			})
+		);
+	} finally {
+		emitHerdrBlocked(options.herdrEvents, false);
+	}
+}
+
+function emitHerdrBlocked(events: AskEvents | undefined, active: boolean): void {
+	try {
+		events?.emit(
+			"herdr:blocked",
+			active ? { active: true, label: "Waiting for user response" } : { active: false }
+		);
+	} catch {
+		// Herdr status is best effort and must not affect the ask flow.
+	}
 }
 
 function createAskFlowController(

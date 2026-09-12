@@ -282,7 +282,7 @@ async function runReplayCommand(
 }
 
 async function runAskAndSendSubmittedResult(
-	pi: Pick<ExtensionAPI, "sendUserMessage">,
+	pi: Pick<ExtensionAPI, "events" | "sendUserMessage">,
 	ctx: ExtensionContext,
 	params: AskParams,
 	options: {
@@ -297,6 +297,7 @@ async function runAskAndSendSubmittedResult(
 			remote: options.remoteAsk
 				? { runtime: options.remoteAsk, source: options.remoteSource }
 				: undefined,
+			herdrEvents: pi.events,
 		})
 	);
 	if (result.cancelled) {

@@ -49,7 +49,7 @@ export function registerAskTool(
 }
 
 async function executeAskTool(
-	pi: Pick<ExtensionAPI, "appendEntry">,
+	pi: Pick<ExtensionAPI, "appendEntry" | "events">,
 	toolCallId: string,
 	params: AskParams,
 	_signal: AbortSignal | undefined,
@@ -78,6 +78,7 @@ async function executeAskTool(
 			remote: remoteAsk
 				? { runtime: remoteAsk, source: "tool", toolCallId }
 				: undefined,
+			herdrEvents: pi.events,
 		});
 		return successfulResponse(result);
 	} finally {

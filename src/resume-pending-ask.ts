@@ -53,7 +53,7 @@ export function registerPendingAskResume(
 }
 
 async function reopenPendingAsk(
-	pi: Pick<ExtensionAPI, "appendEntry" | "sendUserMessage">,
+	pi: Pick<ExtensionAPI, "appendEntry" | "events" | "sendUserMessage">,
 	ctx: ExtensionContext,
 	pendingAsk: PendingAskToolCall,
 	remoteAsk: RemoteAskRuntime
@@ -72,6 +72,7 @@ async function reopenPendingAsk(
 				source: "ask:resume",
 				toolCallId: pendingAsk.toolCallId,
 			},
+			herdrEvents: pi.events,
 		});
 	} finally {
 		ctx.ui.setWorkingVisible(true);
