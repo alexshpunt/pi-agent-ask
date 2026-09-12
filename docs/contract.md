@@ -278,6 +278,19 @@ The ask flow subscribes to runtime settings updates while open. In practice, thi
 
 When enabled, pi-ask emits one best-effort external notification per ask session after the ask UI opens and waits for input. The default title is `pi ask`; the message is `Question waiting: <label or prompt>`. Channels run in configured order and failures never fail or cancel the ask flow.
 
+## Herdr blocked lifecycle
+
+For interactive TUI ask flows, the extension optionally emits on `pi.events`:
+
+- `herdr:blocked` with `{ active: true, label: "Waiting for user response" }`
+  immediately before waiting for input;
+- `herdr:blocked` with `{ active: false }` in the terminal cleanup path.
+
+The cleanup event is emitted for successful answers, cancellation, abort/timeout,
+and UI errors. This signal is status-only: it does not include questions, context,
+answers, notes, or remote submission data. Non-interactive execution does not emit
+this lifecycle.
+
 ## Remote inter-extension events
 
 pi-ask exposes a local `pi.events` contract for trusted Pi extensions. It does not expose a network API and does not automate terminal keystrokes. RPC or headless integrations should use a trusted in-process bridge extension that consumes these events rather than expecting the TUI-only custom surface to open.

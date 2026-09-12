@@ -203,6 +203,14 @@ After installation, the extension registers the `ask_user` tool plus `/ask-setti
 
 Agents can auto-discover and call `ask_user` when they need clarification instead of guessing. They can mark any number of grounded preferences with `recommended: true` and use option descriptions for reasons. In interactive sessions, it opens a terminal UI flow for structured answers, supports native pi-style `@` file references while typing answers or notes, and returns normalized answers back to the agent. Ask settings are available both from `?` in the ask flow and from the `/ask-settings` command. Behaviour and notification settings are binary `on`/`off` toggles that save immediately when the config file is writable; save failures revert the toggle and show a manual-edit message. The settings overlay includes a guarded double-press reset-to-defaults action; keymaps, notification channels, and extraction settings are changed by editing the shown config file path.
 
+### Herdr multiplexer status
+
+While any interactive ask form is waiting for input, pi-ask emits the local
+`herdr:blocked` event with `{ active: true, label: "Waiting for user response" }`.
+It emits `{ active: false }` after answer, cancellation, abort, timeout, or error.
+The Herdr event contains no question, context, answer, or note data. Hosts without
+an event listener are unaffected.
+
 ### Answer and replay commands
 
 `/answer` is useful when the agent asked questions in plain text instead of using `ask_user`. It extracts questions from the latest completed assistant message and opens the same ask UI.
