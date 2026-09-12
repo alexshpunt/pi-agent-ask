@@ -27,6 +27,7 @@ const noop = () => {
 function registerMockTool() {
 	const tools: Record<string, unknown>[] = [];
 	const entries: Array<{ customType: string; data: unknown }> = [];
+	const events: Array<{ channel: string; data: unknown }> = [];
 	registerAskTool({
 		appendEntry(customType: string, data: unknown) {
 			entries.push({ customType, data });
@@ -34,9 +35,15 @@ function registerMockTool() {
 		registerTool(tool: unknown) {
 			tools.push(tool as Record<string, unknown>);
 		},
+		events: {
+			emit(channel: string, data: unknown) {
+				events.push({ channel, data });
+			},
+		},
 	} as never);
 	return {
 		entries,
+		events,
 		tool: tools[0] as {
 			execute: (...args: any[]) => Promise<any>;
 			parameters: Record<string, any>;
@@ -172,6 +179,111 @@ test("ask tool does not open custom UI outside TUI mode", async () => {
 	assert.equal(customOpened, false);
 	assert.equal(result.details.cancelled, true);
 	assert.match(result.content[0].text, NON_INTERACTIVE_MESSAGE_RE);
+});
+
+test("emits Herdr blocked lifecycle around an interactive ask", async () => {
+	const { events, tool } = registerMockTool();
+	const result = await tool.execute("call-1", sampleParams(), undefined, noop, {
+		[HAS_UI]: true,
+		mode: "tui",
+		ui: {
+			custom: async () => ({
+				answers: {
+					goal: { values: ["speed"], labels: ["Speed"], indices: [1] },
+				},
+				cancelled: false,
+				mode: "submit",
+				questions: [
+					{
+						id: "goal",
+						label: "Goal",
+						prompt: "What should I optimize for?",
+						type: "single",
+					},
+				],
+				title: "Clarify next step",
+			}),
+			setWorkingVisible: noop,
+		},
+	});
+
+	assert.equal(result.details.cancelled, false);
+	assert.deepEqual(
+		events.filter(({ channel }) => channel === "herdr:blocked"),
+		[
+			{
+				channel: "herdr:blocked",
+				data: { active: true, label: "Waiting for user response" },
+			},
+			{ channel: "herdr:blocked", data: { active: false } },
+		]
+	);
+});
+
+test("clears Herdr blocked lifecycle when an ask is cancelled", async () => {
+	const { events, tool } = registerMockTool();
+	const result = await tool.execute("call-1", sampleParams(), undefined, noop, {
+		[HAS_UI]: true,
+		mode: "tui",
+		ui: {
+			custom: async () => ({
+				answers: {},
+				cancelled: true,
+				mode: "submit",
+				questions: [
+					{
+						id: "goal",
+						label: "Goal",
+						prompt: "What should I optimize for?",
+						type: "single",
+					},
+				],
+				title: "Clarify next step",
+			}),
+			setWorkingVisible: noop,
+		},
+	});
+
+	assert.equal(result.details.cancelled, true);
+	assert.deepEqual(
+		events
+			.filter(({ channel }) => channel === "herdr:blocked")
+			.map(({ data }) => data),
+		[{ active: true, label: "Waiting for user response" }, { active: false }]
+	);
+});
+
+test("clears Herdr blocked lifecycle when custom UI rejects", async () => {
+	const { events, tool } = registerMockTool();
+	await assert.rejects(
+		tool.execute("call-1", sampleParams(), undefined, noop, {
+			[HAS_UI]: true,
+			mode: "tui",
+			ui: {
+				custom: async () => {
+					throw new Error("UI failed");
+				},
+				setWorkingVisible: noop,
+			},
+		}),
+		/UI failed/
+	);
+
+	assert.deepEqual(
+		events
+			.filter(({ channel }) => channel === "herdr:blocked")
+			.map(({ data }) => data),
+		[{ active: true, label: "Waiting for user response" }, { active: false }]
+	);
+});
+
+test("does not emit Herdr blocked state outside TUI mode", async () => {
+	const { events, tool } = registerMockTool();
+	await tool.execute("call-1", sampleParams(), undefined, noop, makeCtx(false));
+	assert.deepEqual(
+		events.filter(({ channel }) => channel === "herdr:blocked"),
+		[]
+	);
 });
 
 test("ask tool includes custom answer fallback for preview questions", async () => {
