@@ -19,6 +19,7 @@ const MISSING_OPTION_VALUE_RE =
 const EMPTY_QUESTIONS_RE = /questions: At least one question is required/;
 const INVALID_TYPE_RE =
 	/questions\[0\]\.type: Question 1: invalid type "grid"; expected "single", "multi", or "preview"/;
+const UI_FAILED_RE = /UI failed/;
 const HAS_UI = "hasUI";
 const noop = () => {
 	// intentional test callback
@@ -260,13 +261,11 @@ test("clears Herdr blocked lifecycle when custom UI rejects", async () => {
 			[HAS_UI]: true,
 			mode: "tui",
 			ui: {
-				custom: async () => {
-					throw new Error("UI failed");
-				},
+				custom: () => Promise.reject(new Error("UI failed")),
 				setWorkingVisible: noop,
 			},
 		}),
-		/UI failed/
+		UI_FAILED_RE
 	);
 
 	assert.deepEqual(

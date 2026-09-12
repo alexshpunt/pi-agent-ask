@@ -142,11 +142,16 @@ export async function runAskFlow(
 	}
 }
 
-function emitHerdrBlocked(events: AskEvents | undefined, active: boolean): void {
+function emitHerdrBlocked(
+	events: AskEvents | undefined,
+	active: boolean
+): void {
 	try {
 		events?.emit(
 			"herdr:blocked",
-			active ? { active: true, label: "Waiting for user response" } : { active: false }
+			active
+				? { active: true, label: "Waiting for user response" }
+				: { active: false }
 		);
 	} catch {
 		// Herdr status is best effort and must not affect the ask flow.
