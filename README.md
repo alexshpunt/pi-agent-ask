@@ -2,6 +2,23 @@
 
 # @eko24ive/pi-ask
 
+## Herdr support fork
+
+This fork adds Herdr blocked-state reporting to pi-ask 1.2.0. The fix comes from
+[maudelv's branch](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state),
+with the original commit authors preserved. See [upstream issue #14](https://github.com/eko24ive/pi-ask/issues/14).
+
+Install this fork instead of the npm package:
+
+```bash
+pi remove npm:@eko24ive/pi-ask
+pi install git:github.com/alexshpunt/pi-ask@main
+```
+
+Then run `/reload` or restart Pi. Remove any separate pi-ask-to-Herdr bridge to
+avoid sending the blocked signal twice. Your existing pi-ask settings still apply.
+The npm install command below installs upstream, not this fork.
+
 [![npm downloads](https://badgen.net/npm/dm/@eko24ive/pi-ask)](https://www.npmjs.com/package/@eko24ive/pi-ask)
 [![last commit](https://badgen.net/github/last-commit/eko24ive/pi-ask?v=4b6c81e)](https://github.com/eko24ive/pi-ask/commits/main)
 [![stars](https://badgen.net/github/stars/eko24ive/pi-ask)](https://github.com/eko24ive/pi-ask/stargazers)
