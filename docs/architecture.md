@@ -23,6 +23,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/notifications.ts` — best-effort ask notification payload rendering and channel execution
 - `src/remote-ask.ts` — package-prefixed local event contract, active-flow registry, and explicit remote submission validation
 - `src/schema.ts` — TypeBox schema
+- `src/result-schema.ts` — structured output schema shared with typed response helpers
+- `src/preview-files.ts` — validates and loads local UTF-8 preview files before UI and payload capture; state and rendering remain filesystem-free
 - `src/types.ts` — shared types
 
 ### State

@@ -20,6 +20,7 @@ This document defines the stable external behavior. It does not explain internal
       label: string;
       description?: string;
       preview?: string;
+      previewFile?: string;
       recommended?: boolean;
     }>;
   }>;
@@ -41,7 +42,12 @@ This document defines the stable external behavior. It does not explain internal
 - `type` defaults to `single`
 - `required` defaults to `false`
 - `required` is metadata only; it never blocks submission
-- preview questions require preview text for every declared option; option descriptions do not satisfy this requirement, and invalid preview payloads report a fix hint to add preview text or switch to `type: "single"`
+- preview questions require preview text or a preview file for every declared option; option descriptions do not satisfy this requirement, and invalid preview payloads report a fix hint to add preview text or switch to `type: "single"`
+- options may use `previewFile?: string` instead of `preview`: a regular, non-empty UTF-8 text file, with an absolute path or a path relative to `ctx.cwd`
+- non-blank `preview` and `previewFile` on the same option are invalid; blank paths are treated as omitted
+- file read, decoding, binary-data, and empty-file errors return structured `invalid_input` issues at the option's `previewFile` field before UI opens or the payload is saved
+- the file content uses the existing plain-text preview renderer; labels and answer values do not change
+- valid tool calls save the loaded text as `preview` without `previewFile`, so replay and recovery use the original snapshot rather than reading the file again
 - all questions get an internal `Type your own` option
 
 ## Output
@@ -164,6 +170,13 @@ This document defines the stable external behavior. It does not explain internal
   };
 }
 ```
+
+The tool declares `outputSchema` and returns the same `AskResult` in both
+`details` and `structuredContent`. Codemode receives that object directly, not
+`content` text and not a wrapper with `details`. Normal calls keep the text summary
+and TUI rendering. Submitted, elaborated, cancelled, invalid-input, and non-TUI
+results all use this structure. Pi schema-validation failures before execution
+remain standard tool errors.
 
 ## Output rules
 

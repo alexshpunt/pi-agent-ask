@@ -47,6 +47,7 @@ function registerMockTool() {
 		events,
 		tool: tools[0] as {
 			execute: (...args: any[]) => Promise<any>;
+			outputSchema: Record<string, any>;
 			parameters: Record<string, any>;
 			prepareArguments: (args: unknown) => unknown;
 			promptGuidelines: string[];
@@ -64,6 +65,103 @@ function makeCtx(hasUi: boolean, mode = hasUi ? "tui" : "print"): unknown {
 	return { [HAS_UI]: hasUi, mode };
 }
 
+test("ask tool saves file preview text for replay and keeps option labels", async () => {
+	const { entries, tool } = registerMockTool();
+	const params: AskParams = {
+		questions: [
+			{
+				id: "file",
+				prompt: "Choose",
+				type: "preview",
+				options: [
+					{
+						value: "doc",
+						label: "Document",
+						previewFile: "tests/fixtures/preview.txt",
+					},
+				],
+			},
+		],
+	};
+	assert.equal(Value.Check(AskParamsSchema, params), true);
+	const result = await tool.execute("file-call", params, undefined, noop, {
+		mode: "print",
+		cwd: process.cwd(),
+	});
+	assert.equal(result.details.error, undefined);
+	const saved = (entries[0].data as { params: AskParams }).params.questions[0]
+		.options[0];
+	assert(saved.preview?.includes("Preview loaded from a local file"));
+	assert.equal(saved.previewFile, undefined);
+	assert.equal(saved.label, "Document");
+});
+
+test("ask tool rejects unreadable previews before UI and payload storage", async () => {
+	const { entries, events, tool } = registerMockTool();
+	let uiOpened = false;
+	const result = await tool.execute(
+		"missing-file",
+		{
+			questions: [
+				{
+					id: "file",
+					prompt: "Choose",
+					type: "preview",
+					options: [
+						{
+							value: "doc",
+							label: "Document",
+							previewFile: "tests/fixtures/missing.txt",
+						},
+					],
+				},
+			],
+		},
+		undefined,
+		noop,
+		{
+			mode: "tui",
+			cwd: process.cwd(),
+			ui: {
+				custom() {
+					uiOpened = true;
+				},
+			},
+		}
+	);
+	assert.equal(result.details.error.kind, "invalid_input");
+	assert(result.content[0].text.includes("Cannot load preview file"));
+	assert.equal(uiOpened, false);
+	assert.deepEqual(entries, []);
+	assert.deepEqual(events, []);
+});
+test("ask tool declares an output schema and returns structured pending results", async () => {
+	const { tool } = registerMockTool();
+	assert(tool.outputSchema);
+	const result = await tool.execute(
+		"structured-pending",
+		sampleParams(),
+		undefined,
+		noop,
+		makeCtx(false)
+	);
+	assert.deepEqual(result.structuredContent, result.details);
+	assert.equal(Value.Check(tool.outputSchema, result.structuredContent), true);
+});
+
+test("invalid ask input returns the same structured error as its details", async () => {
+	const { tool } = registerMockTool();
+	const result = await tool.execute(
+		"structured-error",
+		{ questions: [] },
+		undefined,
+		noop,
+		makeCtx(false)
+	);
+	assert.deepEqual(result.structuredContent, result.details);
+	assert.equal(result.structuredContent.error.kind, "invalid_input");
+	assert.equal(Value.Check(tool.outputSchema, result.structuredContent), true);
+});
 function sampleParams(): AskParams {
 	return {
 		title: "Clarify next step",

@@ -3,12 +3,14 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme } from "@earendil-works/pi-tui";
+import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
 import {
 	createQuestionWaitingNotification,
 	notifyQuestionWaiting,
 } from "../notifications.ts";
+import { resolvePreviewFiles } from "../preview-files.ts";
 import {
 	applyRemoteAskResponse,
 	type RemoteAskFlowHandle,
@@ -109,9 +111,14 @@ interface AskFlowController {
 
 export async function runAskFlow(
 	ctx: ExtensionContext,
-	params: AskParams,
+	input: AskParams,
 	options: AskFlowOptions = {}
 ): Promise<AskResult> {
+	const resolved = await resolvePreviewFiles(input, ctx.cwd, options);
+	if (!resolved.ok) {
+		return invalidPayloadResponse(input, resolved.issues).details;
+	}
+	const params = resolved.params;
 	const store = getAskConfigStore();
 	const { config, notice } = await store.ensureLoaded();
 	const flowOptions = {

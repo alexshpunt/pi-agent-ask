@@ -114,6 +114,22 @@ Pick one option when answers are mutually exclusive, or choose multiple options 
 ### Preview mode
 Use a dedicated preview pane when options need richer detail.
 
+Pass inline `preview` text or a local UTF-8 file path in `previewFile`:
+
+```json
+{
+  "value": "proposal",
+  "label": "Proposal",
+  "previewFile": "docs/proposal.md"
+}
+```
+
+Use this option in a `type: "preview"` question. Paths are absolute or relative to
+Pi’s working directory. Do not combine `preview` and `previewFile` on one option.
+Missing, unreadable, empty, or non-text files return an error before the form opens.
+The file text appears in the preview pane, not in the option label. Replay uses
+the saved text from the original call. Markdown is shown as plain text.
+
 ![Preview question showing a dedicated preview pane](docs/media/feature-preview-pane.png)
 
 ### Custom answer (`Type your own`)
@@ -221,6 +237,27 @@ Accepted notation follows pi-tui key ids. Common aliases are normalized, for exa
 After installation, the extension registers the `ask_user` tool plus `/ask-settings`, `/answer`, `/answer:again`, and `/ask:replay` commands.
 
 Agents can auto-discover and call `ask_user` when they need clarification instead of guessing. They can mark any number of grounded preferences with `recommended: true` and use option descriptions for reasons. In interactive sessions, it opens a terminal UI flow for structured answers, supports native pi-style `@` file references while typing answers or notes, and returns normalized answers back to the agent. Ask settings are available both from `?` in the ask flow and from the `/ask-settings` command. Behaviour and notification settings are binary `on`/`off` toggles that save immediately when the config file is writable; save failures revert the toggle and show a manual-edit message. The settings overlay includes a guarded double-press reset-to-defaults action; keymaps, notification channels, and extraction settings are changed by editing the shown config file path.
+
+### Structured results in Codemode
+
+Use Pi 1.0.0 or newer for structured tool results. A Codemode call returns the
+`AskResult` object directly, including `answers`, `cancelled`, `mode`, and optional
+`error`, `continuation`, and `elaboration` fields:
+
+```js
+const result = await tools.ask_user({
+  questions: [{
+    id: "choice",
+    prompt: "Choose a document",
+    type: "preview",
+    options: [{ value: "proposal", label: "Proposal", previewFile: "docs/proposal.md" }]
+  }]
+});
+text(result.answers.choice?.values ?? []);
+```
+
+Check `result.cancelled` and `result.error` before using answers. Ordinary tool
+calls still show a short text summary.
 
 ### Herdr multiplexer status
 

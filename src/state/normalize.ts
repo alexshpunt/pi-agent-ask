@@ -112,6 +112,9 @@ function normalizeOption(option: AskOption): AskOption {
 		label: option.label.trim(),
 		description: option.description?.trim() || undefined,
 		preview: option.preview?.trim() || undefined,
+		...(option.previewFile?.trim()
+			? { previewFile: option.previewFile.trim() }
+			: {}),
 		...(option.recommended === undefined
 			? {}
 			: { recommended: option.recommended }),
@@ -260,9 +263,15 @@ function validateOption(
 		`${optionPath}.label`,
 		`${prefix}: label is required`
 	);
+	if (optionPreview && option.previewFile?.trim()) {
+		collector.add(
+			`${optionPath}.previewFile`,
+			`${prefix}: use either preview or previewFile, not both`
+		);
+	}
 	if (questionType === "preview") {
 		assertRequired(
-			optionPreview,
+			optionPreview || option.previewFile?.trim(),
 			collector,
 			`${optionPath}.preview`,
 			`${prefix}: preview questions require preview text for every option; add preview text or use type "single" instead`

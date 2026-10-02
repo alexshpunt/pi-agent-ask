@@ -88,7 +88,7 @@ After attempt 2:
 
 - Ask one concrete decision at a time.
 - Provide clear, distinct options. Do not add filler options.
-- Choose question type from semantics: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail with non-empty preview text.
+- Choose question type from semantics: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail with non-empty `preview` text or a local UTF-8 `previewFile` path.
 - Avoid defaulting mechanically; infer from whether options are mutually exclusive, can coexist, or need preview-pane detail.
 - Keep option labels short and outcome-oriented.
 - Include trade-off descriptions when non-obvious.

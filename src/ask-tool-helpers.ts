@@ -1,7 +1,9 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth } from "@earendil-works/pi-tui";
+import type { Static } from "typebox";
 import { UI_DIMENSIONS } from "./constants/ui.ts";
 import { renderResultText } from "./result.ts";
+import type { AskResultSchema } from "./result-schema.ts";
 import { createInitialState } from "./state/create.ts";
 import { collectValidationIssues } from "./state/normalize.ts";
 import { summarizeResult, toAskResult } from "./state/result.ts";
@@ -13,7 +15,7 @@ import type {
 } from "./types.ts";
 
 export const ASK_TOOL_DESCRIPTION =
-	"Interactive clarification tool for cases where the next step depends on user preferences, missing requirements, or choosing between multiple valid directions. Ask a short structured interview, collect normalized answers, and continue using those answers explicitly instead of guessing. Supports single-select, multi-select, and preview-pane questions. Always include a stable `id` and non-empty `prompt` for every question, plus a machine-readable `value` and visible `label` for every option. Use `preview` only when every option includes `preview` text; descriptions alone are not enough.";
+	"Interactive clarification tool for cases where the next step depends on user preferences, missing requirements, or choosing between multiple valid directions. Ask a short structured interview, collect normalized answers, and continue using those answers explicitly instead of guessing. Supports single-select, multi-select, and preview-pane questions. Always include a stable `id` and non-empty `prompt` for every question, plus a machine-readable `value` and visible `label` for every option. Use `preview` only when every option includes `preview` text or a local UTF-8 `previewFile` path; descriptions alone are not enough.";
 
 export const ASK_TOOL_PROMPT_GUIDELINES = [
 	"Use `ask_user` before making preference-sensitive decisions about scope, tone, UX, naming, architecture, docs, or implementation direction.",
@@ -23,7 +25,7 @@ export const ASK_TOOL_PROMPT_GUIDELINES = [
 	"When calling `ask_user`, always include a non-empty machine-readable `value` and visible `label` for every option.",
 	"When calling `ask_user`, mark grounded preferences with `recommended: true` and use the option `description` to state the reason.",
 	"When calling `ask_user`, choose question `type` from the question semantics: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail.",
-	'When calling `ask_user`, use `type: "preview"` only when every option includes non-empty `preview` text. Option descriptions do not satisfy this requirement.',
+	'When calling `ask_user`, use `type: "preview"` only when every option includes non-empty `preview` text or a local UTF-8 `previewFile` path. Option descriptions do not satisfy this requirement.',
 	"After an `ask_user` elaboration or follow-up note, prefer another structured `ask_user` follow-up if a choice is still needed instead of switching to plain-text multiple choice in chat.",
 	"When prior `ask_user` answers narrow the branch, bundle the next 2-3 related unresolved decisions into one follow-up `ask_user` call when possible.",
 	"Use one-at-a-time `ask_user` follow-up calls only when the next question materially depends on the previous answer.",
@@ -55,30 +57,39 @@ export function invalidPayloadResponse(
 	params: AskParams,
 	issues: AskValidationIssue[]
 ) {
+	const result: Static<typeof AskResultSchema> = errorResultDetails(
+		params,
+		issues
+	);
 	return {
 		content: [{ type: "text" as const, text: formatValidationError(issues) }],
-		details: errorResultDetails(params, issues),
+		details: result,
+		structuredContent: result,
 	};
 }
 
 export function nonInteractiveResponse(
 	state: ReturnType<typeof createInitialState>
 ) {
+	const result: Static<typeof AskResultSchema> = {
+		...toAskResult(state),
+		cancelled: true,
+	};
 	return {
 		content: [
 			{ type: "text" as const, text: formatNonInteractiveMessage(state) },
 		],
-		details: {
-			...toAskResult(state),
-			cancelled: true,
-		},
+		details: result,
+		structuredContent: result,
 	};
 }
 
 export function successfulResponse(result: AskResult) {
+	const structuredContent: Static<typeof AskResultSchema> = result;
 	return {
 		content: [{ type: "text" as const, text: summarizeResult(result) }],
 		details: result,
+		structuredContent,
 	};
 }
 

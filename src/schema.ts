@@ -20,6 +20,12 @@ export const AskOptionSchema = Type.Object({
 				"Optional preview content shown in the dedicated preview pane for preview questions",
 		})
 	),
+	previewFile: Type.Optional(
+		Type.String({
+			description:
+				"Local UTF-8 text file to show in the preview pane instead of preview text. Absolute path or relative to Pi's working directory. Do not combine with preview.",
+		})
+	),
 	recommended: Type.Optional(
 		Type.Boolean({
 			description:
@@ -45,7 +51,7 @@ export const AskQuestionSchema = Type.Object({
 	type: Type.Optional(
 		StringEnum(["single", "multi", "preview"] as const, {
 			description:
-				"Question type: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail. Use `preview` only when every option includes `preview` text; descriptions alone are not enough.",
+				"Question type: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail. Use `preview` only when every option includes `preview` text or a local UTF-8 `previewFile` path; descriptions alone are not enough.",
 		})
 	),
 	required: Type.Optional(

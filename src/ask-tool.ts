@@ -14,7 +14,9 @@ import {
 	validateParams,
 } from "./ask-tool-helpers.ts";
 import { getAskConfigStore } from "./config/store.ts";
+import { resolvePreviewFiles } from "./preview-files.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
+import { AskResultSchema } from "./result-schema.ts";
 import { AskParamsSchema } from "./schema.ts";
 import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams } from "./types.ts";
@@ -32,6 +34,7 @@ export function registerAskTool(
 			"Clarify ambiguous or preference-sensitive decisions with a short interactive interview before proceeding",
 		promptGuidelines: [...ASK_TOOL_PROMPT_GUIDELINES],
 		parameters: AskParamsSchema,
+		outputSchema: AskResultSchema,
 		prepareArguments: (args) => prepareAskParams(args) as AskParams,
 		execute: (toolCallId, params, signal, onUpdate, ctx) =>
 			executeAskTool(
@@ -51,12 +54,17 @@ export function registerAskTool(
 async function executeAskTool(
 	pi: Pick<ExtensionAPI, "appendEntry" | "events">,
 	toolCallId: string,
-	params: AskParams,
+	input: AskParams,
 	_signal: AbortSignal | undefined,
 	_onUpdate: unknown,
 	ctx: ExtensionContext,
 	remoteAsk?: RemoteAskRuntime
 ) {
+	const resolved = await resolvePreviewFiles(input, ctx.cwd);
+	if (!resolved.ok) {
+		return invalidPayloadResponse(input, resolved.issues);
+	}
+	const params = resolved.params;
 	const config = await getAskConfigStore().getConfig();
 	const validation = validateParams(params, {
 		presentSingleAsMulti: config.behaviour.presentSingleAsMulti,

@@ -5,6 +5,8 @@ export interface AskOption {
 	freeform?: boolean;
 	label: string;
 	preview?: string;
+	/** Local UTF-8 text file used instead of inline preview, resolved from Pi's cwd. */
+	previewFile?: string;
 	recommended?: boolean;
 	value: string;
 }

@@ -1,0 +1,2 @@
+Preview loaded from a local file.
+Second line: the option label stays unchanged.
