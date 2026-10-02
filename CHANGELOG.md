@@ -1,3 +1,9 @@
+# [1.2.2](https://github.com/alexshpunt/pi-ask/compare/v1.2.1...v1.2.2) (2026-10-02)
+
+- Load local UTF-8 text files into option previews with `previewFile`.
+- Return structured answers, cancellation, and validation errors to Codemode instead of text summaries.
+- Update the development SDK to Pi 1.0.0. Structured results require Pi 1.0.0 or newer.
+
 # [1.2.1](https://github.com/alexshpunt/pi-ask/compare/v1.2.0...v1.2.1) (2026-10-02)
 
 - Publish the Herdr support fork as `@alexshpunt/pi-ask`.
