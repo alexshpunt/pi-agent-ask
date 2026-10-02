@@ -1,3 +1,9 @@
+# [1.2.1](https://github.com/alexshpunt/pi-ask/compare/v1.2.0...v1.2.1) (2026-10-02)
+
+- Publish the Herdr support fork as `@alexshpunt/pi-ask`.
+- Report interactive question waits as blocked in Herdr and clear them when the form closes. Thanks to maudelv for the fix.
+- Keep upstream tool, settings, and remote event names unchanged.
+
 # [1.2.0](https://github.com/eko24ive/pi-ask/compare/v1.1.0...v1.2.0) (2026-08-16)
 
 

@@ -1,6 +1,6 @@
 ![pi-ask main image](docs/media/pi-ask-main.png)
 
-# @eko24ive/pi-ask
+# @alexshpunt/pi-ask
 
 ## Herdr support fork
 
@@ -8,20 +8,22 @@ This fork adds Herdr blocked-state reporting to pi-ask 1.2.0. The fix comes from
 [maudelv's branch](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state),
 with the original commit authors preserved. See [upstream issue #14](https://github.com/eko24ive/pi-ask/issues/14).
 
-Install this fork instead of the npm package:
+Install this fork instead of the upstream npm or git package:
 
 ```bash
 pi remove npm:@eko24ive/pi-ask
-pi install git:github.com/alexshpunt/pi-ask@main
+pi remove git:github.com/alexshpunt/pi-ask@main
+pi install npm:@alexshpunt/pi-ask
 ```
 
 Then run `/reload` or restart Pi. Remove any separate pi-ask-to-Herdr bridge to
 avoid sending the blocked signal twice. Your existing pi-ask settings still apply.
-The npm install command below installs upstream, not this fork.
+The tool name, settings file, and inter-extension event names stay the same as upstream.
+Releases publish to npm from version tags such as `v1.2.1` after CI checks.
 
-[![npm downloads](https://badgen.net/npm/dm/@eko24ive/pi-ask)](https://www.npmjs.com/package/@eko24ive/pi-ask)
-[![last commit](https://badgen.net/github/last-commit/eko24ive/pi-ask?v=4b6c81e)](https://github.com/eko24ive/pi-ask/commits/main)
-[![stars](https://badgen.net/github/stars/eko24ive/pi-ask)](https://github.com/eko24ive/pi-ask/stargazers)
+[![npm downloads](https://badgen.net/npm/dm/@alexshpunt/pi-ask)](https://www.npmjs.com/package/@alexshpunt/pi-ask)
+[![last commit](https://badgen.net/github/last-commit/alexshpunt/pi-ask)](https://github.com/alexshpunt/pi-ask/commits/main)
+[![stars](https://badgen.net/github/stars/alexshpunt/pi-ask)](https://github.com/alexshpunt/pi-ask/stargazers)
 
 > [!IMPORTANT]
 > Contributions are welcome in chill mode: please open an issue and link your fork or branch instead of expecting rapid pull-request reviews.
@@ -45,7 +47,7 @@ I value contributions and will do my best to credit the people who help, whether
 ## Install
 
 ```bash
-pi install npm:@eko24ive/pi-ask
+pi install npm:@alexshpunt/pi-ask
 ```
 
 You can also install from git:

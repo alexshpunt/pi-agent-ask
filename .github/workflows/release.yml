@@ -1,56 +1,63 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows:
-      - CI
-    types:
-      - completed
-    branches:
-      - main
+  push:
+    tags:
+      - "v*"
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
   id-token: write
+
+concurrency:
+  group: npm-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: github.repository == 'alexshpunt/pi-ask'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.32.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Show tool versions
+      - name: Validate release identity
         run: |
-          node -v
-          npm -v
-          pnpm -v
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            if (pkg.name !== "@alexshpunt/pi-ask" || process.env.GITHUB_REF_NAME !== "v" + pkg.version) {
+              throw new Error("Package identity or tag does not match the release");
+            }
+          '
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Release
+      - name: Validate package
+        run: |
+          pnpm check:ci
+          pnpm typecheck
+          pnpm test
+          npm pack --dry-run
+
+      - name: Publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
-          LEFTHOOK: 0
-        run: pnpm exec semantic-release
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance --registry=https://registry.npmjs.org

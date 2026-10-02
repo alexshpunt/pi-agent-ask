@@ -1,16 +1,16 @@
 {
-  "name": "@eko24ive/pi-ask",
-  "version": "1.2.0",
-  "description": "Pi package that adds an interactive ask_user clarification tool.",
+  "name": "@alexshpunt/pi-ask",
+  "version": "1.2.1",
+  "description": "Interactive clarification flows for Pi with native Herdr blocked-state support.",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eko24ive/pi-ask.git"
+    "url": "git+https://github.com/alexshpunt/pi-ask.git"
   },
-  "homepage": "https://github.com/eko24ive/pi-ask#readme",
+  "homepage": "https://github.com/alexshpunt/pi-ask#readme",
   "bugs": {
-    "url": "https://github.com/eko24ive/pi-ask/issues"
+    "url": "https://github.com/alexshpunt/pi-ask/issues"
   },
   "keywords": [
     "pi-package",
@@ -40,8 +40,7 @@
     "check:ci": "biome ci .",
     "fix": "ultracite fix",
     "commit": "cz",
-    "commitlint": "commitlint",
-    "release": "semantic-release"
+    "commitlint": "commitlint"
   },
   "pi": {
     "extensions": [
@@ -53,35 +52,8 @@
   },
   "publishConfig": {
     "access": "public",
-    "provenance": true
-  },
-  "release": {
-    "repositoryUrl": "https://github.com/eko24ive/pi-ask.git",
-    "branches": [
-      "main"
-    ],
-    "plugins": [
-      "@semantic-release/commit-analyzer",
-      "@semantic-release/release-notes-generator",
-      [
-        "@semantic-release/changelog",
-        {
-          "changelogFile": "CHANGELOG.md"
-        }
-      ],
-      "@semantic-release/npm",
-      "@semantic-release/github",
-      [
-        "@semantic-release/git",
-        {
-          "assets": [
-            "package.json",
-            "CHANGELOG.md"
-          ],
-          "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
-        }
-      ]
-    ]
+    "provenance": true,
+    "registry": "https://registry.npmjs.org"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
@@ -96,18 +68,11 @@
     "@earendil-works/pi-ai": "0.84.1",
     "@earendil-works/pi-coding-agent": "0.84.1",
     "@earendil-works/pi-tui": "0.84.1",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^12.0.6",
-    "@semantic-release/npm": "^13.1.5",
-    "@semantic-release/release-notes-generator": "^14.1.0",
     "typebox": "1.3.7",
     "@types/node": "25.6.0",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
     "lefthook": "^2.1.6",
-    "semantic-release": "^25.0.3",
     "typescript": "6.0.2",
     "ultracite": "7.6.0"
   },
