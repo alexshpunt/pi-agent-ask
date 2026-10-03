@@ -14,6 +14,7 @@ export default function backgroundDriver(pi: ExtensionAPI): void {
 	const active = new Map<string, RemoteAskStartedEvent>();
 	const blocked: unknown[] = [];
 	let ready: (() => void) | undefined;
+	let answerWhenIdle = false;
 	pi.events.on(PI_ASK_STARTED_EVENT, (payload) => {
 		const data = payload as RemoteAskStartedEvent;
 		active.set(data.flowId, data);
@@ -44,6 +45,12 @@ export default function backgroundDriver(pi: ExtensionAPI): void {
 			},
 		});
 	};
+	pi.on("agent_settled", () => {
+		if (answerWhenIdle) {
+			answerWhenIdle = false;
+			setImmediate(answerFirst);
+		}
+	});
 	pi.on("tool_call", (event) => {
 		if (event.toolName === "wait_for_answers") {
 			setImmediate(answerFirst);
@@ -55,9 +62,22 @@ export default function backgroundDriver(pi: ExtensionAPI): void {
 		description:
 			"Independent research and queue observations for integration tests.",
 		parameters: Type.Object({
-			action: Type.Union([Type.Literal("research"), Type.Literal("stats")]),
+			action: Type.Union([
+				Type.Literal("research"),
+				Type.Literal("stats"),
+				Type.Literal("answer_idle"),
+			]),
 		}),
 		async execute(_id, params, _signal, _update, ctx) {
+			if (params.action === "answer_idle") {
+				answerWhenIdle = true;
+				return {
+					content: [
+						{ type: "text", text: "Will answer once the agent settles." },
+					],
+					details: {},
+				};
+			}
 			if (params.action === "research") {
 				if (!active.size) {
 					await new Promise<void>((resolve) => {

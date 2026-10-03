@@ -226,6 +226,27 @@ test("idle answers wake the agent and a wait on an empty queue finishes immediat
 	h.runtime.dispose();
 });
 
+test("idle delivery stays claimed when turn_start runs before the answer is persisted", async () => {
+	const h = harness();
+	h.pi.sendMessage = (message, options) => {
+		h.messages.push({ ...message, triggerTurn: options.triggerTurn });
+	};
+	h.setIdle(true);
+	h.runtime.enqueue("idle-race", params, h.ctx as never, false);
+	await tick();
+	h.forms[0](answer);
+	await tick();
+	assert.equal(h.messages.length, 1);
+	h.setIdle(false);
+	h.handlers.get("turn_start")?.({}, h.ctx);
+	h.branch.push({ type: "custom_message", ...h.messages[0] });
+	assert.equal(h.boundary(), undefined);
+	assert.equal(h.messages.length, 1);
+	h.runtime.reconcileDelivery(h.ctx as never);
+	assert.equal(h.boundary(), undefined);
+	h.runtime.dispose();
+});
+
 test("background cancellation adds context without waking the idle agent, including after recovery", async () => {
 	const h = harness();
 	h.setIdle(true);
