@@ -38,6 +38,7 @@ function harness() {
 	const forms: Array<(result: AskResult) => void> = [];
 	const handlers = new Map<string, (...args: any[]) => any>();
 	let idle = false;
+	let signal: AbortSignal | undefined;
 	const pi = {
 		registerTool(tool: any) {
 			tools.set(tool.name, tool);
@@ -62,6 +63,9 @@ function harness() {
 		cwd: process.cwd(),
 		mode: "tui",
 		isIdle: () => idle,
+		get signal() {
+			return signal;
+		},
 		sessionManager: { getBranch: () => branch },
 		ui: {
 			custom(factory: any) {
@@ -104,6 +108,9 @@ function harness() {
 		ctx,
 		runtime,
 		boundary,
+		setSignal(value: AbortSignal | undefined) {
+			signal = value;
+		},
 		setIdle(value: boolean) {
 			idle = value;
 		},
@@ -362,5 +369,20 @@ test("recovering multiple ready answers wakes one idle turn and uses its boundar
 		h.messages.map((message) => message.details.requestId),
 		["one", "two"]
 	);
+	h.runtime.dispose();
+});
+
+test("an active agent signal prevents an idle wake during a transient idle report", async () => {
+	const h = harness();
+	h.setIdle(true);
+	h.setSignal(new AbortController().signal);
+	h.runtime.enqueue("active-run", params, h.ctx as never, false);
+	await tick();
+	h.forms[0](answer);
+	await tick();
+	assert.equal(h.messages.length, 0);
+	h.setSignal(undefined);
+	h.handlers.get("agent_settled")?.({}, h.ctx);
+	assert.equal(h.messages.length, 1);
 	h.runtime.dispose();
 });

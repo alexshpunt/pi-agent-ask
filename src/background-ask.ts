@@ -199,8 +199,9 @@ export class BackgroundAskRuntime {
 		);
 	}
 
-	private deliverIdle(): void {
-		if (!this.context?.isIdle()) {
+	/** Wake only a fully settled agent; an active signal rules out transient idle reports. */
+	deliverIdle(): void {
+		if (!this.context?.isIdle() || this.context.signal) {
 			return;
 		}
 		const answer = this.readyAnswers()[0];
@@ -327,6 +328,7 @@ export function createBackgroundAskRuntime(
 	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", () => runtime.dispose());
+	pi.on("agent_settled", () => runtime.deliverIdle());
 	pi.on("turn_start", (_event, ctx) => runtime.reconcileDelivery(ctx));
 	pi.on("turn_end", (event, ctx) => runtime.deliverBoundary(event, ctx));
 	pi.on("agent_before_settle", (event, ctx) =>
