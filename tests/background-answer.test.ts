@@ -74,6 +74,13 @@ test("background card shows question-answer pairs without internal identifiers",
 	assert(text.includes("800, adjustable"));
 	assert(text.includes("Use the test page"));
 	assert(!text.includes(answer.requestId));
+	assert(text.includes("────────────────"));
+	assert(text.includes("→ Agent browser"));
+	assert(text.includes("→ 800, adjustable"));
+	assert(!text.includes("Answer:"));
+	assert(!text.includes("☰ Review"));
+	assert(!text.includes("Submit"));
+	assert(!text.includes("Cancel"));
 	assert(!text.includes("ask:background-answer"));
 	assert(!text.includes("[source]"));
 	for (const width of [24, 40, 80]) {
@@ -86,7 +93,7 @@ test("background card shows question-answer pairs without internal identifiers",
 test("unanswered questions stay visible and clarification keeps the committed answer", () => {
 	assert(answer.result);
 	const empty = { ...answer, result: { ...answer.result, answers: {} } };
-	assert(rendered(empty).join("\n").includes("(no answer)"));
+	assert(rendered(empty).join("\n").includes("→ unanswered"));
 	assert(formatQueuedAnswer(empty).includes("Choice [limit]: (no answer)"));
 	const elaborate = {
 		...answer,
@@ -97,6 +104,45 @@ test("unanswered questions stay visible and clarification keeps the committed an
 	assert(text.includes("Agent browser"));
 	assert(text.includes("Where should the test run?"));
 	assert(!text.includes("Answers received"));
+});
+
+test("review style keeps multi-select option notes and unanswered question notes", () => {
+	assert(answer.result);
+	const multiple = {
+		...answer,
+		result: {
+			...answer.result,
+			answers: {
+				source: {
+					values: ["browser", "local"],
+					labels: ["Agent browser", "Local test"],
+					indices: [1, 2],
+					optionNotes: { browser: "Use the browser page" },
+				},
+			},
+		},
+	};
+	const text = rendered(multiple).join("\n");
+	assert(text.includes("→ Agent browser"));
+	assert(text.includes("→ Local test"));
+	assert(text.includes("Use the browser page"));
+	const noteOnly = {
+		...answer,
+		result: {
+			...answer.result,
+			answers: {
+				source: {
+					values: [],
+					labels: [],
+					indices: [],
+					note: "Explain the available sources",
+				},
+			},
+		},
+	};
+	const noteText = rendered(noteOnly).join("\n");
+	assert(noteText.includes("→ unanswered"));
+	assert(noteText.includes("Explain the available sources"));
 });
 
 test("cancelled and failed forms are not rendered as received answers", () => {

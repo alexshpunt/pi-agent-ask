@@ -6,7 +6,9 @@ import {
 	type QueuedAnswer,
 } from "./background-ask-state.ts";
 import { renderResultText } from "./result.ts";
-import { formatResultLines } from "./result-format.ts";
+import { pushSavedNote } from "./ui/render-helpers.ts";
+import { renderReviewQuestion } from "./ui/render-submit.ts";
+import { toReviewQuestionModel } from "./ui/view-models/review.ts";
 
 /** Keep background answers understandable without the original tool call in context. */
 export function formatQueuedAnswer(answer: QueuedAnswer): string {
@@ -34,17 +36,37 @@ export function renderBackgroundAnswer(
 	theme: Pick<Theme, "fg" | "bg" | "bold">,
 	outputPad: number
 ): Box {
-	const status = answerStatus(answer);
-	const title = answer.result?.title;
-	const header =
-		theme.fg(status.color, theme.bold(status.text)) +
-		(title ? theme.fg("muted", ` · ${title}`) : "");
 	const box = new Box(outputPad, 1, (text) =>
 		theme.bg("customMessageBg", text)
 	);
-	box.addChild(
-		new Text([header, ...answerBody(answer, theme)].join("\n"), 0, 0)
-	);
+	box.addChild({
+		render(width) {
+			const status = answerStatus(answer);
+			const title = answer.result?.title;
+			const header =
+				theme.fg(status.color, theme.bold(status.text)) +
+				(title ? theme.fg("muted", ` · ${title}`) : "");
+			const lines = [header, ...answerBody(answer, theme, width)];
+			const result = answer.result;
+			if (
+				result &&
+				!result.cancelled &&
+				!result.error &&
+				result.mode === "submit"
+			) {
+				if (title) {
+					lines[0] =
+						theme.fg("accent", theme.bold(title)) +
+						theme.fg(status.color, ` · ${status.text}`);
+				}
+				const border = theme.fg("accent", "─".repeat(Math.max(1, width)));
+				lines.unshift(border);
+				lines.push("", border);
+			}
+			return new Text(lines.join("\n"), 0, 0).render(width);
+		},
+		invalidate: () => undefined,
+	});
 	return box;
 }
 
@@ -66,7 +88,8 @@ function answerStatus(answer: QueuedAnswer): {
 
 function answerBody(
 	answer: QueuedAnswer,
-	theme: Pick<Theme, "fg" | "bold">
+	theme: Pick<Theme, "fg" | "bold">,
+	width: number
 ): string[] {
 	const result = answer.result;
 	if (!result) {
@@ -81,14 +104,38 @@ function answerBody(
 	if (result.mode === "elaborate") {
 		return ["", theme.fg("toolOutput", renderResultText(result))];
 	}
-	return result.questions.flatMap((question) => [
-		"",
-		theme.bold(question.prompt),
-		...formatResultLines(
-			{ ...result, questions: [{ ...question, label: "Answer" }] },
-			{ mode: "summary" }
-		).map((line) => theme.fg("toolOutput", `  ${line}`)),
-	]);
+	const lines: string[] = [];
+	for (const question of result.questions) {
+		lines.push("");
+		const response = result.answers[question.id];
+		const model = toReviewQuestionModel(question.prompt, response);
+		model.unanswered = !response?.labels.length;
+		renderReviewQuestion(lines, model, theme, width);
+		if (model.unanswered && response?.note) {
+			pushSavedNote({
+				lines,
+				note: response.note,
+				width,
+				theme,
+				indent: "     ",
+			});
+		}
+	}
+	if (
+		result.questions.some(
+			(question) =>
+				question.presentedType && question.presentedType !== question.type
+		)
+	) {
+		lines.push(
+			"",
+			theme.fg(
+				"dim",
+				"Note: Some questions were presented as multi-select by user preference."
+			)
+		);
+	}
+	return lines;
 }
 
 /** Give asynchronous answer messages their own transcript renderer. */

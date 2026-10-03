@@ -96,6 +96,7 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	);
 	assert(result.tuiRenderedOutput.includes("Answers received"));
 	assert(result.tuiRenderedOutput.includes("Choose first?"));
+	assert(result.tuiRenderedOutput.includes("→ Yes"));
 	assert(!result.tuiRenderedOutput.includes("[ask:background-answer]"));
 	assert(result.tuiRenderedOutput.includes("Queue verification complete"));
 });
@@ -145,5 +146,6 @@ test("real Pi delivers an idle answer once across turn_start and later boundarie
 	assert.equal(answers.length, 1);
 	assert(result.tuiRenderedOutput.includes("Answers received"));
 	assert(result.tuiRenderedOutput.includes("Choose idle?"));
+	assert(result.tuiRenderedOutput.includes("→ Yes"));
 	assert(JSON.stringify(result.providerRequests).includes("Q1 [idle]: Yes"));
 });

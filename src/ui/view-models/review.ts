@@ -55,7 +55,8 @@ export function buildReviewScreenModel(
 	};
 }
 
-function toReviewQuestionModel(
+/** Map serialized answers to the shared review presentation. */
+export function toReviewQuestionModel(
 	label: string,
 	answer: ReviewAnswer | undefined
 ): ReviewQuestionModel {
