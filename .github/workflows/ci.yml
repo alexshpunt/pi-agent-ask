@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - develop
 
 jobs:
   validate:
@@ -36,3 +37,6 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Real Pi integration
+        run: pnpm test:integration

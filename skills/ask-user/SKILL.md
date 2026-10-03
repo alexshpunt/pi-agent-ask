@@ -95,6 +95,18 @@ After attempt 2:
 - For research/planning, ask about goals, constraints, evaluation criteria, audience, budget, timeline, risk tolerance, and desired output only when they materially affect the result.
 - Prefer non-`preview` questions when a free-form answer may be useful, since those include an internal `Type your own` option.
 
+## Background questions
+
+Use `ask_user` with `background: true` when you can keep doing independent work while the human answers.
+
+- The immediate result is a queued receipt with `requestId`, not an answer or approval.
+- Forms open automatically, one at a time, in FIFO order. You may add more forms as you learn.
+- Each completed form arrives in a `ask:background-answer` message with its request ID. Read its normal answers, cancellation, or elaboration result.
+- Do not guess pending answers, make dependent decisions, or cross an approval gate while waiting.
+- Call `wait_for_answers` directly when independent work is exhausted or before a step that needs answers. It has no built-in timeout. Aborting the wait leaves the forms queued.
+- The wait returns only results not already delivered as messages. An empty result list is not approval.
+- Queue state follows the active session branch and survives reload/resume. Ordinary `ask_user` still blocks.
+
 ## Guardrails
 
 - Do not ask before reading available context.

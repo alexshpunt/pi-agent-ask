@@ -3,6 +3,7 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme } from "@earendil-works/pi-tui";
+import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
@@ -81,6 +82,7 @@ interface AskFlowOptions {
 		source: RemoteAskSource;
 		toolCallId?: string;
 	};
+	signal?: AbortSignal;
 }
 
 type AskFlowParams = AskParams &
@@ -132,21 +134,23 @@ export async function runAskFlow(
 			cancelled: true,
 		};
 	}
-	emitHerdrBlocked(options.herdrEvents, true);
-	try {
-		return await ctx.ui.custom<AskResult>((...args) =>
-			createAskFlowController(args, {
-				...params,
-				config,
-				configNotice: notice?.text,
-				cwd: ctx.cwd,
-				ctx,
-				flowOptions,
-			})
-		);
-	} finally {
-		emitHerdrBlocked(options.herdrEvents, false);
-	}
+	return withAskSurface(options.signal, async () => {
+		emitHerdrBlocked(options.herdrEvents, true);
+		try {
+			return await ctx.ui.custom<AskResult>((...args) =>
+				createAskFlowController(args, {
+					...params,
+					config,
+					configNotice: notice?.text,
+					cwd: ctx.cwd,
+					ctx,
+					flowOptions,
+				})
+			);
+		} finally {
+			emitHerdrBlocked(options.herdrEvents, false);
+		}
+	});
 }
 
 function emitHerdrBlocked(
@@ -204,6 +208,13 @@ function createAskFlowController(
 		maybeFinish(controller);
 	});
 
+	const abort = () => {
+		controller.done({ ...toAskResult(controller.state), cancelled: true });
+	};
+	params.flowOptions.signal?.addEventListener("abort", abort, { once: true });
+	if (params.flowOptions.signal?.aborted) {
+		abort();
+	}
 	controller.editor.onSubmit = (value) => submitEditor(controller, value);
 	controller.remoteFlow = startRemoteFlow(controller, params);
 	syncSelection(controller);
@@ -226,6 +237,7 @@ function createAskFlowController(
 			handleControllerInput(controller, data);
 		},
 		dispose() {
+			params.flowOptions.signal?.removeEventListener("abort", abort);
 			controller.remoteFlow?.dispose();
 			controller.unsubscribeConfig();
 		},

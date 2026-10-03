@@ -1,6 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth } from "@earendil-works/pi-tui";
 import type { Static } from "typebox";
+import type { AskQueuedSchema } from "./background-ask-state.ts";
 import { UI_DIMENSIONS } from "./constants/ui.ts";
 import { renderResultText } from "./result.ts";
 import type { AskResultSchema } from "./result-schema.ts";
@@ -18,6 +19,11 @@ export const ASK_TOOL_DESCRIPTION =
 	"Interactive clarification tool for cases where the next step depends on user preferences, missing requirements, or choosing between multiple valid directions. Ask a short structured interview, collect normalized answers, and continue using those answers explicitly instead of guessing. Supports single-select, multi-select, and preview-pane questions. Always include a stable `id` and non-empty `prompt` for every question, plus a machine-readable `value` and visible `label` for every option. Use `preview` only when every option includes `preview` text or a local UTF-8 `previewFile` path; descriptions alone are not enough.";
 
 export const ASK_TOOL_PROMPT_GUIDELINES = [
+	"Set background: true on ask_user when you can continue independent work while the user answers. It returns a queued receipt with requestId, not an answer or approval.",
+	"Background forms open automatically in FIFO order. Each completed form arrives as a correlated background-answer message at the next turn boundary; when idle, the answer wakes the agent.",
+	"After asking in background, keep researching only work that does not depend on the pending answers. Never guess answers or cross a dependent decision, approval, or irreversible-action gate.",
+	"Call wait_for_answers when independent work is exhausted or before taking a step that needs pending answers. It waits for all outstanding forms without a built-in timeout. Aborting the wait leaves the forms queued.",
+	"wait_for_answers returns results not already delivered asynchronously. An empty results list does not mean the user approved anything; use answers already in context. Cancellation and elaboration are not approval.",
 	"Use `ask_user` before making preference-sensitive decisions about scope, tone, UX, naming, architecture, docs, or implementation direction.",
 	"When multiple valid directions exist, call `ask_user` with 1-3 concise questions instead of committing to one path on your own.",
 	"When calling `ask_user`, prefer one focused decision per question. Use short labels. Provide clear, distinct options. Do not add filler options.",
@@ -119,12 +125,19 @@ export function renderAskToolCall(args: unknown, theme: ToolTheme) {
 export function renderAskToolResult(
 	result: {
 		content: Array<{ type?: string; text?: string }>;
-		details?: AskResult;
+		details?: AskResult | Static<typeof AskQueuedSchema>;
 	},
 	_options: unknown,
 	theme: ToolTheme
 ) {
 	const details = result.details;
+	if (details && "status" in details) {
+		return new Text(
+			`${details.questionIds.length} question(s) queued · ${details.pendingRequests} form(s) pending`,
+			0,
+			0
+		);
+	}
 	if (!(details && Array.isArray(details.questions))) {
 		const text = result.content[0];
 		return new Text(text?.type === "text" ? (text.text ?? "") : "", 0, 0);
