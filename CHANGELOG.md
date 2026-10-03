@@ -1,3 +1,10 @@
+# [1.2.3](https://github.com/alexshpunt/pi-ask/compare/v1.2.2...v1.2.3) (2026-10-03)
+
+- Queue forms with `ask_user` and `background: true` while the agent continues independent work.
+- Add `wait_for_answers` to wait for remaining answers without a built-in timeout or duplicate delivery.
+- Restore the active branch's queue after reload or resume and explain safe background work in agent guidelines.
+- Avoid starting a new agent turn while the current run is still active.
+
 # [1.2.2](https://github.com/alexshpunt/pi-ask/compare/v1.2.1...v1.2.2) (2026-10-02)
 
 - Load local UTF-8 text files into option previews with `previewFile`.
