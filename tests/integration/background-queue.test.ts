@@ -59,7 +59,11 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	assert(getToolResultText(result, "first-form").includes("Queued ask_user"));
 	assert.deepEqual(
 		getToolExecutionDetails(getToolExecution(result, "research")),
-		{ activeForms: 1, blocked: [], readSucceeded: true }
+		{
+			activeForms: 1,
+			blocked: [{ active: true, label: "Waiting for user response" }],
+			readSucceeded: true,
+		}
 	);
 	const wait = getToolExecutionDetails(getToolExecution(result, "wait")) as {
 		results: Array<{ requestId: string }>;
@@ -77,7 +81,7 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	assert.equal(stats.activeForms, 0);
 	assert.deepEqual(
 		stats.blocked.map((event) => event.active),
-		[true, false]
+		[true, false, true, false]
 	);
 	assert(getProviderSystemPrompt(result).includes("background: true"));
 	assert(getProviderSystemPrompt(result).includes("Never guess answers"));

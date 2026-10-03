@@ -343,6 +343,7 @@ test("ask flow forwards focus and invalidation to its editor", async () => {
 	});
 	const originalInvalidate = Editor.prototype.invalidate;
 	let invalidateCalls = 0;
+	let abortCalls = 0;
 	Editor.prototype.invalidate = function patchedInvalidate(this: Editor) {
 		invalidateCalls += 1;
 		return originalInvalidate.call(this);
@@ -360,6 +361,9 @@ test("ask flow forwards focus and invalidation to its editor", async () => {
 			{
 				cwd: process.cwd(),
 				mode: "tui",
+				abort() {
+					abortCalls += 1;
+				},
 				ui: {
 					custom(callback: (...args: unknown[]) => unknown) {
 						return new Promise((resolve) => {
@@ -399,6 +403,7 @@ test("ask flow forwards focus and invalidation to its editor", async () => {
 		component.handleInput("\x1b");
 		const result = await resultPromise;
 		assert.equal(result.cancelled, true);
+		assert.equal(abortCalls, 1);
 	} finally {
 		Editor.prototype.invalidate = originalInvalidate;
 		getAskConfigStore().setConfig(DEFAULT_ASK_CONFIG);

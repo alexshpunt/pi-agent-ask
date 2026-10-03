@@ -622,6 +622,9 @@ function maybeFinish(controller: AskFlowController) {
 		const result = toAskResult(controller.state);
 		controller.remoteFlow?.complete(result);
 		controller.done(result);
+		if (result.cancelled) {
+			controller.ctx.abort();
+		}
 	}
 }
 

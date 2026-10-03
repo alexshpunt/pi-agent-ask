@@ -181,7 +181,7 @@ export class BackgroundAskRuntime {
 					...answerMessage(answer),
 				})),
 			],
-			continue: true,
+			continue: answers.some((answer) => !answer.result?.cancelled),
 		};
 	}
 
@@ -204,11 +204,14 @@ export class BackgroundAskRuntime {
 		if (!this.context?.isIdle() || this.context.signal) {
 			return;
 		}
-		const answer = this.readyAnswers()[0];
-		if (answer) {
+		for (const answer of this.readyAnswers()) {
 			this.routed.add(answer.requestId);
-			// One idle wake starts a turn; remaining answers use its atomic boundary.
-			this.pi.sendMessage(answerMessage(answer), { triggerTurn: true });
+			const triggerTurn = !answer.result?.cancelled;
+			this.pi.sendMessage(answerMessage(answer), { triggerTurn });
+			// Cancellation is context only; the first answer starts a turn.
+			if (triggerTurn) {
+				break;
+			}
 		}
 	}
 
@@ -255,6 +258,7 @@ export class BackgroundAskRuntime {
 			const result = await runAskFlow(ctx, request.params, {
 				signal,
 				presentSingleAsMulti: request.presentSingleAsMulti,
+				herdrEvents: this.pi.events,
 				remote: this.remoteAsk
 					? {
 							runtime: this.remoteAsk,

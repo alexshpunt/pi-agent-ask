@@ -248,6 +248,8 @@ After installation, the extension registers the `ask_user` tool plus `/ask-setti
 
 Agents can auto-discover and call `ask_user` when they need clarification instead of guessing. They can mark any number of grounded preferences with `recommended: true` and use option descriptions for reasons. In interactive sessions, it opens a terminal UI flow for structured answers, supports native pi-style `@` file references while typing answers or notes, and returns normalized answers back to the agent. Ask settings are available both from `?` in the ask flow and from the `/ask-settings` command. Behaviour and notification settings are binary `on`/`off` toggles that save immediately when the config file is writable; save failures revert the toggle and show a manual-edit message. The settings overlay includes a guarded double-press reset-to-defaults action; keymaps, notification channels, and extraction settings are changed by editing the shown config file path.
 
+Cancelling the whole form with Escape stops the current agent operation, including for background forms. Escape inside an editor or settings only closes that editor or settings; dirty-dismiss confirmation still applies.
+
 ### Structured results in Codemode
 
 Use Pi 1.0.0 or newer for structured tool results. A Codemode call returns the
@@ -276,6 +278,8 @@ While any interactive ask form is waiting for input, pi-ask emits the local
 It emits `{ active: false }` after answer, cancellation, abort, timeout, or error.
 The Herdr event contains no question, context, answer, or note data. Hosts without
 an event listener are unaffected.
+
+Background forms report the same blocked status without pausing independent agent work. Cancelling a background form never starts a new agent turn.
 
 ### Answer and replay commands
 

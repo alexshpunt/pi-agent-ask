@@ -226,7 +226,7 @@ remain standard tool errors.
 
 A receipt is not an answer or approval. The queue automatically opens one form at a time, in FIFO order. Other ask surfaces share the same input lock. Agent work continues while a background form is open; it does not hide the working indicator itself.
 
-Each completed form is saved before delivery. During work it enters context at the next turn boundary as an `ask:background-answer` custom message with `{ requestId, result?: AskResult, error?: string }` in details. While idle it starts a new agent turn. Cancellation and elaboration are terminal form results, not approval.
+Each completed form is saved before delivery. During work it enters context at the next turn boundary as an `ask:background-answer` custom message with `{ requestId, result?: AskResult, error?: string }` in details. While idle, answers start a new agent turn; cancellation only adds context and never wakes the agent. Cancellation and elaboration are terminal form results, not approval.
 
 `wait_for_answers({})` is a direct, model-only tool. It waits for all outstanding background forms, including forms added while waiting, without a built-in timeout. It returns:
 
@@ -234,11 +234,11 @@ Each completed form is saved before delivery. During work it enters context at t
 { status: "complete", requestIds: string[], results: Array<{ requestId: string, result?: AskResult, error?: string }> }
 ```
 
-Results already delivered asynchronously are not repeated. Forms completed during the wait return through the wait result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued; user cancellation closes only that form. UI failures are reported with an error, never invented answers.
+Results already delivered asynchronously are not repeated. Forms completed during the wait return through the wait result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued; user cancellation closes that form and stops the current agent operation. UI failures are reported with an error, never invented answers.
 
 Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
 
-Background forms do not emit `herdr:blocked`. Explicit waiting does, with cleanup on completion or abort. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
+Open background forms emit `herdr:blocked` while the agent keeps working, with cleanup when the form closes. Aborting an explicit wait does not clear an open form's blocked status. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
 
 ## Supported UX
 
@@ -277,6 +277,8 @@ Main flow:
 - `main.nextTab` / `main.previousTab` move between tabs; defaults: `Tab`/`Right`, `Shift+Tab`/`Left`
 - `main.nextOption` / `main.previousOption` move between options or review actions; defaults: `Down`, `Up`
 - `main.confirm`, `main.cancel`, and `main.toggle` confirm, cancel, or toggle; defaults: `Enter`, `Esc`, `Space`
+- cancelling or dismissing the whole form stops the current agent operation, for both foreground and background forms; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
+- a background cancellation is recorded and can be delivered as context, but never starts a new agent turn by itself
 - `main.changeQuestionType` changes the active question type (non-preview: `single <-> multi`; preview: `preview <-> multi`); default: `t`; destructive `multi -> single` changes require pressing the type hotkey again, with no timeout, and the pending confirmation clears on other navigation/actions
 - `main.optionNote` and `main.questionNote` open option/question notes; defaults: `n`, `Shift+N`
 - `1..9` is fixed and selects or toggles the matching option; on the review tab, `1`, `2`, and `3` trigger `Submit`, `Elaborate`, and `Cancel`
