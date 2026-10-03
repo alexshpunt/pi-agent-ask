@@ -9,6 +9,7 @@ This document defines the stable external behavior. It does not explain internal
 ```ts
 {
   title?: string;
+  background?: boolean;
   questions: Array<{
     id: string;
     label?: string;
@@ -214,6 +215,30 @@ remain standard tool errors.
 - `elaboration` is only present when `mode === "elaborate"`
 - elaborate `content` text and transcript rendering describe each note directly using the full question prompt and option label, and include the current committed answer text when available, instead of a generic elaboration banner
 - when the user selects `Elaborate` without adding notes, elaborate `content` text and transcript rendering still include the committed answer text so the agent can elaborate on that answer directly
+
+## Background queue
+
+`ask_user` accepts optional `background: true`. In TUI mode it validates and persists the form, then returns a receipt instead of waiting:
+
+```ts
+{ status: "queued", requestId: string, questionIds: string[], pendingRequests: number }
+```
+
+A receipt is not an answer or approval. The queue automatically opens one form at a time, in FIFO order. Other ask surfaces share the same input lock. Agent work continues while a background form is open; it does not hide the working indicator itself.
+
+Each completed form is saved before delivery. During work it enters context at the next turn boundary as an `ask:background-answer` custom message with `{ requestId, result?: AskResult, error?: string }` in details. While idle it starts a new agent turn. Cancellation and elaboration are terminal form results, not approval.
+
+`wait_for_answers({})` is a direct, model-only tool. It waits for all outstanding background forms, including forms added while waiting, without a built-in timeout. It returns:
+
+```ts
+{ status: "complete", requestIds: string[], results: Array<{ requestId: string, result?: AskResult, error?: string }> }
+```
+
+Results already delivered asynchronously are not repeated. Forms completed during the wait return through the wait result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued; user cancellation closes only that form. UI failures are reported with an error, never invented answers.
+
+Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
+
+Background forms do not emit `herdr:blocked`. Explicit waiting does, with cleanup on completion or abort. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
 
 ## Supported UX
 

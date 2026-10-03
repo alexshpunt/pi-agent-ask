@@ -13,6 +13,11 @@ The codebase is split so the implementation reads through file boundaries and na
 
 ### Tool surface
 
+- `src/background-ask-state.ts` — queue schemas and active-branch replay; transcript delivery is authoritative
+- `src/background-ask.ts` — detached FIFO runtime, lifecycle recovery, and completion routing
+- `src/wait-for-answers-tool.ts` — explicit wait gate and result rendering
+- `src/ask-surface.ts` — shared input-surface lock for tool, command, recovery, and queued forms
+
 - `src/index.ts` — extension entrypoint
 - `src/ask-tool.ts` — tool registration, non-interactive fallback, transcript rendering, ask payload capture
 - `src/answer-commands.ts` — `/answer`, `/answer:again`, and `/ask:replay` command wiring

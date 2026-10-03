@@ -2,6 +2,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { appendAskPayload } from "./ask-payload-store.ts";
 import {
 	ASK_TOOL_DESCRIPTION,
@@ -13,6 +14,8 @@ import {
 	successfulResponse,
 	validateParams,
 } from "./ask-tool-helpers.ts";
+import type { BackgroundAskRuntime } from "./background-ask.ts";
+import { AskQueuedSchema } from "./background-ask-state.ts";
 import { getAskConfigStore } from "./config/store.ts";
 import { resolvePreviewFiles } from "./preview-files.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
@@ -24,7 +27,8 @@ import { runAskFlow } from "./ui/controller.ts";
 
 export function registerAskTool(
 	pi: ExtensionAPI,
-	remoteAsk?: RemoteAskRuntime
+	remoteAsk?: RemoteAskRuntime,
+	backgroundAsk?: BackgroundAskRuntime
 ) {
 	pi.registerTool({
 		name: "ask_user",
@@ -34,7 +38,7 @@ export function registerAskTool(
 			"Clarify ambiguous or preference-sensitive decisions with a short interactive interview before proceeding",
 		promptGuidelines: [...ASK_TOOL_PROMPT_GUIDELINES],
 		parameters: AskParamsSchema,
-		outputSchema: AskResultSchema,
+		outputSchema: Type.Union([AskResultSchema, AskQueuedSchema]),
 		prepareArguments: (args) => prepareAskParams(args) as AskParams,
 		execute: (toolCallId, params, signal, onUpdate, ctx) =>
 			executeAskTool(
@@ -44,7 +48,8 @@ export function registerAskTool(
 				signal,
 				onUpdate,
 				ctx,
-				remoteAsk
+				remoteAsk,
+				backgroundAsk
 			),
 		renderCall: renderAskToolCall,
 		renderResult: renderAskToolResult,
@@ -55,10 +60,11 @@ async function executeAskTool(
 	pi: Pick<ExtensionAPI, "appendEntry" | "events">,
 	toolCallId: string,
 	input: AskParams,
-	_signal: AbortSignal | undefined,
+	signal: AbortSignal | undefined,
 	_onUpdate: unknown,
 	ctx: ExtensionContext,
-	remoteAsk?: RemoteAskRuntime
+	remoteAsk?: RemoteAskRuntime,
+	backgroundAsk?: BackgroundAskRuntime
 ) {
 	const resolved = await resolvePreviewFiles(input, ctx.cwd);
 	if (!resolved.ok) {
@@ -80,9 +86,31 @@ async function executeAskTool(
 	if (ctx.mode !== "tui") {
 		return nonInteractiveResponse(validation.state);
 	}
+	if (params.background) {
+		if (!backgroundAsk) {
+			throw new Error("Background question queue is unavailable.");
+		}
+		const receipt = backgroundAsk.enqueue(
+			toolCallId,
+			params,
+			ctx,
+			config.behaviour.presentSingleAsMulti
+		);
+		return {
+			content: [
+				{
+					type: "text" as const,
+					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. Continue independent work; call wait_for_answers when answers are needed.`,
+				},
+			],
+			details: receipt,
+			structuredContent: receipt,
+		};
+	}
 	ctx.ui.setWorkingVisible(false);
 	try {
 		const result = await runAskFlow(ctx, params, {
+			signal,
 			remote: remoteAsk
 				? { runtime: remoteAsk, source: "tool", toolCallId }
 				: undefined,

@@ -21,6 +21,8 @@ export interface AskQuestionInput {
 }
 
 export interface AskParams {
+	/** Queue the form without blocking agent work. Omit for a normal blocking interview. */
+	background?: boolean;
 	questions: AskQuestionInput[];
 	title?: string;
 }

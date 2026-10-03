@@ -7,6 +7,7 @@ import type {
 import { Value } from "typebox/value";
 import { findPayloadForSourceEntry } from "./ask-payload-store.ts";
 import { validateParams } from "./ask-tool-helpers.ts";
+import { ASK_QUEUED_ENTRY } from "./background-ask-state.ts";
 import { AskParamsSchema } from "./schema.ts";
 import type { AskParams } from "./types.ts";
 
@@ -53,6 +54,16 @@ function collectResolvedToolCallIds(
 ): Set<string> {
 	const resolved = new Set<string>();
 	for (const entry of branch) {
+		if (
+			entry.type === "custom" &&
+			entry.customType === ASK_QUEUED_ENTRY &&
+			entry.data &&
+			typeof entry.data === "object" &&
+			"requestId" in entry.data &&
+			typeof entry.data.requestId === "string"
+		) {
+			resolved.add(entry.data.requestId);
+		}
 		const dismissedToolCallId = getDismissedToolCallId(entry);
 		if (dismissedToolCallId) {
 			resolved.add(dismissedToolCallId);

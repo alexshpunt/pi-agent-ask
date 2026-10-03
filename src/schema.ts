@@ -67,6 +67,12 @@ export const AskQuestionSchema = Type.Object({
 });
 
 export const AskParamsSchema = Type.Object({
+	background: Type.Optional(
+		Type.Boolean({
+			description:
+				"Queue this form and return a request ID immediately. Continue only independent work; receive the completed form between turns or call wait_for_answers when blocked on answers.",
+		})
+	),
 	title: Type.Optional(
 		Type.String({
 			description:

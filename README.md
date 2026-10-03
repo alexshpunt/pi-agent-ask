@@ -83,6 +83,16 @@ Once installed, this package gives the agent a native way to ask for clarificati
 - 🛟 Automatic recovery of an unanswered `ask_user` form after startup, resume, or fork
 - 🗣️ You can talk to your agent to configure pi-ask; it will read the bundled configuration guide and tailor the config for you
 
+Development checks: `pnpm test`, `pnpm typecheck`, and `pnpm test:integration`. The integration check requires Pi on PATH and the test harness's native `node-pty` build.
+
+## Ask while you work
+
+Set `background: true` on the usual `ask_user` payload to queue a form and receive its request ID immediately. Keep doing independent research while the user answers. Forms open automatically, one at a time.
+
+Each completed form reaches the agent between turns, without waiting for the rest of the queue. When no independent work remains, call `wait_for_answers({})` directly. It waits without a built-in timeout and returns answers not already delivered as messages.
+
+Never treat a queued receipt, cancellation, or empty wait result as approval. Do not make decisions that depend on unanswered questions. The queue follows the active session branch and survives reload/resume. See [the contract](docs/contract.md#background-queue).
+
 ## Feature walkthrough
 
 ### Native `@` file references
