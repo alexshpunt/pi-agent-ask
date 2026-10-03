@@ -85,5 +85,17 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	);
 	assert(getProviderSystemPrompt(result).includes("background: true"));
 	assert(getProviderSystemPrompt(result).includes("Never guess answers"));
+	assert(JSON.stringify(result.providerRequests).includes("Q1 [first]: Yes"));
+	assert(
+		JSON.stringify(result.providerRequests).includes(
+			"[first] Q1: Choose first?"
+		)
+	);
+	assert(
+		getToolResultText(result, "wait").includes("[second] Q1: Choose second?")
+	);
+	assert(result.tuiRenderedOutput.includes("Answers received"));
+	assert(result.tuiRenderedOutput.includes("Choose first?"));
+	assert(!result.tuiRenderedOutput.includes("[ask:background-answer]"));
 	assert(result.tuiRenderedOutput.includes("Queue verification complete"));
 });

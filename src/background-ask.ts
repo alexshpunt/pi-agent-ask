@@ -4,7 +4,7 @@ import type {
 	ExtensionContext,
 	SessionBoundaryDraft,
 } from "@earendil-works/pi-coding-agent";
-import { successfulResponse } from "./ask-tool-helpers.ts";
+import { formatQueuedAnswer } from "./background-answer.ts";
 import {
 	ASK_ANSWER_MESSAGE,
 	ASK_COMPLETED_ENTRY,
@@ -352,9 +352,4 @@ function answerMessage(answer: QueuedAnswer) {
 		display: true,
 		details: answer,
 	};
-}
-
-/** Preserve form identity and the normal submit/elaboration/cancel summary in agent context. */
-export function formatQueuedAnswer(answer: QueuedAnswer): string {
-	return `Background answer [${answer.requestId}]:\n${answer.result ? successfulResponse(answer.result).content[0].text : `Question form failed: ${answer.error}`}`;
 }

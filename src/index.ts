@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerAnswerCommands } from "./answer-commands.ts";
 import { registerAskSettingsCommand } from "./ask-settings-command.ts";
 import { registerAskTool } from "./ask-tool.ts";
+import { registerBackgroundAnswerRenderer } from "./background-answer.ts";
 import { createBackgroundAskRuntime } from "./background-ask.ts";
 import { resetAskConfigStore } from "./config/store.ts";
 import { createRemoteAskRuntime } from "./remote-ask.ts";
@@ -28,6 +29,7 @@ export default function askExtension(pi: ExtensionAPI) {
 		remoteAsk.disposeAll();
 	});
 	const backgroundAsk = createBackgroundAskRuntime(pi, remoteAsk);
+	registerBackgroundAnswerRenderer(pi);
 	registerAskTool(pi, remoteAsk, backgroundAsk);
 	registerWaitForAnswersTool(pi, backgroundAsk);
 	registerAskSettingsCommand(pi);
