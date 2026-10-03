@@ -228,6 +228,10 @@ A receipt is not an answer or approval. The queue automatically opens one form a
 
 Each completed form is saved before delivery. During work it enters context at the next turn boundary as an `ask:background-answer` custom message with `{ requestId, result?: AskResult, error?: string }` in details. While idle, answers start a new agent turn; cancellation only adds context and never wakes the agent. Cancellation and elaboration are terminal form results, not approval.
 
+An idle wake keeps its delivery claim until the answer is recorded in the transcript. Pi starts that turn before recording its opening message; later turn boundaries must not deliver the same answer again.
+
+Background answer text includes the form title when present, its request ID, and every question's ID and full prompt. Answer summaries identify questions by ID as well as label, so repeated labels are unambiguous even without the original call in context. Direct wait results use the same text format. In the TUI, accepted asynchronous answers use the questionnaire's Review style: accent lines, a status and form title, question prompts, arrow-prefixed answers, and saved notes. They have no tabs, buttons, or keyboard hints. Internal message types and request/question IDs are not shown. Normal ask tool results and direct wait rendering are unchanged. Cancellation, clarification, and errors have distinct statuses.
+
 `wait_for_answers({})` is a direct, model-only tool. It waits for all outstanding background forms, including forms added while waiting, without a built-in timeout. It returns:
 
 ```ts

@@ -4,7 +4,7 @@ import type {
 	ExtensionContext,
 	SessionBoundaryDraft,
 } from "@earendil-works/pi-coding-agent";
-import { successfulResponse } from "./ask-tool-helpers.ts";
+import { formatQueuedAnswer } from "./background-answer.ts";
 import {
 	ASK_ANSWER_MESSAGE,
 	ASK_COMPLETED_ENTRY,
@@ -29,6 +29,8 @@ interface Waiter {
 export class BackgroundAskRuntime {
 	private context?: ExtensionContext;
 	private generation = new AbortController();
+	// Pi emits turn_start before persisting the custom message that wakes an idle agent.
+	private readonly pendingIdleDelivery = new Set<string>();
 	private readonly pi: ExtensionAPI;
 	private pumping = false;
 	private readonly remoteAsk?: RemoteAskRuntime;
@@ -83,6 +85,9 @@ export class BackgroundAskRuntime {
 		);
 		for (const request of this.requests) {
 			request.delivered = delivered.has(request.requestId);
+			if (request.delivered) {
+				this.pendingIdleDelivery.delete(request.requestId);
+			}
 		}
 		this.routed.clear();
 	}
@@ -149,6 +154,7 @@ export class BackgroundAskRuntime {
 	/** Idempotent lifecycle cleanup. Persisted requests remain available for recovery. */
 	dispose(): void {
 		this.generation.abort();
+		this.pendingIdleDelivery.clear();
 		if (this.waiter) {
 			this.waiter.cleanup();
 			this.waiter.reject(waitInterrupted());
@@ -186,7 +192,11 @@ export class BackgroundAskRuntime {
 	}
 
 	private isRouted(request: QueuedRequest): boolean {
-		return request.delivered || this.routed.has(request.requestId);
+		return (
+			request.delivered ||
+			this.routed.has(request.requestId) ||
+			this.pendingIdleDelivery.has(request.requestId)
+		);
 	}
 
 	private readyAnswers(): QueuedAnswer[] {
@@ -205,7 +215,7 @@ export class BackgroundAskRuntime {
 			return;
 		}
 		for (const answer of this.readyAnswers()) {
-			this.routed.add(answer.requestId);
+			this.pendingIdleDelivery.add(answer.requestId);
 			const triggerTurn = !answer.result?.cancelled;
 			this.pi.sendMessage(answerMessage(answer), { triggerTurn });
 			// Cancellation is context only; the first answer starts a turn.
@@ -352,9 +362,4 @@ function answerMessage(answer: QueuedAnswer) {
 		display: true,
 		details: answer,
 	};
-}
-
-/** Preserve form identity and the normal submit/elaboration/cancel summary in agent context. */
-export function formatQueuedAnswer(answer: QueuedAnswer): string {
-	return `Background answer [${answer.requestId}]:\n${answer.result ? successfulResponse(answer.result).content[0].text : `Question form failed: ${answer.error}`}`;
 }

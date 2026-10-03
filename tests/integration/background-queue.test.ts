@@ -85,5 +85,67 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	);
 	assert(getProviderSystemPrompt(result).includes("background: true"));
 	assert(getProviderSystemPrompt(result).includes("Never guess answers"));
+	assert(JSON.stringify(result.providerRequests).includes("Q1 [first]: Yes"));
+	assert(
+		JSON.stringify(result.providerRequests).includes(
+			"[first] Q1: Choose first?"
+		)
+	);
+	assert(
+		getToolResultText(result, "wait").includes("[second] Q1: Choose second?")
+	);
+	assert(result.tuiRenderedOutput.includes("Answers received"));
+	assert(result.tuiRenderedOutput.includes("Choose first?"));
+	assert(result.tuiRenderedOutput.includes("→ Yes"));
+	assert(!result.tuiRenderedOutput.includes("[ask:background-answer]"));
 	assert(result.tuiRenderedOutput.includes("Queue verification complete"));
+});
+
+test("real Pi delivers an idle answer once across turn_start and later boundaries", {
+	timeout: 60_000,
+}, async () => {
+	const result = await new PiIntegrationTest({
+		testName: "background-idle-delivery",
+		artifactsDir: testArtifactsDir(import.meta.filename),
+		cwd: root,
+		isolateUserResources: true,
+		extensions: [
+			fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
+			fileURLToPath(
+				new URL("../fixtures/background-driver.ts", import.meta.url)
+			),
+		],
+		tools: ["ask_user", "queue_probe"],
+		rawMode: false,
+		conversation: [
+			call("idle-form", "ask_user", form("idle")),
+			call("arm-idle", "queue_probe", { action: "answer_idle" }),
+			assistantMessage([text("Waiting for the background answer.")]),
+			call("after-wake", "queue_probe", { action: "stats" }),
+			call("after-boundary", "queue_probe", { action: "stats" }),
+			assistantMessage([text("Idle answer verification complete.")]),
+		],
+	}).run(
+		"Queue a form, finish the turn, then check the answer after the idle wake."
+	);
+	for (const id of ["after-wake", "after-boundary"]) {
+		const stats = getToolExecutionDetails(getToolExecution(result, id)) as {
+			answerMessages: number;
+		};
+		assert.equal(stats.answerMessages, 1);
+	}
+	const snapshot = result.traceEvents
+		.filter((event) => event.type === "session_snapshot")
+		.at(-1);
+	assert(Array.isArray(snapshot?.branch));
+	const answers = snapshot.branch.filter(
+		(entry) =>
+			entry.type === "custom_message" &&
+			entry.customType === "ask:background-answer"
+	);
+	assert.equal(answers.length, 1);
+	assert(result.tuiRenderedOutput.includes("Answers received"));
+	assert(result.tuiRenderedOutput.includes("Choose idle?"));
+	assert(result.tuiRenderedOutput.includes("→ Yes"));
+	assert(JSON.stringify(result.providerRequests).includes("Q1 [idle]: Yes"));
 });

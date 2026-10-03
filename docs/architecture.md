@@ -14,6 +14,7 @@ The codebase is split so the implementation reads through file boundaries and na
 ### Tool surface
 
 - `src/background-ask-state.ts` — queue schemas and active-branch replay; transcript delivery is authoritative
+- `src/background-answer.ts` — self-contained agent context and background answer cards; accepted cards reuse the questionnaire's review model and question renderer
 - `src/background-ask.ts` — detached FIFO runtime, lifecycle recovery, and completion routing
 - `src/wait-for-answers-tool.ts` — explicit wait gate and result rendering
 - `src/ask-surface.ts` — shared input-surface lock for tool, command, recovery, and queued forms

@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { formatQueuedAnswer } from "./background-answer.ts";
 import type { BackgroundAskRuntime } from "./background-ask.ts";
-import { formatQueuedAnswer } from "./background-ask.ts";
 import {
 	type WaitForAnswersResult,
 	WaitForAnswersSchema,

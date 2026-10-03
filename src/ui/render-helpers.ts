@@ -29,7 +29,7 @@ export function pushWrappedText(
 	lines: string[],
 	text: string,
 	width: number,
-	theme: Theme,
+	theme: Pick<Theme, "fg">,
 	color: ThemeColor,
 	prefix = "",
 	continuationPrefix = prefix
@@ -344,7 +344,7 @@ export function measurePreviewLeftWidth(
 }
 
 export function getSavedNotePrefixes(
-	theme: Theme,
+	theme: Pick<Theme, "fg">,
 	args: { indent: string; label?: string }
 ) {
 	const title = args.label
@@ -360,7 +360,7 @@ export function pushSavedNote(args: {
 	lines: string[];
 	note: string;
 	width: number;
-	theme: Theme;
+	theme: Pick<Theme, "fg">;
 	indent: string;
 	label?: string;
 }) {

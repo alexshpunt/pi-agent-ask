@@ -64,10 +64,11 @@ function renderSubmitReviewLines(
 	return lines;
 }
 
-function renderReviewQuestion(
+/** Render one review question, its selected answers, and saved notes. */
+export function renderReviewQuestion(
 	lines: string[],
 	question: ReturnType<typeof buildReviewScreenModel>["questions"][number],
-	theme: Theme,
+	theme: Pick<Theme, "fg">,
 	width: number
 ) {
 	pushWrappedText(lines, question.label, width, theme, "text", " ", " ");
