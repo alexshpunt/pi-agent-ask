@@ -430,6 +430,7 @@ function createResumeHarness(
 	const ctx = {
 		cwd: process.cwd(),
 		isIdle: () => options.idle ?? true,
+		abort: () => undefined,
 		mode: "tui",
 		sessionManager: { getBranch: () => branch },
 		ui: {

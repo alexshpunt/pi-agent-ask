@@ -30,22 +30,12 @@ export function registerWaitForAnswersTool(
 			if (ctx.mode !== "tui") {
 				throw new Error("wait_for_answers requires interactive TUI mode.");
 			}
-			const blocking = queue.pendingCount() > 0;
-			if (blocking) {
-				emitBlocked(pi, true);
-			}
-			try {
-				const result = await queue.wait(signal);
-				return {
-					content: [{ type: "text", text: formatWaitResult(result) }],
-					details: result,
-					structuredContent: result,
-				};
-			} finally {
-				if (blocking) {
-					emitBlocked(pi, false);
-				}
-			}
+			const result = await queue.wait(signal);
+			return {
+				content: [{ type: "text", text: formatWaitResult(result) }],
+				details: result,
+				structuredContent: result,
+			};
 		},
 		renderCall: (_args, theme) =>
 			new Text(theme.fg("toolTitle", theme.bold("wait_for_answers")), 0, 0),
@@ -65,15 +55,4 @@ function formatWaitResult(result: WaitForAnswersResult): string {
 	return result.results.length
 		? result.results.map(formatQueuedAnswer).join("\n\n")
 		: "No outstanding background answers. Previously delivered answers are already in context.";
-}
-
-function emitBlocked(pi: ExtensionAPI, active: boolean): void {
-	try {
-		pi.events.emit("herdr:blocked", {
-			active,
-			...(active ? { label: "Waiting for queued user answers" } : {}),
-		});
-	} catch {
-		// A status listener must not prevent answers or cleanup.
-	}
 }

@@ -46,8 +46,8 @@ function harness() {
 		appendEntry(customType: string, data: unknown) {
 			branch.push({ type: "custom", customType, data });
 		},
-		sendMessage(message: any) {
-			messages.push(message);
+		sendMessage(message: any, options: any) {
+			messages.push({ ...message, triggerTurn: options.triggerTurn });
 			branch.push({ type: "custom_message", ...message });
 		},
 		on(name: string, handler: (...args: any[]) => any) {
@@ -125,7 +125,12 @@ test("background receipts return before answers and forms run in FIFO order", as
 	assert.notEqual(first.requestId, second.requestId);
 	await tick();
 	assert.equal(h.forms.length, 1);
-	assert.deepEqual(h.events, []);
+	assert.deepEqual(h.events, [
+		{
+			channel: "herdr:blocked",
+			data: { active: true, label: "Waiting for user response" },
+		},
+	]);
 	h.forms[0](answer);
 	await tick();
 	assert.equal(h.forms.length, 2);
@@ -221,6 +226,30 @@ test("idle answers wake the agent and a wait on an empty queue finishes immediat
 	h.runtime.dispose();
 });
 
+test("background cancellation adds context without waking the idle agent, including after recovery", async () => {
+	const h = harness();
+	h.setIdle(true);
+	h.runtime.enqueue("cancelled", params, h.ctx as never, false);
+	await tick();
+	h.forms[0]({ ...answer, cancelled: true, answers: {} });
+	await tick();
+	assert.equal(h.messages.length, 1);
+	assert.equal(h.messages[0].triggerTurn, false);
+	h.runtime.restore(h.ctx as never);
+	await tick();
+	assert.equal(h.messages.length, 1);
+	h.runtime.dispose();
+});
+
+test("a cancellation-only boundary never requests another turn", async () => {
+	const h = harness();
+	h.runtime.enqueue("cancelled", params, h.ctx as never, false);
+	await tick();
+	h.forms[0]({ ...answer, cancelled: true, answers: {} });
+	await tick();
+	assert.equal(h.boundary().continue, false);
+	h.runtime.dispose();
+});
 test("registered ask_user returns a typed receipt and rejects invalid forms before queueing", async () => {
 	const h = harness();
 	registerAskTool(h.pi as never, undefined, h.runtime);
@@ -310,7 +339,7 @@ test("a persisted direct wait result prevents delivery after recovery", async ()
 	h.runtime.dispose();
 });
 
-test("wait tool reports blocking only for pending forms and clears it on abort", async () => {
+test("aborting the wait keeps the open form blocked until it closes", async () => {
 	const h = harness();
 	registerWaitForAnswersTool(h.pi as never, h.runtime);
 	const tool = h.tools.get("wait_for_answers");
@@ -326,9 +355,15 @@ test("wait tool reports blocking only for pending forms and clears it on abort",
 	await assert.rejects(waiting, { name: "AbortError" });
 	assert.deepEqual(
 		h.events.map((event) => event.data.active),
-		[true, false]
+		[true]
 	);
 	assert.equal(h.runtime.pendingCount(), 1);
+	h.forms[0](answer);
+	await tick();
+	assert.deepEqual(
+		h.events.map((event) => event.data.active),
+		[true, false]
+	);
 	h.runtime.dispose();
 });
 
