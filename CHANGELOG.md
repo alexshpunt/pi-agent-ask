@@ -1,3 +1,9 @@
+# [1.2.5](https://github.com/alexshpunt/pi-ask/compare/v1.2.4...v1.2.5) (2026-10-03)
+
+- Include full questions and question IDs in background answers so the agent can match each reply.
+- Show accepted background answers in questionnaire Review style, without internal IDs or buttons.
+- Prevent idle background answers from being delivered twice.
+
 # [1.2.4](https://github.com/alexshpunt/pi-ask/compare/v1.2.3...v1.2.4) (2026-10-03)
 
 - Stop the current agent operation when a user cancels a foreground or background form.
