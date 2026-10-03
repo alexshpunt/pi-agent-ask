@@ -1,3 +1,9 @@
+# [1.2.4](https://github.com/alexshpunt/pi-ask/compare/v1.2.3...v1.2.4) (2026-10-03)
+
+- Stop the current agent operation when a user cancels a foreground or background form.
+- Report open background forms as blocked in Herdr without pausing independent agent work.
+- Keep background cancellations from starting a new agent turn.
+
 # [1.2.3](https://github.com/alexshpunt/pi-ask/compare/v1.2.2...v1.2.3) (2026-10-03)
 
 - Queue forms with `ask_user` and `background: true` while the agent continues independent work.
