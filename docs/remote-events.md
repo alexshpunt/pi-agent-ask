@@ -4,6 +4,60 @@ pi-ask exposes a local `pi.events` contract for trusted Pi extensions that run i
 
 Use this for local bridges: status cards, desktop helpers, or approval UIs. Do not use terminal keystroke automation. pi-ask does not expose a network API.
 
+## External UI negotiation
+
+Foreground `ask_user` in a non-TUI process emits `@eko24ive/pi-ask:external-ui` once per call, after validation and preview loading. This is a synchronous local event, not a wire protocol:
+
+```ts
+type ExternalAskConnection = {
+  version: 1;
+  mode: ExtensionContext["mode"];
+  toolCallId: string;
+  connect(provider: ExternalAskProvider): boolean;
+};
+
+type ExternalAskProvider = {
+  version: 1;
+  id: string;
+  open(request: ExternalAskRequest): Promise<unknown>;
+};
+
+type ExternalAskRequest = {
+  version: 1;
+  flowId: string;
+  toolCallId: string;
+  title?: string;
+  questions: AskQuestion[];
+  signal: AbortSignal;
+};
+```
+
+The bridge must already have checked its host's connection and capabilities. Offer a provider only for a supported host. The first valid provider wins; unsupported versions, another provider, and connections made after the listener returns are rejected. No connection means the existing cancelled non-TUI fallback. TUI and non-TUI background calls do not emit this event.
+
+`open` receives cloned, normalized questions. Local file previews are included as text, not file paths. Question types reflect `presentSingleAsMulti`. Keep `flowId` and `toolCallId` as correlation ids; do not choose an answer automatically.
+
+Resolve `open` with the same explicit `RemoteAskResponse` used by the submit channel below. The original tool call waits. pi-ask checks ids and values and computes labels, indices, notes, and elaboration itself. An invalid returned response is a tool error because the provider has finished. An invalid submit-channel response instead leaves the active form open so the UI can correct it.
+
+The provider must listen to `signal` and close its UI/transport when it aborts. It aborts after answer, explicit cancel, operation abort, or failure, including when another local submitter completes the flow. Remove your own listeners and resources. Reject on disconnection or UI failure; do not turn these into user cancellation. Returning nothing is an error. Late responses are ignored; late submit-channel requests receive `flow_not_found`.
+
+For example, inside a bridge extension whose host handshake has already completed:
+
+```ts
+pi.events.on("@eko24ive/pi-ask:external-ui", (data) => {
+  const connection = data as ExternalAskConnection;
+  if (connection.version !== 1 || !host.isConnected()) return;
+  connection.connect({
+    version: 1,
+    id: "my-host",
+    open: (request) => host.ask(request), // waits; closes on request.signal
+  });
+});
+```
+
+`host` above is the bridge's own transport, not a Pi API. Public types are in `src/external-ui.ts`. This API transports form data, not `ctx.ui.custom()` components or TUI keystrokes. Background questions, commands, replay, and settings remain TUI-only.
+
+Connected external flows also use the started/completed/submit channels below. UI failures dispose the flow without a completed answer event. Notifications and Herdr blocked-state reporting remain on the TUI surface.
+
 ## Channels
 
 Lifecycle:

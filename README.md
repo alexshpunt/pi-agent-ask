@@ -85,6 +85,14 @@ Once installed, this package gives the agent a native way to ask for clarificati
 
 Development checks: `pnpm test`, `pnpm typecheck`, and `pnpm test:integration`. The integration check requires Pi on PATH and the test harness's native `node-pty` build.
 
+## External UI adapters
+
+A trusted Pi bridge can connect a browser or another UI to foreground `ask_user` calls in RPC and other non-TUI modes. The original call waits for the answer; pi-ask validates and returns its normal result. The terminal UI stays unchanged.
+
+Load both pi-ask and the bridge extension. The bridge owns connection checks, rendering, and transport. pi-ask does not include a BB plugin or a universal TUI-to-browser renderer. Without a supported connection, the existing non-TUI fallback still applies; background questions and replay are not routed externally.
+
+See [the adapter contract](docs/remote-events.md#external-ui-negotiation).
+
 ## Ask while you work
 
 Set `background: true` on the usual `ask_user` payload to queue a form and receive its request ID immediately. Keep doing independent research while the user answers. Forms open automatically, one at a time.

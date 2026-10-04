@@ -312,7 +312,13 @@ Dirty dismiss:
 
 ## Non-TUI and non-interactive modes
 
-The rich ask flow uses `ctx.ui.custom()` and opens only in TUI mode. In print, JSON, RPC, or any other non-TUI mode, the tool returns a `Needs user input: ask_user requires interactive TUI mode.` message in `content` and a cancelled result in `details` instead of opening custom UI.
+The rich ask flow uses `ctx.ui.custom()` and opens only in TUI mode. A non-TUI foreground `ask_user` can instead wait for an explicitly connected external UI supplied by a trusted extension in the same Pi process. The bridge must check that its UI is connected and supported before offering it; environment variables alone are not a connection.
+
+Without a supported connection, print, JSON, RPC, and other non-TUI calls keep the `Needs user input: ask_user requires interactive TUI mode.` message and cancelled result. Non-TUI background calls always keep that fallback and never open the external UI.
+
+Connected foreground calls stay pending until an explicit answer or cancel. pi-ask loads file previews, applies `presentSingleAsMulti`, validates question ids and values, and builds the normal result with locally computed labels and indices. Cancel stops the current agent operation, as in TUI. Operation abort closes the external form; late responses cannot change the result. UI disconnection, rejection, or a malformed returned response is a tool error, not an invented answer or user cancellation. All terminal paths remove the active flow and abort the provider's signal.
+
+The native TUI remains the default and never negotiates an external surface. This contract does not transport TUI components, settings, commands, replay, or background queues. The external UI owns its layout and transport; pixel parity and universal extension support are not promised. See [external UI negotiation](remote-events.md#external-ui-negotiation) for the adapter API.
 
 The public tool schema requires question `id` and `prompt` plus option `value` and `label`, and it restricts question `type` to `single`, `multi`, or `preview`, so malformed structural fields fail before execution. The tool still validates trimmed text, uniqueness, option counts, and preview requirements during execution and returns structured issues for those failures. Result rendering falls back to Pi's raw tool-error text when schema validation prevents execution.
 
