@@ -1,3 +1,11 @@
+# [1.2.8](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.7...v1.2.8) (2026-10-09)
+
+- Paste clipboard images into custom answers, question notes, and option notes, with or without text.
+- Show attachment counts and remove the last image with `Ctrl+Alt+D`.
+- Deliver images in normal answers, background answers, waits, and clarification requests.
+- Keep images in session history and Markdown exports after reload or resume.
+- Report empty or unavailable image clipboards without clearing drafts, and exclude images from cancelled forms.
+
 # [1.2.7](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.6...v1.2.7) (2026-10-09)
 
 - Add the puzzled robot artwork, package gallery image, and social preview.
