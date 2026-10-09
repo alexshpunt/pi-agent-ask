@@ -270,7 +270,7 @@ function validateAnswerResponse(
 		return invalidAnswer("Answer response must include an answers object.");
 	}
 	if (
-		response.mode &&
+		response.mode !== undefined &&
 		response.mode !== "submit" &&
 		response.mode !== "elaborate"
 	) {
@@ -510,7 +510,8 @@ function parseSubmitEvent(
 	};
 }
 
-function parseRemoteResponse(
+/** Parse the explicit response envelope; applyRemoteAskResponse validates its answers. */
+export function parseRemoteResponse(
 	data: unknown
 ): { ok: true; response: RemoteAskResponse } | { message: string; ok: false } {
 	if (!isPlainObject(data)) {

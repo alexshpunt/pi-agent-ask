@@ -85,6 +85,14 @@ Once installed, this package gives the agent a native way to ask for clarificati
 
 Development checks: `pnpm test`, `pnpm typecheck`, and `pnpm test:integration`. The integration check requires Pi on PATH and the test harness's native `node-pty` build.
 
+## External UI adapters
+
+A trusted Pi bridge can connect a browser or another UI to foreground `ask_user` calls in RPC and other non-TUI modes. The original call waits for the answer; pi-ask validates and returns its normal result. The terminal UI stays unchanged.
+
+Load both pi-ask and the bridge extension. The bridge owns connection checks, rendering, and transport. pi-ask does not include a BB plugin or a universal TUI-to-browser renderer. Without a supported connection, the existing non-TUI fallback still applies; background questions and replay are not routed externally.
+
+See [the adapter contract](docs/remote-events.md#external-ui-negotiation).
+
 ## Ask while you work
 
 Set `background: true` on the usual `ask_user` payload to queue a form and receive its request ID immediately. Keep doing independent research while the user answers. Forms open automatically, one at a time.
@@ -92,6 +100,18 @@ Set `background: true` on the usual `ask_user` payload to queue a form and recei
 Each completed form reaches the agent between turns, without waiting for the rest of the queue. When no independent work remains, call `wait_for_answers({})` directly. It waits without a built-in timeout and returns answers not already delivered as messages.
 
 Never treat a queued receipt, cancellation, or empty wait result as approval. Do not make decisions that depend on unanswered questions. The queue follows the active session branch and survives reload/resume. See [the contract](docs/contract.md#background-queue).
+
+## Session question history
+
+The agent can recall ordinary and background `ask_user` questions after compaction, reload, or resume. The journal lives in the session file and follows only the current branch.
+
+- `list_ask_history` lists or searches question summaries, with an answered-only filter and paging.
+- `read_ask_history` reads a full question by `requestId` and `questionId`.
+- `export_ask_history` writes all or selected question records to a new Markdown file.
+
+These three tools have no visible TUI rows. Normal questions and answers still render as usual. Saved outcomes distinguish answers from waiting, cancellation, skipped questions, errors, and clarification. They are not automatic approval or instructions to reuse an old answer.
+
+The journal covers tool calls, not ordinary chat, `/answer`, or command replay. It does not reconstruct old sessions. See [the contract](docs/contract.md#session-question-history) for tool inputs and export rules.
 
 ## Feature walkthrough
 

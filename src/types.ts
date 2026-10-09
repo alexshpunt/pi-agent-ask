@@ -133,6 +133,8 @@ export interface AskResult {
 	error?: AskValidationError;
 	mode: "submit" | "elaborate";
 	questions: AskQuestionSummary[];
+	/** Stable journal request key for an ask_user tool call. */
+	requestId?: string;
 	title?: string;
 }
 

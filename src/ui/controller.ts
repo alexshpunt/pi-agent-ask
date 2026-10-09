@@ -56,6 +56,7 @@ import {
 } from "./dismiss-guard.ts";
 import type { AskInputCommand } from "./input.ts";
 import { getInputCommand } from "./input.ts";
+import { showPersistentAsk } from "./persistent-ask.ts";
 import { renderAskScreen } from "./render.ts";
 import {
 	getReviewShortcutHint,
@@ -76,6 +77,7 @@ type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 interface AskFlowOptions {
 	allowFreeform?: boolean;
 	herdrEvents?: AskEvents;
+	keepVisible?: boolean;
 	presentSingleAsMulti?: boolean;
 	remote?: {
 		runtime: RemoteAskRuntime;
@@ -137,7 +139,7 @@ export async function runAskFlow(
 	return withAskSurface(options.signal, async () => {
 		emitHerdrBlocked(options.herdrEvents, true);
 		try {
-			return await ctx.ui.custom<AskResult>((...args) =>
+			const factory = (...args: [Tui, Theme, Keybindings, Done]) =>
 				createAskFlowController(args, {
 					...params,
 					config,
@@ -145,8 +147,10 @@ export async function runAskFlow(
 					cwd: ctx.cwd,
 					ctx,
 					flowOptions,
-				})
-			);
+				});
+			return options.keepVisible
+				? await showPersistentAsk(ctx, factory)
+				: await ctx.ui.custom<AskResult>(factory);
 		} finally {
 			emitHerdrBlocked(options.herdrEvents, false);
 		}

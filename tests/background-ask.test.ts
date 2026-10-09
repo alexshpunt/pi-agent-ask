@@ -39,6 +39,14 @@ function harness() {
 	const handlers = new Map<string, (...args: any[]) => any>();
 	let idle = false;
 	let signal: AbortSignal | undefined;
+	let focused: unknown = { getText: () => "", setText: () => undefined };
+	const widgets = new Map<string, { render: (width: number) => string[] }>();
+	const tui = {
+		requestRender: () => undefined,
+		get children() {
+			return [focused];
+		},
+	};
 	const pi = {
 		registerTool(tool: any) {
 			tools.set(tool.name, tool);
@@ -73,16 +81,27 @@ function harness() {
 					let component: any;
 					const done = (result: AskResult) => {
 						component?.dispose?.();
+						focused = { getText: () => "", setText: () => undefined };
 						resolve(result);
 					};
 					component = factory(
-						{ requestRender: () => undefined },
+						tui,
 						{ fg: (_color: string, text: string) => text },
 						{},
 						done
 					);
 					forms.push(done);
+					focused = component;
 				});
+			},
+			setWidget(key: string, factory: any) {
+				if (!factory) {
+					widgets.delete(key);
+					return;
+				}
+				const widget = factory(tui);
+				widgets.set(key, widget);
+				queueMicrotask(() => widget.render(80));
 			},
 			setStatus: () => undefined,
 			notify: () => undefined,
@@ -108,6 +127,12 @@ function harness() {
 		ctx,
 		runtime,
 		boundary,
+		setEditorReady(ready: boolean) {
+			focused = ready ? { getText: () => "", setText: () => undefined } : {};
+			for (const widget of widgets.values()) {
+				widget.render(80);
+			}
+		},
 		setSignal(value: AbortSignal | undefined) {
 			signal = value;
 		},
@@ -208,6 +233,59 @@ test("recovery reopens pending forms but not answered forms or delivered results
 	h.boundary();
 	assert.equal(h.messages.length, 2);
 	h.runtime.dispose();
+});
+
+test("recovery waits for the editor instead of opening behind the reload screen", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("pending-reload", params, h.ctx as never, false);
+	await tick();
+	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(false);
+	await tick();
+	assert.equal(h.forms.length, 1);
+	assert.equal(h.runtime.pendingCount(), 1);
+	const waiting = h.runtime.wait(undefined);
+	h.setEditorReady(true);
+	await tick();
+	assert.equal(h.forms.length, 2);
+	h.forms[1](answer);
+	assert.equal((await waiting).results[0].requestId, "pending-reload");
+	h.runtime.dispose();
+});
+
+test("new requests cannot bypass recovery while the editor is loading", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("first", params, h.ctx as never, false);
+	await tick();
+	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(false);
+	h.runtime.enqueue("second", params, h.ctx as never, false);
+	await tick();
+	assert.equal(h.forms.length, 1);
+	h.setEditorReady(true);
+	await tick();
+	assert.equal(h.forms.length, 2);
+	h.forms[1](answer);
+	await tick();
+	assert.equal(h.forms.length, 3);
+	h.forms[2](answer);
+});
+
+test("leaving a recovering branch removes its editor wait", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("old", params, h.ctx as never, false);
+	await tick();
+	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(false);
+	h.branch.length = 0;
+	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(true);
+	await tick();
+	assert.equal(h.forms.length, 1);
+	assert.equal(h.runtime.pendingCount(), 0);
 });
 
 test("idle answers wake the agent and a wait on an empty queue finishes immediately", async () => {

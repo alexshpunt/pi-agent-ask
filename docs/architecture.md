@@ -21,6 +21,9 @@ The codebase is split so the implementation reads through file boundaries and na
 
 - `src/index.ts` — extension entrypoint
 - `src/ask-tool.ts` — tool registration, non-interactive fallback, transcript rendering, ask payload capture
+- `src/ask-history.ts` / `src/ask-history-schema.ts` — journal entries, generated identities, per-question outcomes, and active-branch reads
+- `src/ask-history-tools.ts` — silent list/search, read, and export tools
+- `src/ask-history-export.ts` — literal Markdown snapshots and exclusive file creation
 - `src/answer-commands.ts` — `/answer`, `/answer:again`, and `/ask:replay` command wiring
 - `src/answer-extraction.ts` — configured, session-scope-aware extraction model selection, synthetic `ask_user` tool-call extraction, and tolerant text fallback
 - `src/ask-payload-store.ts` — branch-aware persisted ask payload lookup
@@ -28,6 +31,7 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/resume-pending-ask.ts` — detached lifecycle wiring and recovered answer delivery
 - `src/notifications.ts` — best-effort ask notification payload rendering and channel execution
 - `src/remote-ask.ts` — package-prefixed local event contract, active-flow registry, and explicit remote submission validation
+- `src/external-ui.ts` — per-call external UI negotiation and foreground wait, using the same input lock, remote validation, and result serialization
 - `src/schema.ts` — TypeBox schema
 - `src/result-schema.ts` — structured output schema shared with typed response helpers
 - `src/preview-files.ts` — validates and loads local UTF-8 preview files before UI and payload capture; state and rendering remain filesystem-free
@@ -54,6 +58,8 @@ The codebase is split so the implementation reads through file boundaries and na
 ### UI
 
 - `src/ui/controller.ts` — connects key input, editor lifecycle, live config subscription, dirty-dismiss confirmation, and pure state transitions
+- `src/ui/wait-for-editor.ts` — uses an empty native widget to wait for the editor to return before opening recovered background forms
+- `src/ui/persistent-ask.ts` — remounts a background form when later lifecycle cleanup replaces its slot; the same controller keeps answers, notes, and editor drafts
 - `src/ui/input.ts` — raw input to commands using resolved context-aware config-backed keymaps
 - `src/ui/dismiss-guard.ts` — pure helpers for dirty-flow exit confirmation behavior
 - `src/ui/render.ts` and `src/ui/render-*.ts` — screen rendering, including config-backed footer/keymap hints

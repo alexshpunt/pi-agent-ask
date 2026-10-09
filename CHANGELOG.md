@@ -1,3 +1,9 @@
+# [1.2.6](https://github.com/alexshpunt/pi-ask/compare/v1.2.5...v1.2.6) (2026-10-09)
+
+- Keep background questions visible after reload without losing answers, notes, or typed drafts.
+- Save question history in the active session branch and add tools to read and export it.
+- Let connected external UIs answer foreground questions in RPC and headless sessions.
+
 # [1.2.5](https://github.com/alexshpunt/pi-ask/compare/v1.2.4...v1.2.5) (2026-10-03)
 
 - Include full questions and question IDs in background answers so the agent can match each reply.

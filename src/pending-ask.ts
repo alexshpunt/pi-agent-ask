@@ -54,15 +54,9 @@ function collectResolvedToolCallIds(
 ): Set<string> {
 	const resolved = new Set<string>();
 	for (const entry of branch) {
-		if (
-			entry.type === "custom" &&
-			entry.customType === ASK_QUEUED_ENTRY &&
-			entry.data &&
-			typeof entry.data === "object" &&
-			"requestId" in entry.data &&
-			typeof entry.data.requestId === "string"
-		) {
-			resolved.add(entry.data.requestId);
+		const queuedOrigin = getQueuedToolCallId(entry);
+		if (queuedOrigin) {
+			resolved.add(queuedOrigin);
 		}
 		const dismissedToolCallId = getDismissedToolCallId(entry);
 		if (dismissedToolCallId) {
@@ -76,6 +70,21 @@ function collectResolvedToolCallIds(
 	return resolved;
 }
 
+function getQueuedToolCallId(entry: SessionEntry): string | undefined {
+	if (
+		entry.type !== "custom" ||
+		entry.customType !== ASK_QUEUED_ENTRY ||
+		!entry.data ||
+		typeof entry.data !== "object"
+	) {
+		return;
+	}
+	const data = entry.data as { requestId?: unknown; toolCallId?: unknown };
+	if (typeof data.requestId !== "string") {
+		return;
+	}
+	return typeof data.toolCallId === "string" ? data.toolCallId : data.requestId;
+}
 function findUnresolvedAskToolCall(
 	entry: SessionEntry,
 	resolvedToolCallIds: ReadonlySet<string>

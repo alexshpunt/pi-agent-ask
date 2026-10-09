@@ -222,8 +222,10 @@ test("ask tool stores valid payloads as soon as they are called", async () => {
 
 	await tool.execute("call-1", params, undefined, noop, makeCtx(false));
 
-	assert.equal(entries.length, 1);
-	assert.equal(entries[0].customType, "ask:payload");
+	assert.deepEqual(
+		entries.map((entry) => entry.customType),
+		["ask:payload", "ask:history-request", "ask:history-completed"]
+	);
 	assert.deepEqual(entries[0].data, {
 		version: 1,
 		source: "tool",

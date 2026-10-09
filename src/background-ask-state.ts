@@ -36,6 +36,7 @@ const QueuedEntrySchema = Type.Object({
 	version: Type.Literal(1),
 	requestId: Type.String(),
 	params: AskParamsSchema,
+	toolCallId: Type.Optional(Type.String()),
 	presentSingleAsMulti: Type.Boolean(),
 });
 
@@ -48,6 +49,8 @@ export interface QueuedRequest {
 	params: AskParams;
 	presentSingleAsMulti: boolean;
 	requestId: string;
+	/** Original Pi tool-call identity, distinct from the generated journal key. */
+	toolCallId?: string;
 }
 
 /** Replay only the active branch. Actual transcript delivery, not intent to send, is authoritative. */

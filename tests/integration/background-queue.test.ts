@@ -70,7 +70,13 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	};
 	assert.deepEqual(
 		wait.results.map((answer) => answer.requestId),
-		["second-form"]
+		[
+			(
+				getToolExecutionDetails(getToolExecution(result, "second-form")) as {
+					requestId: string;
+				}
+			).requestId,
+		]
 	);
 	const stats = getToolExecutionDetails(getToolExecution(result, "stats")) as {
 		answerMessages: number;

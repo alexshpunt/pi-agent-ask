@@ -1,6 +1,6 @@
 {
   "name": "@alexshpunt/pi-ask",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Interactive clarification flows for Pi with native Herdr blocked-state support.",
   "license": "MIT",
   "type": "module",
