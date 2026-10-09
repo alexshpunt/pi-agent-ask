@@ -208,16 +208,23 @@ async function executeRecordedAsk(
 function recordResponse(
 	pi: Pick<ExtensionAPI, "appendEntry">,
 	requestId: string,
-	response: ReturnType<typeof successfulResponse>
+	response:
+		| ReturnType<typeof successfulResponse>
+		| ReturnType<typeof invalidPayloadResponse>
+		| ReturnType<typeof nonInteractiveResponse>
 ) {
 	const result = { ...response.details, requestId };
 	appendAskHistoryCompletion(pi, { requestId, result });
 	return {
 		...response,
-		content: response.content.map((item) => ({
-			...item,
-			text: `ask_user [${requestId}]\n${item.text}`,
-		})),
+		content: response.content.map((item, index) =>
+			item.type === "text" && index === 0
+				? {
+						...item,
+						text: `ask_user [${requestId}]\n${item.text}`,
+					}
+				: item
+		),
 		details: result,
 		structuredContent: result,
 	};

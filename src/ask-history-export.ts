@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { HistoryRecord } from "./ask-history-schema.ts";
-import type { AskOption, AskResultAnswer } from "./types.ts";
+import type { AskImage, AskOption, AskResultAnswer } from "./types.ts";
 
 /** Write a fresh Markdown snapshot. Existing files, including symlinks, are never replaced. */
 export async function exportAskHistory(
@@ -38,6 +38,12 @@ function literal(text: string): string {
 function field(label: string, text: string | undefined): string {
 	return text === undefined ? "" : `### ${label}\n\n${literal(text)}`;
 }
+function renderImages(label: string, images: AskImage[] | undefined): string[] {
+	return (images ?? []).map(
+		(image, index) =>
+			`### ${label} image ${index + 1}\n\n![${label} image ${index + 1}](data:${image.mimeType};base64,${image.data})`
+	);
+}
 function renderRecord(record: HistoryRecord, index: number): string {
 	const { question } = record;
 	return [
@@ -61,6 +67,7 @@ function renderRecord(record: HistoryRecord, index: number): string {
 						]
 					: []),
 				field("Clarification note", item.note),
+				...renderImages("Clarification note", item.images),
 			].join("\n\n")
 		),
 		field("Error", record.error),
@@ -92,7 +99,15 @@ function renderAnswer(answer: AskResultAnswer): string[] {
 			field(`Selected label ${index + 1}`, label)
 		),
 		field("Custom answer", answer.customText),
+		...renderImages("Custom answer", answer.customImages),
 		field("Question note", answer.note),
+		...renderImages("Question note", answer.noteImages),
+		...Object.entries(answer.optionNoteImages ?? {}).flatMap(
+			([value, images]) => [
+				field("Image note option value", value),
+				...renderImages("Option note", images),
+			]
+		),
 		...Object.entries(answer.optionNotes ?? {}).map(
 			([value, note]) =>
 				`${field("Noted option value", value)}\n\n${field("Option note", note)}`

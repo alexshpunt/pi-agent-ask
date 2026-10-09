@@ -34,6 +34,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/result-schema.ts` — structured output schema shared with typed response helpers
 - `src/preview-files.ts` — validates and loads local UTF-8 preview files before UI and payload capture; state and rendering remain filesystem-free
 - `src/types.ts` — shared types
+- `src/images.ts` — attachment markers and model image blocks with question/note context
+- `src/clipboard-image.ts` — public native clipboard, Linux command, and WSL clipboard adapters; temporary files are removed after reading
 
 ### State
 

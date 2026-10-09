@@ -51,7 +51,21 @@ export interface AskSelectedOption {
 	value: string;
 }
 
-export interface AskStateAnswer {
+/** A clipboard image stored with its answer so it survives session recovery. */
+export interface AskImage {
+	/** Base64 image bytes, without a data URI prefix. */
+	data: string;
+	id: string;
+	mimeType: string;
+}
+
+export interface AskAnswerImages {
+	customImages?: AskImage[];
+	noteImages?: AskImage[];
+	optionNoteImages?: Record<string, AskImage[]>;
+}
+
+export interface AskStateAnswer extends AskAnswerImages {
 	customSelected?: boolean;
 	customText?: string;
 	note?: string;
@@ -59,7 +73,7 @@ export interface AskStateAnswer {
 	selected: AskSelectedOption[];
 }
 
-export interface AskResultAnswer {
+export interface AskResultAnswer extends AskAnswerImages {
 	customText?: string;
 	indices: number[];
 	labels: string[];
@@ -83,6 +97,7 @@ export interface AskElaborationQuestionContext extends AskQuestionSummary {
 export interface AskElaborationQuestionItem {
 	answer?: AskResultAnswer;
 	answered: boolean;
+	images?: AskImage[];
 	note: string;
 	question: AskElaborationQuestionContext;
 	target: {
@@ -93,6 +108,7 @@ export interface AskElaborationQuestionItem {
 export interface AskElaborationOptionItem {
 	answer?: AskResultAnswer;
 	answered: boolean;
+	images?: AskImage[];
 	note: string;
 	option: AskOption;
 	question: AskElaborationQuestionContext;

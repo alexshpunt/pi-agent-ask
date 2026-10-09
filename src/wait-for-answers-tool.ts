@@ -7,6 +7,7 @@ import {
 	type WaitForAnswersResult,
 	WaitForAnswersSchema,
 } from "./background-ask-state.ts";
+import { imageContent } from "./images.ts";
 
 /** Register the explicit wait gate. Completed answers use this result instead of duplicate messages. */
 export function registerWaitForAnswersTool(
@@ -32,7 +33,12 @@ export function registerWaitForAnswersTool(
 			}
 			const result = await queue.wait(signal);
 			return {
-				content: [{ type: "text", text: formatWaitResult(result) }],
+				content: [
+					{ type: "text", text: formatWaitResult(result) },
+					...result.results.flatMap((answer) =>
+						answer.result ? imageContent(answer.result) : []
+					),
+				],
 				details: result,
 				structuredContent: result,
 			};

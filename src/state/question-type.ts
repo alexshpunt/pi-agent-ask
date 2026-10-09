@@ -1,5 +1,5 @@
 import type { AskQuestionType, AskState, AskStateAnswer } from "../types.ts";
-import { isAnswerEmpty } from "./answers.ts";
+import { hasCustomAnswer, isAnswerEmpty } from "./answers.ts";
 import { getAnswer, getCurrentQuestion, isSubmitTab } from "./selectors.ts";
 
 export interface QuestionTypeChangeResult {
@@ -73,7 +73,7 @@ function countCommittedAnswers(answer: AskStateAnswer | undefined): number {
 	}
 	return (
 		answer.selected.length +
-		(answer.customSelected && answer.customText?.trim() ? 1 : 0)
+		(answer.customSelected && hasCustomAnswer(answer) ? 1 : 0)
 	);
 }
 
@@ -103,7 +103,7 @@ function setQuestionType(
 
 	const nextAnswer = {
 		...currentAnswer,
-		customSelected: currentAnswer.customText?.trim() ? true : undefined,
+		customSelected: hasCustomAnswer(currentAnswer) ? true : undefined,
 		selected: [],
 	};
 	const answers = { ...state.answers };

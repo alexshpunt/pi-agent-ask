@@ -1,4 +1,5 @@
 import { ELABORATED_SUMMARY } from "./constants/text.ts";
+import { answerDisplayText, withImageMarker } from "./images.ts";
 import { isCustomOnlyAnswer } from "./state/answers.ts";
 import type { AskResult } from "./types.ts";
 
@@ -28,7 +29,7 @@ export function formatResultLines(
 
 		const questionNoteLine = formatQuestionNoteLine(
 			question.label,
-			answer.note,
+			withImageMarker(answer.note, answer.noteImages) || undefined,
 			options.mode
 		);
 		if (questionNoteLine) {
@@ -59,7 +60,7 @@ function formatAnswerLine(
 	answer: AskResult["answers"][string],
 	mode: "summary" | "render"
 ): string | undefined {
-	const answerText = answer.labels.join(", ");
+	const answerText = answerDisplayText(answer);
 	if (!answerText) {
 		return;
 	}
@@ -105,13 +106,14 @@ export function formatElaborationLines(
 	const items = result.elaboration?.items ?? [];
 	const lines = items.map((item) => {
 		const answerContext = formatElaborationAnswerContext(item.answer);
+		const note = withImageMarker(item.note, item.images);
 		if (item.target.kind === "question") {
-			return `User asked to elaborate on question ${quote(item.question.prompt)}${answerContext} with note ${quote(item.note)}`;
+			return `User asked to elaborate on question ${quote(item.question.prompt)}${answerContext} with note ${quote(note)}`;
 		}
 		if (!("option" in item)) {
-			return `User asked to elaborate on question ${quote(item.question.prompt)}${answerContext} with note ${quote(item.note)}`;
+			return `User asked to elaborate on question ${quote(item.question.prompt)}${answerContext} with note ${quote(note)}`;
 		}
-		return `User asked to elaborate on question ${quote(item.question.prompt)} option ${quote(item.option.label)}${answerContext} with note ${quote(item.note)}`;
+		return `User asked to elaborate on question ${quote(item.question.prompt)} option ${quote(item.option.label)}${answerContext} with note ${quote(note)}`;
 	});
 
 	if (lines.length > 0) {
@@ -121,8 +123,8 @@ export function formatElaborationLines(
 	const answerLines = result.questions
 		.map((question) => {
 			const answer = result.answers[question.id];
-			return answer?.labels.length
-				? `User asked to elaborate on question ${quote(question.prompt)} after current answer ${quote(answer.labels.join(", "))}`
+			return answer && answerDisplayText(answer)
+				? `User asked to elaborate on question ${quote(question.prompt)} after current answer ${quote(answerDisplayText(answer))}`
 				: undefined;
 		})
 		.filter((line): line is string => Boolean(line));
@@ -133,11 +135,11 @@ export function formatElaborationLines(
 function formatElaborationAnswerContext(
 	answer: AskResult["answers"][string] | undefined
 ): string {
-	const labels = answer?.labels ?? [];
-	if (labels.length === 0) {
+	const text = answer ? answerDisplayText(answer) : "";
+	if (!text) {
 		return "";
 	}
-	return ` after current answer ${quote(labels.join(", "))}`;
+	return ` after current answer ${quote(text)}`;
 }
 
 function quote(value: string): string {
@@ -153,7 +155,10 @@ function formatOptionNoteLines(
 	for (let index = 0; index < answer.values.length; index++) {
 		const value = answer.values[index];
 		const label = answer.labels[index] ?? value;
-		const note = answer.optionNotes?.[value];
+		const note = withImageMarker(
+			answer.optionNotes?.[value],
+			answer.optionNoteImages?.[value]
+		);
 		if (!note) {
 			continue;
 		}

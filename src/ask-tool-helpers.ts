@@ -1,8 +1,10 @@
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth } from "@earendil-works/pi-tui";
 import type { Static } from "typebox";
 import type { AskQueuedSchema } from "./background-ask-state.ts";
 import { UI_DIMENSIONS } from "./constants/ui.ts";
+import { imageContent } from "./images.ts";
 import { renderResultText } from "./result.ts";
 import type { AskResultSchema } from "./result-schema.ts";
 import { createInitialState } from "./state/create.ts";
@@ -91,9 +93,13 @@ export function nonInteractiveResponse(
 
 export function successfulResponse(result: AskResult) {
 	const structuredContent: Static<typeof AskResultSchema> = result;
+	const content: [TextContent, ...(TextContent | ImageContent)[]] = [
+		{ type: "text", text: summarizeResult(result) },
+		...imageContent(result),
+	];
 	return {
-		content: [{ type: "text" as const, text: summarizeResult(result) }],
-		details: result,
+		content,
+		details: structuredContent,
 		structuredContent,
 	};
 }

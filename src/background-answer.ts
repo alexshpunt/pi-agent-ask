@@ -6,6 +6,7 @@ import {
 	type QueuedAnswer,
 } from "./background-ask-state.ts";
 import { renderResultText } from "./result.ts";
+import { isResultAnswerCommitted } from "./state/answers.ts";
 import { pushSavedNote } from "./ui/render-helpers.ts";
 import { renderReviewQuestion } from "./ui/render-submit.ts";
 import { toReviewQuestionModel } from "./ui/view-models/review.ts";
@@ -109,12 +110,12 @@ function answerBody(
 		lines.push("");
 		const response = result.answers[question.id];
 		const model = toReviewQuestionModel(question.prompt, response);
-		model.unanswered = !response?.labels.length;
+		model.unanswered = !(response && isResultAnswerCommitted(response));
 		renderReviewQuestion(lines, model, theme, width);
-		if (model.unanswered && response?.note) {
+		if (model.unanswered && model.note) {
 			pushSavedNote({
 				lines,
-				note: response.note,
+				note: model.note,
 				width,
 				theme,
 				indent: "     ",

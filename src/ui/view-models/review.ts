@@ -1,6 +1,11 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { SUBMIT_CHOICES } from "../../constants/text.ts";
 import { UI_DIMENSIONS } from "../../constants/ui.ts";
+import {
+	answerDisplayText,
+	imageMarker,
+	withImageMarker,
+} from "../../images.ts";
 import { isCustomOnlyAnswer } from "../../state/answers.ts";
 import {
 	type ReviewAnswer,
@@ -64,19 +69,33 @@ export function toReviewQuestionModel(
 		return { label, unanswered: true };
 	}
 
+	const selections = answer.labels.map((selectionLabel, index) => ({
+		label:
+			index === answer.labels.length - 1 && answer.customText
+				? withImageMarker(selectionLabel, answer.customImages)
+				: selectionLabel,
+		note:
+			withImageMarker(
+				answer.optionNotes?.[answer.values[index] ?? selectionLabel],
+				answer.optionNoteImages?.[answer.values[index] ?? selectionLabel]
+			) || undefined,
+	}));
+	if (answer.customImages?.length && !answer.customText) {
+		selections.push({
+			label: imageMarker(answer.customImages),
+			note: undefined,
+		});
+	}
 	return {
 		answerText: shouldRenderAnswersIndividually(answer)
 			? undefined
-			: answer.labels.join(", "),
+			: answerDisplayText(answer),
 		extraOptionNotes: answer.extraOptionNotes,
 		isCustomOnly: isCustomOnlyAnswer(answer),
 		label,
-		note: answer.note,
+		note: withImageMarker(answer.note, answer.noteImages) || answer.note,
 		selections: shouldRenderAnswersIndividually(answer)
-			? answer.labels.map((selectionLabel, index) => ({
-					label: selectionLabel,
-					note: answer.optionNotes?.[answer.values[index] ?? selectionLabel],
-				}))
+			? selections
 			: undefined,
 		unanswered: false,
 	};

@@ -1,5 +1,8 @@
+import { withImageMarker } from "../images.ts";
 import type {
+	AskAnswerImages,
 	AskDisplayOption,
+	AskImage,
 	AskResultAnswer,
 	AskSelectedOption,
 	AskStateAnswer,
@@ -10,12 +13,47 @@ export interface ExtraOptionNote {
 	note: string;
 }
 
+/** Whether a custom row has text or images, selected or not. */
+export function hasCustomAnswer(answer: AskStateAnswer | undefined): boolean {
+	return !!(answer?.customText?.trim() || answer?.customImages?.length);
+}
+
+function hasImages(answer: AskAnswerImages): boolean {
+	return !!(
+		answer.customImages?.length ||
+		answer.noteImages?.length ||
+		Object.keys(answer.optionNoteImages ?? {}).length
+	);
+}
+
+export function cloneAnswerImages(answer: AskAnswerImages): AskAnswerImages {
+	const copy = (images: AskImage[]) => images.map((image) => ({ ...image }));
+	const optionImages = Object.entries(answer.optionNoteImages ?? {}).filter(
+		([, images]) => images.length
+	);
+	return {
+		...(answer.customImages?.length
+			? { customImages: copy(answer.customImages) }
+			: {}),
+		...(answer.noteImages?.length
+			? { noteImages: copy(answer.noteImages) }
+			: {}),
+		...(optionImages.length
+			? {
+					optionNoteImages: Object.fromEntries(
+						optionImages.map(([value, images]) => [value, copy(images)])
+					),
+				}
+			: {}),
+	};
+}
 export function emptyAnswer(): AskStateAnswer {
 	return { selected: [] };
 }
 
 export function cloneAnswer(answer: AskStateAnswer): AskStateAnswer {
 	return {
+		...cloneAnswerImages(answer),
 		selected: answer.selected.map(cloneSelection),
 		customSelected: answer.customSelected,
 		customText: answer.customText,
@@ -26,6 +64,7 @@ export function cloneAnswer(answer: AskStateAnswer): AskStateAnswer {
 
 export function cloneResultAnswer(answer: AskResultAnswer): AskResultAnswer {
 	return {
+		...cloneAnswerImages(answer),
 		values: [...answer.values],
 		labels: [...answer.labels],
 		indices: [...answer.indices],
@@ -65,6 +104,10 @@ export function setSingleSelection(
 ): AskStateAnswer {
 	return {
 		...emptyAnswer(),
+		...cloneAnswerImages({
+			noteImages: answer.noteImages,
+			optionNoteImages: answer.optionNoteImages,
+		}),
 		note: answer.note,
 		optionNotes: answer.optionNotes ? { ...answer.optionNotes } : undefined,
 		selected: [
@@ -87,13 +130,13 @@ export function saveCustomText(
 	if (mode === "single") {
 		next.selected = [];
 	}
-	if (!trimmed) {
+	if (!(trimmed || next.customImages?.length)) {
 		next.customSelected = undefined;
 		next.customText = undefined;
 		return next;
 	}
 	next.customSelected = true;
-	next.customText = rawValue;
+	next.customText = trimmed ? rawValue : undefined;
 	return next;
 }
 
@@ -140,6 +183,7 @@ export function isAnswerEmpty(answer: AskStateAnswer): boolean {
 	return (
 		answer.selected.length === 0 &&
 		!answer.customText &&
+		!hasImages(answer) &&
 		!answer.note &&
 		(!answer.optionNotes || Object.keys(answer.optionNotes).length === 0)
 	);
@@ -151,12 +195,17 @@ export function isAnswerAnswered(answer?: AskStateAnswer): boolean {
 	}
 	return (
 		answer.selected.length > 0 ||
-		!!(answer.customSelected && answer.customText?.trim())
+		!!(answer.customSelected && hasCustomAnswer(answer))
 	);
 }
 
 export function hasAnswerNotes(answer?: AskStateAnswer): boolean {
-	return !!(answer?.note || answer?.optionNotes);
+	return !!(
+		answer?.note ||
+		answer?.optionNotes ||
+		answer?.noteImages?.length ||
+		Object.keys(answer?.optionNoteImages ?? {}).length
+	);
 }
 
 export function isResultAnswerEmpty(answer: AskResultAnswer): boolean {
@@ -165,6 +214,7 @@ export function isResultAnswerEmpty(answer: AskResultAnswer): boolean {
 		answer.labels.length === 0 &&
 		answer.indices.length === 0 &&
 		!answer.customText &&
+		!hasImages(answer) &&
 		!answer.note &&
 		(!answer.optionNotes || Object.keys(answer.optionNotes).length === 0)
 	);
@@ -175,12 +225,16 @@ export function isResultAnswerCommitted(answer: AskResultAnswer): boolean {
 		answer.values.length > 0 ||
 		answer.labels.length > 0 ||
 		answer.indices.length > 0 ||
-		!!answer.customText
+		!!answer.customText ||
+		!!answer.customImages?.length
 	);
 }
 
 export function isCustomOnlyAnswer(answer: AskResultAnswer): boolean {
-	return answer.indices.length === 0 && !!answer.customText;
+	return (
+		answer.indices.length === 0 &&
+		!!(answer.customText || answer.customImages?.length)
+	);
 }
 
 export function isOptionSelected(
@@ -217,6 +271,17 @@ export function serializeAnswer(answer: AskStateAnswer): AskResultAnswer {
 		: undefined;
 
 	return {
+		...cloneAnswerImages({
+			customImages: answer.customSelected ? answer.customImages : undefined,
+			noteImages: answer.noteImages,
+			optionNoteImages: Object.fromEntries(
+				answer.selected.flatMap(({ value }) =>
+					answer.optionNoteImages?.[value]?.length
+						? [[value, answer.optionNoteImages[value]]]
+						: []
+				)
+			),
+		}),
 		values,
 		labels,
 		indices,
@@ -235,13 +300,22 @@ export function getExtraOptionNotes(args: {
 	selectedValues?: Iterable<string>;
 }): ExtraOptionNote[] {
 	const selectedValues = new Set(args.selectedValues ?? []);
-	return Object.entries(args.answer.optionNotes ?? {})
-		.filter(([value, note]) => !selectedValues.has(value) && Boolean(note))
-		.map(([value, note]) => {
+	return [
+		...new Set([
+			...Object.keys(args.answer.optionNotes ?? {}),
+			...Object.keys(args.answer.optionNoteImages ?? {}),
+		]),
+	]
+		.filter((value) => !selectedValues.has(value))
+		.map((value) => {
+			const note = withImageMarker(
+				args.answer.optionNotes?.[value],
+				args.answer.optionNoteImages?.[value]
+			);
 			const option = args.questionOptions.find(
 				(candidate) => candidate.value === value
 			);
-			return option ? { label: option.label, note } : undefined;
+			return option && note ? { label: option.label, note } : undefined;
 		})
 		.filter((entry): entry is ExtraOptionNote => Boolean(entry));
 }

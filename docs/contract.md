@@ -216,6 +216,26 @@ remain standard tool errors.
 - elaborate `content` text and transcript rendering describe each note directly using the full question prompt and option label, and include the current committed answer text when available, instead of a generic elaboration banner
 - when the user selects `Elaborate` without adding notes, elaborate `content` text and transcript rendering still include the committed answer text so the agent can elaborate on that answer directly
 
+## Clipboard images
+
+The custom-answer, question-note, and option-note editors accept images through Pi's configured `app.clipboard.pasteImage` shortcut. The form displays the active shortcut. Text paste stays with the native editor. `Ctrl+Alt+D` removes the last image in the current editor; configured Ask commands take precedence over these image actions.
+
+- Text is optional; an image-only custom answer counts as answered.
+- Multiple images stay with their editor when saving, reopening, or changing tabs.
+- Editors, Review, and answer summaries show attachment markers, not graphical previews or base64 bytes.
+- Empty or unavailable image clipboards show a notice without clearing text or images.
+- An image read that finishes after its editor closes or the form is disposed cannot attach to another editor.
+- Normal submission includes images in option notes only for selected options. Clarification includes images on unselected option notes too.
+- Deselected custom images stay in the draft but are not submitted. Cancellation strips image data from the returned answer and sends no image blocks.
+
+Structured answers add optional `customImages`, `noteImages`, and `optionNoteImages` (option value to image array). Clarification items add optional `images` for their own note. Each image is `{ id: string, mimeType: string, data: string }`, where `data` is base64 bytes without a data URI prefix. Image-only custom answers need no synthetic `values`, `labels`, or `customText`.
+
+Normal tool results, background messages, direct waits, recovered answer delivery, and history reads carry real image content blocks with text identifying the question and answer/note. Codemode still receives structured results; forward an attachment with `image({ type: "image", data: attachment.data, mimeType: attachment.mimeType })` when the model should see its pixels. Printing the object is not image delivery.
+
+Submitted image data is stored in the session journal and survives reload and resume. History exports embed image data URIs in the Markdown file, with the owning answer/note identified; viewers without data-URI support still keep the bytes in that file.
+
+Only clipboard input in the TUI is supported. Linux uses a native clipboard or `wl-paste`/`xclip`; WSL can fall back to Windows clipboard access through PowerShell. This adds no file picker, path input, graphical preview, or remote-client image-upload protocol.
+
 ## Background queue
 
 `ask_user` accepts optional `background: true`. In TUI mode it validates and persists the form, then returns a receipt instead of waiting:
