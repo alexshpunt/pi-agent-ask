@@ -1,6 +1,6 @@
 {
   "name": "pi-agent-ask",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Let your Pi agent ask instead of guessing, keep working, and remember your answers.",
   "license": "MIT",
   "type": "module",
