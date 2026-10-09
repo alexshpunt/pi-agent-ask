@@ -1,4 +1,4 @@
-# Unreleased
+# [1.2.7](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.6...v1.2.7) (2026-10-09)
 
 - Add the puzzled robot artwork, package gallery image, and social preview.
 - Give README a short WTF pitch and add package discovery keywords.
