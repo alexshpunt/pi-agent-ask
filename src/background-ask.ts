@@ -18,6 +18,7 @@ import {
 import type { RemoteAskRuntime } from "./remote-ask.ts";
 import type { AskParams } from "./types.ts";
 import { runAskFlow } from "./ui/controller.ts";
+import { waitForEditor } from "./ui/wait-for-editor.ts";
 
 interface Waiter {
 	cleanup: () => void;
@@ -38,6 +39,7 @@ export class BackgroundAskRuntime {
 	private requests: QueuedRequest[] = [];
 	private readonly routed = new Set<string>();
 	private waiter?: Waiter;
+	private stopWaitingForEditor?: () => void;
 
 	constructor(pi: ExtensionAPI, remoteAsk?: RemoteAskRuntime) {
 		this.pi = pi;
@@ -146,8 +148,15 @@ export class BackgroundAskRuntime {
 			return;
 		}
 		this.updateStatus();
-		this.start();
 		const signal = this.generation.signal;
+		if (this.pendingCount()) {
+			this.stopWaitingForEditor = waitForEditor(ctx, () => {
+				this.stopWaitingForEditor = undefined;
+				if (!signal.aborted) {
+					this.start();
+				}
+			});
+		}
 		queueMicrotask(() => {
 			if (!signal.aborted) {
 				this.deliverIdle();
@@ -157,6 +166,8 @@ export class BackgroundAskRuntime {
 
 	/** Idempotent lifecycle cleanup. Persisted requests remain available for recovery. */
 	dispose(): void {
+		this.stopWaitingForEditor?.();
+		this.stopWaitingForEditor = undefined;
 		this.generation.abort();
 		this.pendingIdleDelivery.clear();
 		if (this.waiter) {
@@ -321,6 +332,9 @@ export class BackgroundAskRuntime {
 	}
 
 	private start(): void {
+		if (this.stopWaitingForEditor) {
+			return;
+		}
 		const signal = this.generation.signal;
 		queueMicrotask(() => {
 			if (signal.aborted) {
