@@ -1,7 +1,7 @@
 {
   "name": "pi-agent-ask",
   "version": "1.2.6",
-  "description": "Structured user questions for Pi agents, with background answers and session history.",
+  "description": "Let your Pi agent ask instead of guessing, keep working, and remember your answers.",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -15,14 +15,30 @@
   "keywords": [
     "pi-package",
     "pi",
+    "pi-extension",
     "pi-coding-agent",
-    "ask_user",
+    "pi-agent",
+    "ai-agent",
+    "coding-agent",
+    "agentic-coding",
+    "agent-tools",
+    "ask-user",
     "clarification",
-    "terminal-ui"
+    "human-in-the-loop",
+    "user-input",
+    "decision-making",
+    "background-questions",
+    "questionnaire",
+    "session-history",
+    "markdown-export",
+    "terminal-ui",
+    "typescript"
   ],
   "files": [
     "src/",
     "skills/",
+    "assets/ask.webp",
+    "assets/ask-gallery.webp",
     "docs/configuration.md",
     "docs/contract.md",
     "docs/remote-events.md",
@@ -49,7 +65,8 @@
     ],
     "skills": [
       "./skills"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/alexshpunt/pi-agent-ask/main/assets/ask-gallery.webp"
   },
   "publishConfig": {
     "access": "public",

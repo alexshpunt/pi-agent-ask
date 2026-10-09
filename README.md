@@ -1,86 +1,66 @@
-# pi-agent-ask
+<p align="center">
+  <img src="assets/ask.webp" alt="A puzzled robot holding coffee and wondering what you meant" width="320">
+</p>
 
-Structured user questions for Pi agents. The agent calls `ask_user`, the user answers in a terminal form, and the agent receives structured answers instead of guessing.
+<h1 align="center">Pi Agent Ask</h1>
+
+<p align="center"><strong>Give your agent permission to ask “What the fuck?”</strong></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/pi-agent-ask"><img src="https://img.shields.io/npm/dm/pi-agent-ask?label=npm%20downloads" alt="npm downloads"></a>
+  <a href="https://github.com/alexshpunt/pi-agent-ask/actions/workflows/ci.yml"><img src="https://github.com/alexshpunt/pi-agent-ask/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://github.com/alexshpunt/pi-agent-ask/discussions"><img src="https://img.shields.io/badge/GitHub-Discussions-purple" alt="Discussions"></a>
+</p>
+
+You gave your agent an obscure task. It didn't understand a damn thing.
+
+Instead of blindly following your bullshit, it asks a question.
+
+**And it keeps working while you answer.**
 
 ## Install
 
-The new npm name is `pi-agent-ask`. It has not been published under that name yet. Install from GitHub for now:
+Install [Pi](https://pi.dev/), then:
+
+```bash
+pi install npm:pi-agent-ask
+```
+
+Or install directly from GitHub:
 
 ```bash
 pi install git:github.com/alexshpunt/pi-agent-ask
 ```
 
-Remove another pi-ask installation before loading this package so only one extension registers `ask_user`. Reload or restart Pi after changing packages.
+Remove any other pi-ask installation so only one extension provides `ask_user`, then reload Pi.
 
-For local development:
+## Ask. Keep working. Get the answer.
 
-```bash
-pi -e ./src/index.ts
-```
+The agent calls `ask_user`. You get a form with choices, previews, your own answer, and notes. Not another wall of text to untangle.
 
-## Questions and answers
+With `background: true`, the agent continues independent work. Your answer arrives between turns, or wakes an idle agent. If there's nothing else it can do, it calls `wait_for_answers`.
 
-- One or several questions, with tabs to move between them.
-- Single-select, multi-select, and preview questions.
-- Preview text inline or loaded from a local UTF-8 file.
-- Free-text answers, including alongside selected options in multi-select questions.
-- Notes on a question or an option, with `Elaborate` to request clarification before deciding.
-- A Review tab to submit, request clarification, or cancel.
-- Recommendation markers without automatic selection.
-- Native `@` file path autocomplete in answer and note editors.
+It still has to wait before doing work that depends on your answer. “Keep working” doesn't mean “guess anyway.”
 
-The tool returns question IDs, selected values, labels, custom text, and notes. Cancellation and clarification are not approval. Questions can be skipped; `required` is advisory.
+The bundled [skill](skills/ask-user/SKILL.md) guides the agent to ask when a decision matters. It doesn't force every agent to behave.
 
-## Ask while working
+## Your answers aren't disposable
 
-Call `ask_user` with `background: true` to queue a form and keep doing independent work. Forms open one at a time. Completed answers reach the agent between turns and can wake an idle agent.
+The agent can look up earlier questions and answers, then export them as a Markdown artifact for your task:
 
-Call `wait_for_answers` when no independent work remains. A queue receipt or empty wait result is not an answer. Work that depends on an answer must wait for it.
+- `list_ask_history` finds past questions.
+- `read_ask_history` reads the question, choices, answer, and notes.
+- `export_ask_history` exports all or selected records.
 
-## Session history and recovery
+The journal survives **compaction, reload, and resume**. It follows the current session branch, not every conversation you've ever had. Unfinished forms can recover too.
 
-- `list_ask_history` searches question records on the active session branch.
-- `read_ask_history` reads a saved question, options, answer, notes, and outcome.
-- `export_ask_history` writes all or selected records to a new Markdown file.
+## The boring bits
 
-The journal survives compaction, reload, and resume. It does not record ordinary chat or automatically reuse old answers. Unfinished tool forms can recover when a session starts, resumes, or forks; background queues also survive reload.
+Use `/ask-settings`, or press `?` in a form. See [configuration](docs/configuration.md), [tool behavior](docs/contract.md), and [integration events](docs/remote-events.md).
 
-## Settings and integrations
+This fork of [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask) adds background questions, waiting, durable history/export, external UI support, and Herdr status. It drops chat question extraction and manual answer/replay commands. The agent asks directly; the form needs no extra model call.
 
-Open `/ask-settings`, or press `?` inside a form. Settings include auto-submit, guarded cancellation, review shortcuts, notifications, footer hints, and default multi-select presentation. Keymaps are configurable. Press `t` by default to change the active question's selection type.
+Herdr support includes [maudelv's work](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state); the skill was inspired by [edlsh/pi-ask-user](https://github.com/edlsh/pi-ask-user).
 
-The config file is `~/.pi/agent/extensions/pi-agent-ask.json`. Old pi-ask config files are not read, migrated, or deleted. To keep chosen settings, copy the relevant behaviour, keymap, and notification fields manually. See [configuration](docs/configuration.md).
-
-Herdr receives waiting/finished status without question or answer data. Trusted extensions can use local `pi-agent-ask:*` events to receive forms or submit explicit answers. A connected bridge can supply an external UI for foreground calls outside TUI mode; this package does not include a browser UI. Old `@eko24ive/pi-ask:*` event listeners must be updated. See [the integration contract](docs/remote-events.md).
-
-## How this fork differs
-
-This project grew from [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask), based on upstream 1.2.0. It keeps the original question UI but focuses on agent-issued forms.
-
-Compared with that base, this fork adds background question queues and waiting, branch-local question history and export, connected external UI support, structured Codemode results, and Herdr waiting status.
-
-It removes `/answer`, `/answer:again`, and `/ask:replay`. There is no model-based extraction of questions from chat and no manual form replay. Agents should call `ask_user` directly. Normal questions do not make an extra model call.
-
-The bundled [ask-user skill](skills/ask-user/SKILL.md) guides the agent to ask before uncertain or consequential decisions. It is guidance, not an enforcement layer.
-
-## Development
-
-Use pnpm 10, matching CI:
-
-```bash
-pnpm install
-pnpm format
-pnpm typecheck
-pnpm test
-pnpm test:integration
-```
-
-Integration tests require Pi on PATH and the test harness's native `node-pty` build. `pnpm dev [path]` starts an isolated Pi session with this extension and its skill.
-
-See [the tool contract](docs/contract.md), [architecture](docs/architecture.md), and [contributing](CONTRIBUTING.md).
-
-## Credits
-
-The original question flow comes from [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask). Herdr support includes work from [maudelv's branch](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state), with original commit authors preserved. The bundled skill was inspired by [edlsh/pi-ask-user](https://github.com/edlsh/pi-ask-user).
-
-MIT license. See [LICENSE](LICENSE).
+Found a weird case? [Open an issue](https://github.com/alexshpunt/pi-agent-ask/issues). Got an idea? [Start a discussion](https://github.com/alexshpunt/pi-agent-ask/discussions). [Contributions](CONTRIBUTING.md) welcome. [MIT](LICENSE).
