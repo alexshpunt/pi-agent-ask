@@ -105,7 +105,7 @@ const SETTINGS = [
 	},
 	{
 		description:
-			"Reset behaviour, keymaps, notifications, and extraction settings to defaults. Press twice quickly to confirm.",
+			"Reset behaviour, keymaps, and notifications to defaults. Press twice quickly to confirm.",
 		key: "resetConfig",
 		section: "Actions",
 		label: "Reset config to defaults",
@@ -162,7 +162,7 @@ export class AskSettingsList {
 		const lines = [
 			this.topBorder(innerWidth),
 			this.line(
-				center(this.theme.fg("accent", "@eko24ive/pi-ask"), innerWidth),
+				center(this.theme.fg("accent", "pi-agent-ask"), innerWidth),
 				innerWidth
 			),
 			this.line("", innerWidth),
@@ -172,7 +172,7 @@ export class AskSettingsList {
 			lines,
 			this.theme.fg(
 				"muted",
-				"Edit this config file to customize keymaps, notifications, and extraction settings:"
+				"Edit this config file to customize keymaps and notifications:"
 			),
 			innerWidth
 		);

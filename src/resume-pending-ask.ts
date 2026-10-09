@@ -21,8 +21,7 @@ const REOPEN_REASONS: ReadonlySet<SessionStartEvent["reason"]> = new Set([
 	"resume",
 	"fork",
 ]);
-const DISMISS_NOTICE =
-	"Unanswered ask_user form dismissed; use /ask:replay to reopen it.";
+const DISMISS_NOTICE = "Unanswered ask_user form dismissed.";
 
 export function registerPendingAskResume(
 	pi: ExtensionAPI,

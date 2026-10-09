@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   release:
-    if: github.repository == 'alexshpunt/pi-ask'
+    if: github.repository == 'alexshpunt/pi-agent-ask'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,7 +49,7 @@ jobs:
           node --input-type=module -e '
             import fs from "node:fs";
             const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            if (pkg.name !== "@alexshpunt/pi-ask" || process.env.RELEASE_TAG !== "v" + pkg.version) {
+            if (pkg.name !== "pi-agent-ask" || process.env.RELEASE_TAG !== "v" + pkg.version) {
               throw new Error("Package identity or tag does not match the release");
             }
           '

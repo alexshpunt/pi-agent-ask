@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findLatestPayloadInCurrentBranch } from "../src/ask-payload-store.ts";
+import {
+	appendAskPayload,
+	findPayloadForSourceEntry,
+} from "../src/ask-payload-store.ts";
 import type { AskParams } from "../src/types.ts";
 
 const params: AskParams = {
@@ -12,85 +15,63 @@ const params: AskParams = {
 		},
 	],
 };
-
-function custom(data: unknown) {
-	return { type: "custom", customType: "ask:payload", data };
-}
-
-function ctx(branch: unknown[]) {
-	return { sessionManager: { getBranch: () => branch } } as never;
-}
-
-test("branch payload lookup returns the latest valid matching source", () => {
-	const older = {
-		version: 1,
-		source: "tool",
-		params,
-		timestamp: 1,
-	};
-	const newer = {
-		version: 1,
-		source: "tool",
-		params: { ...params, title: "Newer" },
-		timestamp: 2,
-	};
-
-	const result = findLatestPayloadInCurrentBranch(
-		ctx([custom(older), custom(newer)]),
-		"tool"
-	);
-
-	assert.equal(result.data, newer);
-	assert.equal(result.invalidMatchFound, false);
+const custom = (data: unknown) => ({
+	type: "custom",
+	customType: "ask:payload",
+	data,
 });
+const ctx = (branch: unknown[]) =>
+	({ sessionManager: { getBranch: () => branch } }) as never;
 
-test("branch payload lookup allows freeform only for answer extraction payloads", () => {
-	const freeformParams: AskParams = {
+test("stored tool payloads keep the original preview snapshot for recovery", () => {
+	const entries: unknown[] = [];
+	const previewParams = {
 		questions: [
 			{
-				id: "language",
-				prompt: "Which language?",
-				options: [{ value: "freeform", label: "Type answer", freeform: true }],
+				id: "preview",
+				prompt: "Choose",
+				type: "preview" as const,
+				options: [
+					{ value: "doc", label: "Document", preview: "Saved file text" },
+				],
 			},
 		],
 	};
-
-	const answerPayload = {
-		version: 1,
-		source: "answer-extraction",
-		params: freeformParams,
-		timestamp: 1,
-	};
-	const toolPayload = {
-		version: 1,
-		source: "tool",
-		params: freeformParams,
-		timestamp: 2,
-	};
-
-	assert.equal(
-		findLatestPayloadInCurrentBranch(
-			ctx([custom(answerPayload)]),
-			"answer-extraction"
-		).data,
-		answerPayload
+	appendAskPayload(
+		{
+			appendEntry(_type: string, data: unknown) {
+				entries.push(custom(data));
+			},
+		} as never,
+		{ params: previewParams, source: "tool", sourceEntryId: "call-1" }
+	);
+	assert.deepEqual(
+		findPayloadForSourceEntry(ctx(entries), "call-1", "tool")?.params,
+		previewParams
 	);
 	assert.equal(
-		findLatestPayloadInCurrentBranch(ctx([custom(toolPayload)]), "tool").data,
+		findPayloadForSourceEntry(ctx(entries), "other-call", "tool"),
 		undefined
 	);
 });
 
-test("branch payload lookup ignores invalid stored payloads", () => {
-	const result = findLatestPayloadInCurrentBranch(
-		ctx([
-			custom({ version: 1, source: "tool", params: { questions: [] } }),
-			custom({ version: 1, source: "tool", params: {} }),
-			custom({ version: 1, source: "answer-extraction", params }),
-		]),
-		"tool"
+test("recovery ignores invalid payloads and unrelated source entries", () => {
+	const valid = {
+		version: 1,
+		source: "tool",
+		sourceEntryId: "call-1",
+		params,
+		timestamp: 1,
+	};
+	const branch = [
+		custom(valid),
+		custom({ ...valid, params: { questions: [] } }),
+		custom({ ...valid, params: {} }),
+		custom({ ...valid, sourceEntryId: "other" }),
+	];
+	assert.equal(findPayloadForSourceEntry(ctx(branch), "call-1", "tool"), valid);
+	assert.equal(
+		findPayloadForSourceEntry(ctx(branch), "missing", "tool"),
+		undefined
 	);
-
-	assert.equal(result.data, undefined);
-	assert.equal(result.invalidMatchFound, true);
 });

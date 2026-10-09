@@ -41,7 +41,6 @@ test("config migration maps previous-version config files into current shape", (
 			name: "v2",
 			raw: {
 				schemaVersion: 2,
-				answer: DEFAULT_ASK_CONFIG.answer,
 				behaviour: DEFAULT_ASK_CONFIG.behaviour,
 				keymaps: legacyKeymaps,
 			},
@@ -50,7 +49,6 @@ test("config migration maps previous-version config files into current shape", (
 			name: "v3",
 			raw: {
 				schemaVersion: 3,
-				answer: DEFAULT_ASK_CONFIG.answer,
 				behaviour: DEFAULT_ASK_CONFIG.behaviour,
 				keymaps: legacyKeymaps,
 				notifications: DEFAULT_ASK_CONFIG.notifications,
@@ -85,7 +83,6 @@ test("config migration adds v5 defaults to v4 configs", () => {
 	);
 	const result = migrateAskConfig({
 		schemaVersion: 4,
-		answer: DEFAULT_ASK_CONFIG.answer,
 		behaviour: {
 			autoSubmitWhenAnsweredWithoutNotes: true,
 			confirmDismissWhenDirty: true,

@@ -1,12 +1,12 @@
-# Remote ask events
+# Integration events
 
-pi-ask exposes a local `pi.events` contract for trusted Pi extensions that run in the same Pi process.
+`pi-agent-ask` exposes local `pi.events` events for trusted extensions in the same Pi process. It does not expose a network API or automate terminal keystrokes.
 
-Use this for local bridges: status cards, desktop helpers, or approval UIs. Do not use terminal keystroke automation. pi-ask does not expose a network API.
+All integration channels use the `pi-agent-ask` prefix. Old `@eko24ive/pi-ask:*` listeners must be updated; there are no aliases.
 
 ## External UI negotiation
 
-Foreground `ask_user` in a non-TUI process emits `@eko24ive/pi-ask:external-ui` once per call, after validation and preview loading. This is a synchronous local event, not a wire protocol:
+Foreground `ask_user` outside TUI mode emits `pi-agent-ask:external-ui` once per call, after validation and preview loading. This synchronous event lets a connected bridge offer a UI:
 
 ```ts
 type ExternalAskConnection = {
@@ -32,117 +32,92 @@ type ExternalAskRequest = {
 };
 ```
 
-The bridge must already have checked its host's connection and capabilities. Offer a provider only for a supported host. The first valid provider wins; unsupported versions, another provider, and connections made after the listener returns are rejected. No connection means the existing cancelled non-TUI fallback. TUI and non-TUI background calls do not emit this event.
+The bridge must check its host's connection and capabilities before calling `connect`. The first valid provider wins. Unsupported versions, another provider, and connections made after the listener returns are rejected. Environment variables alone are not a connection. Without a provider, the tool returns its normal cancelled non-TUI fallback.
 
-`open` receives cloned, normalized questions. Local file previews are included as text, not file paths. Question types reflect `presentSingleAsMulti`. Keep `flowId` and `toolCallId` as correlation ids; do not choose an answer automatically.
+TUI and non-TUI background calls do not emit this event. Background questions and settings remain TUI-only. No browser UI is bundled.
 
-Resolve `open` with the same explicit `RemoteAskResponse` used by the submit channel below. The original tool call waits. pi-ask checks ids and values and computes labels, indices, notes, and elaboration itself. An invalid returned response is a tool error because the provider has finished. An invalid submit-channel response instead leaves the active form open so the UI can correct it.
+`open` receives cloned, normalized questions. Preview files have become text; types reflect `presentSingleAsMulti`. Keep `flowId` and `toolCallId` for correlation. Resolve with an explicit `RemoteAskResponse` as defined below. The original tool call waits; labels, indices, and result semantics are computed locally.
 
-The provider must listen to `signal` and close its UI/transport when it aborts. It aborts after answer, explicit cancel, operation abort, or failure, including when another local submitter completes the flow. Remove your own listeners and resources. Reject on disconnection or UI failure; do not turn these into user cancellation. Returning nothing is an error. Late responses are ignored; late submit-channel requests receive `flow_not_found`.
-
-For example, inside a bridge extension whose host handshake has already completed:
+Listen to `signal` and close the UI/transport when it aborts. It aborts after an answer, cancellation, operation abort, or failure, including completion by another local submitter. Reject on disconnection or UI failure rather than inventing a cancellation. An invalid response or no response is a tool error. Late responses are ignored; late submit-channel requests receive `flow_not_found`. Terminal paths dispose the active flow and provider resources.
 
 ```ts
-pi.events.on("@eko24ive/pi-ask:external-ui", (data) => {
+pi.events.on("pi-agent-ask:external-ui", (data) => {
   const connection = data as ExternalAskConnection;
   if (connection.version !== 1 || !host.isConnected()) return;
   connection.connect({
     version: 1,
     id: "my-host",
-    open: (request) => host.ask(request), // waits; closes on request.signal
+    open: (request) => host.ask(request),
   });
 });
 ```
 
-`host` above is the bridge's own transport, not a Pi API. Public types are in `src/external-ui.ts`. This API transports form data, not `ctx.ui.custom()` components or TUI keystrokes. Background questions, commands, replay, and settings remain TUI-only.
+`host` is the bridge's transport, not a Pi API. The public types are in `src/external-ui.ts`. This API carries form data, not TUI components or keystrokes. External flows also use the lifecycle and submit channels below. UI failures dispose the flow without a completed answer event. Notifications and Herdr waiting status belong to the TUI surface.
 
-Connected external flows also use the started/completed/submit channels below. UI failures dispose the flow without a completed answer event. Notifications and Herdr blocked-state reporting remain on the TUI surface.
+## Lifecycle channels
 
-## Channels
-
-Lifecycle:
-
-- `@eko24ive/pi-ask:started`
-- `@eko24ive/pi-ask:completed`
-
-Remote submit:
-
-- `@eko24ive/pi-ask:submit`
-- `@eko24ive/pi-ask:submit-result`
-
-## Started
-
-Emitted after a validated ask UI flow opens.
+- `pi-agent-ask:started`: a validated form opens.
+- `pi-agent-ask:completed`: a form resolves.
 
 ```ts
-type PiAskStartedEvent = {
+type RemoteAskStartedEvent = {
   version: 1;
   flowId: string;
   toolCallId?: string;
-  source: "tool" | "answer" | "answer:again" | "ask:replay" | "ask:resume";
+  source: "tool" | "ask:resume";
   title?: string;
   questions: AskQuestion[];
   createdAt: number;
 };
+
+type RemoteAskCompletedEvent = {
+  version: 1;
+  flowId: string;
+  toolCallId?: string;
+  source: "tool" | "ask:resume";
+  result: AskResult;
+  completedAt: number;
+};
 ```
 
-Use `flowId` for submit/correlation. Use `questions[].id` and `questions[].options[].value` for answers. `ask:resume` identifies a form recovered from an interrupted tool call. Started-event options preserve the public optional `recommended` boolean, which is presentation metadata only and never changes remote submission values or labels.
+Use question IDs and option values from the started event. `ask:resume` identifies an interrupted tool form. Recommendation markers are presentation metadata and do not change answer values or labels.
 
-## Submit an answer
+## Submit channels
+
+Submit to `pi-agent-ask:submit`; receive the acknowledgement on `pi-agent-ask:submit-result`.
 
 ```ts
-pi.events.emit("@eko24ive/pi-ask:submit", {
+type RemoteAskResponse =
+  | {
+      kind: "answer";
+      mode?: "submit" | "elaborate";
+      answers: Record<string, {
+        values?: string[];
+        customText?: string;
+        note?: string;
+        optionNotes?: Record<string, string>;
+      }>;
+    }
+  | { kind: "cancel" };
+
+pi.events.emit("pi-agent-ask:submit", {
   version: 1,
   requestId: `bridge-${Date.now()}`,
   flowId,
   response: {
     kind: "answer",
     mode: "submit",
-    answers: {
-      questionId: { values: ["option-value"] },
-    },
+    answers: { questionId: { values: ["option-value"] } },
   },
 });
 ```
 
-Answer shape:
+Question keys and selected values must exist in the started form. An answer replaces the current answer set rather than merging stale UI state. `mode` defaults to `submit`; `elaborate` requests clarification. Labels and indices are recomputed locally. Notes and custom text follow the normal tool contract.
+
+Cancel explicitly with `response: { kind: "cancel" }`. The extension never infers cancellation or approval from labels or button names.
 
 ```ts
-type PiAskRemoteAnswer = {
-  values?: string[];
-  customText?: string;
-  note?: string;
-  optionNotes?: Record<string, string>;
-};
-```
-
-Rules:
-
-- `values` must match option `value`s from the started event
-- keys in `answers` must match question ids
-- labels and indices are recomputed by pi-ask
-- a remote `answer` replaces the current answer set; stale UI answers are not merged
-- `mode` defaults to `"submit"`; use `"elaborate"` to complete as an elaboration request
-
-## Cancel
-
-```ts
-pi.events.emit("@eko24ive/pi-ask:submit", {
-  version: 1,
-  requestId: `bridge-${Date.now()}`,
-  flowId,
-  response: { kind: "cancel" },
-});
-```
-
-Cancel must be explicit. pi-ask does not infer cancel/approve/deny from labels or button names.
-
-## Submit result
-
-After a submit request, pi-ask emits:
-
-```ts
-type PiAskSubmitResultEvent =
+type RemoteAskSubmitResultEvent =
   | { version: 1; requestId: string; flowId: string; ok: true }
   | {
       version: 1;
@@ -154,88 +129,16 @@ type PiAskSubmitResultEvent =
     };
 ```
 
-Correlate by `requestId` and `flowId`. Do not depend on strict ordering between `submit-result` and `completed`.
+Correlate responses with `requestId` and `flowId`. Do not assume ordering between `submit-result` and `completed`. An invalid submit leaves the form open so the UI can correct the response; an invalid resolved external-provider response is instead a tool error.
 
-## Completed
+Third-party bridges own their UI policy and value mappings. They must use explicit values rather than ask the extension to infer approval semantics.
 
-Emitted when the flow resolves.
+## Verify locally
 
-```ts
-type PiAskCompletedEvent = {
-  version: 1;
-  flowId: string;
-  toolCallId?: string;
-  source: "tool" | "answer" | "answer:again" | "ask:replay" | "ask:resume";
-  result: AskResult;
-  completedAt: number;
-};
-```
-
-## Minimal bridge
-
-```ts
-export default function piAskBridge(pi: any) {
-  pi.events.on("@eko24ive/pi-ask:started", (event: any) => {
-    const question = event.questions[0];
-    const option = question.options[0];
-
-    pi.events.emit("@eko24ive/pi-ask:submit", {
-      version: 1,
-      requestId: `bridge-${Date.now()}`,
-      flowId: event.flowId,
-      response: {
-        kind: "answer",
-        answers: {
-          [question.id]: { values: [option.value] },
-        },
-      },
-    });
-  });
-
-  pi.events.on("@eko24ive/pi-ask:submit-result", (event: any) => {
-    if (!event.ok) console.error(event.error, event.message);
-  });
-}
-```
-
-Third-party integrations own their own UI policy and mappings. For example, a bridge may map a button to `{ values: ["yes"] }`, but pi-ask will never guess that mapping from the label.
-
-## Local smoke test
-
-Create a temporary bridge and run pi with only this repo extension plus the bridge:
+The real-Pi tests cover TUI submission, connected external calls, failures, and cleanup:
 
 ```bash
-cat > /tmp/pi-ask-smoke.ts <<'EOF'
-export default function smoke(pi: any) {
-  pi.events.on("@eko24ive/pi-ask:started", (event: any) => {
-    const q = event.questions[0];
-    setTimeout(() => {
-      pi.events.emit("@eko24ive/pi-ask:submit", {
-        version: 1,
-        requestId: `smoke-${Date.now()}`,
-        flowId: event.flowId,
-        response: { kind: "answer", answers: { [q.id]: { values: ["tool"] } } },
-      });
-    }, 2500);
-  });
-}
-EOF
-
-pi \
-  --no-extensions \
-  --no-skills \
-  --no-prompt-templates \
-  --no-themes \
-  --no-context-files \
-  -e "$PWD/src/index.ts" \
-  -e /tmp/pi-ask-smoke.ts \
-  --skill "$PWD/skills/ask-user"
+pnpm exec pi-test run -- node --test tests/integration/external-ui.test.ts
 ```
 
-Then ask Pi:
-
-```txt
-Use ask_user. Title: pi-ask smoke. Ask one single-select question id tool with options tool and nope.
-```
-
-The ask UI should open and auto-submit `tool` after about 2.5 seconds.
+For a manual check, load this extension and a trusted test bridge. Listen for `pi-agent-ask:started`, display its normalized questions, and submit an explicit response. Verify both the returned answer and `pi-agent-ask:submit-result`. See [the tool contract](contract.md) for result semantics.

@@ -38,14 +38,14 @@ export default function externalUiDriver(pi: ExtensionAPI): void {
 			resultSeen = true;
 		}
 	});
-	pi.events.on("@eko24ive/pi-ask:started", (data) => {
+	pi.events.on("pi-agent-ask:started", (data) => {
 		if (ctx?.mode !== "tui") {
 			return;
 		}
 		const started = data as RemoteAskStartedEvent;
 		setTimeout(
 			() =>
-				pi.events.emit("@eko24ive/pi-ask:submit", {
+				pi.events.emit("pi-agent-ask:submit", {
 					version: 1,
 					flowId: started.flowId,
 					requestId: "tui-answer",
@@ -57,7 +57,7 @@ export default function externalUiDriver(pi: ExtensionAPI): void {
 			100
 		);
 	});
-	pi.events.on("@eko24ive/pi-ask:external-ui", (data) => {
+	pi.events.on("pi-agent-ask:external-ui", (data) => {
 		if (scenario === "unconnected") {
 			return;
 		}

@@ -67,11 +67,11 @@ test("registers /ask-settings and opens the shared settings overlay", async () =
 		},
 	});
 	const text = customCalls[0]?.lines.join("\n") ?? "";
-	assert(text.includes("@eko24ive/pi-ask"));
+	assert(text.includes("pi-agent-ask"));
 	assert(text.includes("Edit this config file to customize"));
 	assert(text.includes("keymaps"));
 	assert(text.includes("notifications"));
-	assert(text.includes("extraction settings"));
+	assert(!text.includes("extraction settings"));
 
 	delete process.env.PI_CODING_AGENT_DIR;
 	await rm(agentDir, { force: true, recursive: true });

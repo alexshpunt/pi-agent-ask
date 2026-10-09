@@ -3,7 +3,6 @@ import { normalizeQuestions } from "./normalize.ts";
 import { createInitialState as createBaseState } from "./transitions.ts";
 
 interface CreateInitialStateOptions {
-	allowFreeform?: boolean;
 	presentSingleAsMulti?: boolean;
 }
 

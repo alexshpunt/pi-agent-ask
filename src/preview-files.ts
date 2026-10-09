@@ -10,10 +10,9 @@ type PreviewResolution =
 /** Load local preview files into a copied payload before opening or saving a form. */
 export async function resolvePreviewFiles(
 	params: AskParams,
-	cwd: string,
-	options: { allowFreeform?: boolean } = {}
+	cwd: string
 ): Promise<PreviewResolution> {
-	const issues = collectValidationIssues(params, options);
+	const issues = collectValidationIssues(params);
 	if (issues.length > 0) {
 		return { ok: false, issues };
 	}

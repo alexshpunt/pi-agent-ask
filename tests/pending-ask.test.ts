@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findLatestPayloadInCurrentBranch } from "../src/ask-payload-store.ts";
 import { DEFAULT_ASK_CONFIG } from "../src/config/defaults.ts";
 import { getAskConfigStore } from "../src/config/store.ts";
 import {
@@ -227,19 +226,6 @@ test("pending ask scan ignores tool results and persisted dismissals", () => {
 		),
 		undefined
 	);
-});
-
-test("pending dismissal does not hide the payload from manual replay", () => {
-	const lookup = findLatestPayloadInCurrentBranch(
-		scannerContext([
-			askToolCall("call-1"),
-			storedPayload("call-1"),
-			dismissed("call-1"),
-		]),
-		"tool"
-	);
-
-	assert.equal(lookup.data?.params, params);
 });
 
 test("pending ask resume scans only startup, resume, and fork TUI events", () => {

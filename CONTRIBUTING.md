@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to `@eko24ive/pi-ask`.
+Thanks for contributing to `pi-agent-ask`.
 
 ## Development setup
 

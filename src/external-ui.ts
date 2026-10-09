@@ -14,7 +14,7 @@ import { toAskResult } from "./state/result.ts";
 import type { AskQuestion, AskResult, AskState } from "./types.ts";
 
 /** Synchronous, per-call negotiation with a trusted extension in this Pi process. */
-export const PI_ASK_EXTERNAL_UI_EVENT = "@eko24ive/pi-ask:external-ui";
+export const PI_ASK_EXTERNAL_UI_EVENT = "pi-agent-ask:external-ui";
 
 /** A normalized foreground form. File previews have been loaded; paths are omitted. */
 export interface ExternalAskRequest {

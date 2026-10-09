@@ -29,5 +29,4 @@ export interface OptionDetailRenderContext {
 	state: AskState;
 	theme: Theme;
 	width: number;
-	withGap?: boolean;
 }

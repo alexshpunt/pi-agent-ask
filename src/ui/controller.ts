@@ -75,7 +75,6 @@ type Done = (result: AskResult) => void;
 type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 
 interface AskFlowOptions {
-	allowFreeform?: boolean;
 	herdrEvents?: AskEvents;
 	keepVisible?: boolean;
 	presentSingleAsMulti?: boolean;
@@ -118,7 +117,7 @@ export async function runAskFlow(
 	input: AskParams,
 	options: AskFlowOptions = {}
 ): Promise<AskResult> {
-	const resolved = await resolvePreviewFiles(input, ctx.cwd, options);
+	const resolved = await resolvePreviewFiles(input, ctx.cwd);
 	if (!resolved.ok) {
 		return invalidPayloadResponse(input, resolved.issues).details;
 	}

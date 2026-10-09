@@ -2,7 +2,6 @@ export type AskQuestionType = "single" | "multi" | "preview";
 
 export interface AskOption {
 	description?: string;
-	freeform?: boolean;
 	label: string;
 	preview?: string;
 	/** Local UTF-8 text file used instead of inline preview, resolved from Pi's cwd. */
@@ -159,7 +158,6 @@ export interface AskState {
 
 export interface AskDisplayOption extends AskOption {
 	isCustomOption?: boolean;
-	isFreeformOnlyOption?: boolean;
 }
 
 export type AskAction =
