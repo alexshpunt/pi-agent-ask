@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add the puzzled robot artwork, package gallery image, and social preview.
+- Give README a short WTF pitch and add package discovery keywords.
 - Rename the package and repository to `pi-agent-ask`, focused on agent-issued questions.
 - Remove `/answer`, `/answer:again`, `/ask:replay`, and model-based question extraction.
 - Use `extensions/pi-agent-ask.json` for settings and `pi-agent-ask:*` for integration events. Old settings files and event names are not reused.
