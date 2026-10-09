@@ -2,6 +2,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerAnswerCommands } from "./answer-commands.ts";
+import { registerAskHistoryTools } from "./ask-history-tools.ts";
 import { registerAskSettingsCommand } from "./ask-settings-command.ts";
 import { registerAskTool } from "./ask-tool.ts";
 import { registerBackgroundAnswerRenderer } from "./background-answer.ts";
@@ -31,6 +32,7 @@ export default function askExtension(pi: ExtensionAPI) {
 	const backgroundAsk = createBackgroundAskRuntime(pi, remoteAsk);
 	registerBackgroundAnswerRenderer(pi);
 	registerAskTool(pi, remoteAsk, backgroundAsk);
+	registerAskHistoryTools(pi);
 	registerWaitForAnswersTool(pi, backgroundAsk);
 	registerAskSettingsCommand(pi);
 	registerAnswerCommands(pi, remoteAsk);

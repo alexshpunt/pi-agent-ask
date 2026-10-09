@@ -3,6 +3,10 @@ import type {
 	ExtensionContext,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
+import {
+	appendAskHistoryCompletion,
+	findPendingHistoryRequest,
+} from "./ask-history.ts";
 import { successfulResponse } from "./ask-tool-helpers.ts";
 import {
 	appendPendingAskDismissal,
@@ -78,6 +82,16 @@ async function reopenPendingAsk(
 		ctx.ui.setWorkingVisible(true);
 	}
 
+	const requestId = findPendingHistoryRequest(
+		ctx.sessionManager.getBranch(),
+		pendingAsk.toolCallId
+	);
+	if (requestId) {
+		appendAskHistoryCompletion(pi, {
+			requestId,
+			result: { ...result, requestId },
+		});
+	}
 	appendPendingAskDismissal(pi, pendingAsk.toolCallId);
 	if (result.cancelled) {
 		ctx.ui.notify(DISMISS_NOTICE, "info");

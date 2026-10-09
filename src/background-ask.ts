@@ -4,6 +4,7 @@ import type {
 	ExtensionContext,
 	SessionBoundaryDraft,
 } from "@earendil-works/pi-coding-agent";
+import { appendAskHistoryCompletion } from "./ask-history.ts";
 import { formatQueuedAnswer } from "./background-answer.ts";
 import {
 	ASK_ANSWER_MESSAGE,
@@ -48,18 +49,21 @@ export class BackgroundAskRuntime {
 		requestId: string,
 		params: AskParams,
 		ctx: ExtensionContext,
-		presentSingleAsMulti: boolean
+		presentSingleAsMulti: boolean,
+		toolCallId?: string
 	) {
 		this.context ??= ctx;
 		if (!this.requests.some((request) => request.requestId === requestId)) {
 			this.pi.appendEntry(ASK_QUEUED_ENTRY, {
 				version: 1,
 				requestId,
+				...(toolCallId ? { toolCallId } : {}),
 				params,
 				presentSingleAsMulti,
 			});
 			this.requests.push({
 				requestId,
+				toolCallId,
 				params,
 				presentSingleAsMulti,
 				delivered: false,
@@ -273,7 +277,7 @@ export class BackgroundAskRuntime {
 					? {
 							runtime: this.remoteAsk,
 							source: "tool",
-							toolCallId: request.requestId,
+							toolCallId: request.toolCallId ?? request.requestId,
 						}
 					: undefined,
 			});
@@ -302,6 +306,7 @@ export class BackgroundAskRuntime {
 				if (signal.aborted) {
 					return;
 				}
+				appendAskHistoryCompletion(this.pi, completion);
 				this.pi.appendEntry(ASK_COMPLETED_ENTRY, completion);
 				request.completion = completion;
 				this.updateStatus();

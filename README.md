@@ -101,6 +101,18 @@ Each completed form reaches the agent between turns, without waiting for the res
 
 Never treat a queued receipt, cancellation, or empty wait result as approval. Do not make decisions that depend on unanswered questions. The queue follows the active session branch and survives reload/resume. See [the contract](docs/contract.md#background-queue).
 
+## Session question history
+
+The agent can recall ordinary and background `ask_user` questions after compaction, reload, or resume. The journal lives in the session file and follows only the current branch.
+
+- `list_ask_history` lists or searches question summaries, with an answered-only filter and paging.
+- `read_ask_history` reads a full question by `requestId` and `questionId`.
+- `export_ask_history` writes all or selected question records to a new Markdown file.
+
+These three tools have no visible TUI rows. Normal questions and answers still render as usual. Saved outcomes distinguish answers from waiting, cancellation, skipped questions, errors, and clarification. They are not automatic approval or instructions to reuse an old answer.
+
+The journal covers tool calls, not ordinary chat, `/answer`, or command replay. It does not reconstruct old sessions. See [the contract](docs/contract.md#session-question-history) for tool inputs and export rules.
+
 ## Feature walkthrough
 
 ### Native `@` file references

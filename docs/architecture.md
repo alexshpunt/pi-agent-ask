@@ -21,6 +21,9 @@ The codebase is split so the implementation reads through file boundaries and na
 
 - `src/index.ts` — extension entrypoint
 - `src/ask-tool.ts` — tool registration, non-interactive fallback, transcript rendering, ask payload capture
+- `src/ask-history.ts` / `src/ask-history-schema.ts` — journal entries, generated identities, per-question outcomes, and active-branch reads
+- `src/ask-history-tools.ts` — silent list/search, read, and export tools
+- `src/ask-history-export.ts` — literal Markdown snapshots and exclusive file creation
 - `src/answer-commands.ts` — `/answer`, `/answer:again`, and `/ask:replay` command wiring
 - `src/answer-extraction.ts` — configured, session-scope-aware extraction model selection, synthetic `ask_user` tool-call extraction, and tolerant text fallback
 - `src/ask-payload-store.ts` — branch-aware persisted ask payload lookup

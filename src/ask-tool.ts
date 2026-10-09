@@ -3,6 +3,10 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import {
+	appendAskHistoryCompletion,
+	appendAskHistoryRequest,
+} from "./ask-history.ts";
 import { appendAskPayload } from "./ask-payload-store.ts";
 import {
 	ASK_TOOL_DESCRIPTION,
@@ -112,26 +116,68 @@ async function executeAskTool(
 		source: "tool",
 		sourceEntryId: toolCallId,
 	});
+	const requestId = appendAskHistoryRequest(
+		pi,
+		toolCallId,
+		validation.state,
+		Boolean(params.background)
+	);
+	try {
+		return await executeRecordedAsk(
+			pi,
+			requestId,
+			toolCallId,
+			params,
+			validation.state,
+			signal,
+			ctx,
+			remoteAsk,
+			backgroundAsk
+		);
+	} catch (error) {
+		appendAskHistoryCompletion(pi, {
+			requestId,
+			error: error instanceof Error ? error.message : String(error),
+		});
+		throw error;
+	}
+}
+
+async function executeRecordedAsk(
+	pi: Pick<ExtensionAPI, "appendEntry" | "events">,
+	requestId: string,
+	toolCallId: string,
+	params: AskParams,
+	state: AskState,
+	signal: AbortSignal | undefined,
+	ctx: ExtensionContext,
+	remoteAsk?: RemoteAskRuntime,
+	backgroundAsk?: BackgroundAskRuntime
+) {
 	if (ctx.mode !== "tui") {
-		return executeNonTuiAsk(
+		const response = await executeNonTuiAsk(
 			pi,
 			ctx,
 			params,
-			validation.state,
+			state,
 			toolCallId,
 			signal,
 			remoteAsk
 		);
+		return recordResponse(pi, requestId, response);
 	}
 	if (params.background) {
 		if (!backgroundAsk) {
 			throw new Error("Background question queue is unavailable.");
 		}
 		const receipt = backgroundAsk.enqueue(
-			toolCallId,
+			requestId,
 			params,
 			ctx,
-			config.behaviour.presentSingleAsMulti
+			Boolean(
+				state.questions.some((question) => question.presentedType === "multi")
+			),
+			toolCallId
 		);
 		return {
 			content: [
@@ -153,8 +199,26 @@ async function executeAskTool(
 				: undefined,
 			herdrEvents: pi.events,
 		});
-		return successfulResponse(result);
+		return recordResponse(pi, requestId, successfulResponse(result));
 	} finally {
 		ctx.ui.setWorkingVisible(true);
 	}
+}
+
+function recordResponse(
+	pi: Pick<ExtensionAPI, "appendEntry">,
+	requestId: string,
+	response: ReturnType<typeof successfulResponse>
+) {
+	const result = { ...response.details, requestId };
+	appendAskHistoryCompletion(pi, { requestId, result });
+	return {
+		...response,
+		content: response.content.map((item) => ({
+			...item,
+			text: `ask_user [${requestId}]\n${item.text}`,
+		})),
+		details: result,
+		structuredContent: result,
+	};
 }

@@ -2,7 +2,8 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { AskOptionSchema, AskQuestionSchema } from "./schema.ts";
 
-const AnswerSchema = Type.Object({
+/** A submitted answer, including free text and saved notes. */
+export const AnswerSchema = Type.Object({
 	values: Type.Array(Type.String()),
 	labels: Type.Array(Type.String()),
 	indices: Type.Array(Type.Integer({ minimum: 1 })),
@@ -33,6 +34,7 @@ const ElaborationContext = {
 
 /** Structured ask result returned to Codemode; matches the tool's result details. */
 export const AskResultSchema = Type.Object({
+	requestId: Type.Optional(Type.String()),
 	title: Type.Optional(Type.String()),
 	cancelled: Type.Boolean(),
 	mode: StringEnum(["submit", "elaborate"] as const),
