@@ -32,7 +32,8 @@ export function waitForEditor(
 	return stop;
 }
 
-function containsEditor(component: unknown): boolean {
+/** Recognize a native editor through its public text methods and container children. */
+export function containsEditor(component: unknown): boolean {
 	if (typeof component !== "object" || component === null) {
 		return false;
 	}

@@ -81,15 +81,17 @@ function harness() {
 					let component: any;
 					const done = (result: AskResult) => {
 						component?.dispose?.();
+						focused = { getText: () => "", setText: () => undefined };
 						resolve(result);
 					};
 					component = factory(
-						{ requestRender: () => undefined },
+						tui,
 						{ fg: (_color: string, text: string) => text },
 						{},
 						done
 					);
 					forms.push(done);
+					focused = component;
 				});
 			},
 			setWidget(key: string, factory: any) {
@@ -99,7 +101,7 @@ function harness() {
 				}
 				const widget = factory(tui);
 				widgets.set(key, widget);
-				widget.render(80);
+				queueMicrotask(() => widget.render(80));
 			},
 			setStatus: () => undefined,
 			notify: () => undefined,
@@ -238,8 +240,8 @@ test("recovery waits for the editor instead of opening behind the reload screen"
 	t.after(() => h.runtime.dispose());
 	h.runtime.enqueue("pending-reload", params, h.ctx as never, false);
 	await tick();
-	h.setEditorReady(false);
 	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(false);
 	await tick();
 	assert.equal(h.forms.length, 1);
 	assert.equal(h.runtime.pendingCount(), 1);
@@ -257,8 +259,8 @@ test("new requests cannot bypass recovery while the editor is loading", async (t
 	t.after(() => h.runtime.dispose());
 	h.runtime.enqueue("first", params, h.ctx as never, false);
 	await tick();
-	h.setEditorReady(false);
 	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(false);
 	h.runtime.enqueue("second", params, h.ctx as never, false);
 	await tick();
 	assert.equal(h.forms.length, 1);
@@ -276,8 +278,8 @@ test("leaving a recovering branch removes its editor wait", async (t) => {
 	t.after(() => h.runtime.dispose());
 	h.runtime.enqueue("old", params, h.ctx as never, false);
 	await tick();
-	h.setEditorReady(false);
 	h.runtime.restore(h.ctx as never);
+	h.setEditorReady(false);
 	h.branch.length = 0;
 	h.runtime.restore(h.ctx as never);
 	h.setEditorReady(true);

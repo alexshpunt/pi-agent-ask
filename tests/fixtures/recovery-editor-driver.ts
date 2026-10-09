@@ -34,7 +34,10 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 	const currentFlow = (): RemoteAskStartedEvent | undefined => state.active;
 	let isVisible: (() => boolean) | undefined;
 	let ready: (() => void) | undefined;
+	let mounted: (() => void) | undefined;
+	let startedFlows = 0;
 	pi.events.on(PI_ASK_STARTED_EVENT, (payload) => {
+		startedFlows += 1;
 		state.active = payload as RemoteAskStartedEvent;
 		ready?.();
 	});
@@ -44,6 +47,9 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 			custom(async (...args) => {
 				const component = await factory(...args);
 				isVisible = () => contains(args[0], component);
+				if (component.handleInput) {
+					setImmediate(() => mounted?.());
+				}
 				return component;
 			}, options);
 	});
@@ -76,12 +82,28 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 				});
 			}
 			await new Promise<void>((resolve) => setImmediate(resolve));
+			const flowsBeforeRemount = startedFlows;
+			process.stdin.emit("data", "n");
+			process.stdin.emit("data", "saved note");
+			const remounted = new Promise<void>((resolve) => {
+				const timeout = setTimeout(resolve, 500);
+				mounted = () => {
+					clearTimeout(timeout);
+					resolve();
+				};
+			});
+			// Real reload can restore the editor again after session_start already opened a form.
+			ctx.ui.setEditorComponent(undefined);
+			await remounted;
+			await new Promise<void>((resolve) => setImmediate(resolve));
 			const visible = isVisible?.() ?? false;
 			const flow = currentFlow();
 			if (!flow) {
 				throw new Error("Recovered form did not open");
 			}
 			if (visible) {
+				process.stdin.emit("data", "\r");
+				await new Promise<void>((resolve) => setImmediate(resolve));
 				process.stdin.emit("data", "\r");
 				await new Promise<void>((resolve) => setImmediate(resolve));
 				process.stdin.emit("data", "\r");
@@ -99,7 +121,7 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 			}
 			return {
 				content: [{ type: "text", text: `Recovered form visible: ${visible}` }],
-				details: { visible },
+				details: { visible, newFlows: startedFlows - flowsBeforeRemount },
 			};
 		},
 	});

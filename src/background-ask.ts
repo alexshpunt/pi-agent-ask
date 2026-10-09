@@ -281,6 +281,7 @@ export class BackgroundAskRuntime {
 	): Promise<QueuedAnswer> {
 		try {
 			const result = await runAskFlow(ctx, request.params, {
+				keepVisible: true,
 				signal,
 				presentSingleAsMulti: request.presentSingleAsMulti,
 				herdrEvents: this.pi.events,

@@ -52,10 +52,11 @@ test("recovered background forms stay visible after the loading screen restores 
 	assert.equal(getToolExecution(result, "restore").isError, false);
 	assert.deepEqual(
 		getToolExecutionDetails(getToolExecution(result, "restore")),
-		{ visible: true }
+		{ visible: true, newFlows: 0 }
 	);
 	assert.equal(getToolExecution(result, "wait").isError, false);
 	assert(result.tuiRenderedOutput.includes("Recovered question?"));
 	assert(result.tuiRenderedOutput.includes("Yes"));
 	assert(JSON.stringify(result.providerRequests).includes("Q1 [choice]: Yes"));
+	assert(JSON.stringify(result.providerRequests).includes("saved note"));
 });
