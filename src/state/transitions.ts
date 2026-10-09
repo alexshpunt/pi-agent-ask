@@ -1,6 +1,7 @@
 import type { AskAction, AskState } from "../types.ts";
 import {
 	emptyAnswer,
+	hasCustomAnswer,
 	isAnswerAnswered,
 	isAnswerEmpty,
 	saveCustomText,
@@ -224,9 +225,9 @@ function activateCustomOption(
 ): AskState {
 	if (questionType === "multi" && trigger !== "confirm") {
 		const answer = getAnswer(state, questionId);
-		if (answer?.customText?.trim()) {
+		if (hasCustomAnswer(answer)) {
 			return updateAnswer(state, questionId, (currentAnswer) =>
-				setCustomSelected(currentAnswer, !answer.customSelected)
+				setCustomSelected(currentAnswer, !answer?.customSelected)
 			);
 		}
 	}

@@ -1,5 +1,6 @@
 import { UI_DIMENSIONS, UI_TEXT } from "../../constants/ui.ts";
-import { isOptionSelected } from "../../state/answers.ts";
+import { withImageMarker } from "../../images.ts";
+import { hasCustomAnswer, isOptionSelected } from "../../state/answers.ts";
 import {
 	getAnswer,
 	getOptionNote,
@@ -75,7 +76,10 @@ function buildQuestionNoteModel(
 	if (isQuestionNoteOpen(state, question.id)) {
 		return { kind: "editor", placeholder: UI_TEXT.editorPlaceholderNote };
 	}
-	const note = getQuestionNote(state, question.id);
+	const note = withImageMarker(
+		getQuestionNote(state, question.id),
+		getAnswer(state, question.id)?.noteImages
+	);
 	return note ? { kind: "saved", text: note } : undefined;
 }
 
@@ -88,7 +92,7 @@ function buildOptionRowModel(
 	const answer = getAnswer(state, question.id);
 	const selected = index === state.activeOptionIndex;
 	const answered = option.isCustomOption
-		? !!(answer?.customSelected && answer.customText?.trim())
+		? !!(answer?.customSelected && hasCustomAnswer(answer))
 		: isOptionSelected(answer, option.value);
 	const pointer = getOptionPointer(selected);
 	return {
@@ -130,10 +134,15 @@ function buildOptionDetailModel(
 	const noteOpen =
 		!option.isCustomOption &&
 		isOptionNoteOpen(state, question.id, option.value);
-	const customText = option.isCustomOption ? answer?.customText : undefined;
+	const customText = option.isCustomOption
+		? withImageMarker(answer?.customText, answer?.customImages)
+		: undefined;
 	const note = option.isCustomOption
 		? undefined
-		: getOptionNote(state, question.id, option.value);
+		: withImageMarker(
+				getOptionNote(state, question.id, option.value),
+				answer?.optionNoteImages?.[option.value]
+			);
 
 	if (noteOpen) {
 		return {

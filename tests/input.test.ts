@@ -292,7 +292,7 @@ test("custom editor submit key controls actual editor submission", async () => {
 						component = callback(
 							tui,
 							plainTheme(),
-							{},
+							{ matches: () => false, getKeys: () => ["ctrl+v"] },
 							resolve
 						) as typeof component;
 					});
@@ -374,7 +374,7 @@ test("ask flow forwards focus and invalidation to its editor", async () => {
 									},
 								},
 								plainTheme(),
-								{},
+								{ matches: () => false, getKeys: () => ["ctrl+v"] },
 								resolve
 							) as typeof component;
 						});

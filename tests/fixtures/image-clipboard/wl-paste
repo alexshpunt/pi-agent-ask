@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+const mode = process.env.PI_ASK_TEST_CLIPBOARD;
+if (mode === "unavailable") process.exit(1);
+if (process.argv.includes("--list-types")) process.stdout.write(mode === "empty" ? "text/plain\n" : "image/png\n");
+else process.stdout.write(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aH9sAAAAASUVORK5CYII=", "base64"));

@@ -157,7 +157,10 @@ function outcomeStatus(
 /** Notes alone are not a committed answer. Clarification can still carry a prior answer. */
 export function hasCommittedAnswer(answer?: AskResultAnswer): boolean {
 	return Boolean(
-		answer && (answer.values.length > 0 || answer.customText?.trim())
+		answer &&
+			(answer.values.length > 0 ||
+				answer.customText?.trim() ||
+				answer.customImages?.length)
 	);
 }
 

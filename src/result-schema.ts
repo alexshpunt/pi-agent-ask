@@ -2,8 +2,22 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { AskOptionSchema, AskQuestionSchema } from "./schema.ts";
 
+export const AskImageSchema = Type.Object({
+	id: Type.String(),
+	mimeType: Type.String(),
+	data: Type.String(),
+});
+const ImageFields = {
+	customImages: Type.Optional(Type.Array(AskImageSchema)),
+	noteImages: Type.Optional(Type.Array(AskImageSchema)),
+	optionNoteImages: Type.Optional(
+		Type.Record(Type.String(), Type.Array(AskImageSchema))
+	),
+};
+
 /** A submitted answer, including free text and saved notes. */
 export const AnswerSchema = Type.Object({
+	...ImageFields,
 	values: Type.Array(Type.String()),
 	labels: Type.Array(Type.String()),
 	indices: Type.Array(Type.Integer({ minimum: 1 })),
@@ -26,6 +40,7 @@ const ElaborationQuestionSchema = Type.Object({
 });
 
 const ElaborationContext = {
+	images: Type.Optional(Type.Array(AskImageSchema)),
 	question: ElaborationQuestionSchema,
 	answered: Type.Boolean(),
 	answer: Type.Optional(AnswerSchema),

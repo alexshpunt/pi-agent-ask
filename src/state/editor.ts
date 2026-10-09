@@ -1,4 +1,5 @@
-import type { AskState } from "../types.ts";
+import type { AskImage, AskState, AskStateAnswer } from "../types.ts";
+import { hasCustomAnswer, isAnswerEmpty } from "./answers.ts";
 import {
 	getAnswer,
 	getCurrentOption,
@@ -15,6 +16,63 @@ import {
 } from "./transitions.ts";
 import { isEditingView } from "./view.ts";
 
+/** Read the images owned by the currently open editor. */
+export function getEditorImages(state: AskState): AskImage[] {
+	const view = state.view;
+	if (view.kind !== "input" && view.kind !== "note") {
+		return [];
+	}
+	const answer = state.answers[view.questionId];
+	if (view.kind === "input") {
+		return answer?.customImages ?? [];
+	}
+	return (
+		(view.optionValue
+			? answer?.optionNoteImages?.[view.optionValue]
+			: answer?.noteImages) ?? []
+	);
+}
+
+/** Replace images only in the active editor; text and other editors are untouched. */
+export function setEditorImages(state: AskState, images: AskImage[]): AskState {
+	const view = state.view;
+	if (view.kind !== "input" && view.kind !== "note") {
+		return state;
+	}
+	const answer = updateEditorImages(
+		state.answers[view.questionId] ?? { selected: [] },
+		view,
+		images
+	);
+	const answers = { ...state.answers };
+	if (isAnswerEmpty(answer)) {
+		delete answers[view.questionId];
+	} else {
+		answers[view.questionId] = answer;
+	}
+	return { ...state, answers };
+}
+function updateEditorImages(
+	saved: AskStateAnswer,
+	view: Extract<AskState["view"], { kind: "input" | "note" }>,
+	images: AskImage[]
+): AskStateAnswer {
+	const answer = { ...saved };
+	if (view.kind === "input") {
+		answer.customImages = images.length ? images : undefined;
+	} else if (view.optionValue) {
+		const notes = { ...answer.optionNoteImages };
+		if (images.length) {
+			notes[view.optionValue] = images;
+		} else {
+			delete notes[view.optionValue];
+		}
+		answer.optionNoteImages = Object.keys(notes).length ? notes : undefined;
+	} else {
+		answer.noteImages = images.length ? images : undefined;
+	}
+	return answer;
+}
 export function getEditorDraft(state: AskState): string {
 	if (state.view.kind === "input") {
 		return getAnswer(state, state.view.questionId)?.customText ?? "";
@@ -62,7 +120,7 @@ export function syncStateToSelection(state: AskState): AskState {
 		return state;
 	}
 
-	if (getAnswer(state, question.id)?.customText?.trim()) {
+	if (hasCustomAnswer(getAnswer(state, question.id))) {
 		return state;
 	}
 

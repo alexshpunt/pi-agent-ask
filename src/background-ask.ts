@@ -15,6 +15,7 @@ import {
 	restoreQueuedRequests,
 	type WaitForAnswersResult,
 } from "./background-ask-state.ts";
+import { imageContent } from "./images.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
 import type { AskParams } from "./types.ts";
 import { runAskFlow } from "./ui/controller.ts";
@@ -376,9 +377,12 @@ function waitInterrupted(): DOMException {
 }
 
 function answerMessage(answer: QueuedAnswer) {
+	const images = answer.result ? imageContent(answer.result) : [];
 	return {
 		customType: ASK_ANSWER_MESSAGE,
-		content: formatQueuedAnswer(answer),
+		content: images.length
+			? [{ type: "text" as const, text: formatQueuedAnswer(answer) }, ...images]
+			: formatQueuedAnswer(answer),
 		display: true,
 		details: answer,
 	};

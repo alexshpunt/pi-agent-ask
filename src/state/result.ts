@@ -36,9 +36,15 @@ export type ReviewAnswer = AskResult["answers"][string] & {
 export function toAskResult(state: AskState): AskResult {
 	const answers = Object.fromEntries(
 		Object.entries(state.answers)
-			.map(
-				([questionId, answer]) => [questionId, serializeAnswer(answer)] as const
-			)
+			.map(([questionId, answer]) => {
+				const serialized = serializeAnswer(answer);
+				if (state.cancelled) {
+					serialized.customImages = undefined;
+					serialized.noteImages = undefined;
+					serialized.optionNoteImages = undefined;
+				}
+				return [questionId, serialized] as const;
+			})
 			.filter(([, answer]) =>
 				state.mode === "elaborate"
 					? isResultAnswerCommitted(answer)
@@ -66,7 +72,9 @@ export function toAskResult(state: AskState): AskResult {
 				? serializeContinuation(state, answers)
 				: undefined,
 		elaboration:
-			state.mode === "elaborate" ? serializeElaboration(state) : undefined,
+			state.mode === "elaborate" && !state.cancelled
+				? serializeElaboration(state)
+				: undefined,
 	};
 }
 
@@ -150,36 +158,46 @@ function serializeElaborationItemsForQuestion(
 	const answered = isAnswerAnswered(answer);
 	const items: AskElaborationPayload["items"] = [];
 
-	if (answer.note) {
+	if (answer.note || answer.noteImages?.length) {
 		items.push({
 			target: { kind: "question" },
 			question: questionContext,
 			answered,
 			answer: serializedAnswer,
-			note: answer.note,
+			note: answer.note ?? "",
+			...(answer.noteImages?.length ? { images: answer.noteImages } : {}),
 		});
 	}
 
-	for (const [value, note] of Object.entries(answer.optionNotes ?? {})) {
+	return [...items, ...serializeOptionNotes(question, answer)];
+}
+
+function serializeOptionNotes(
+	question: AskState["questions"][number],
+	answer: AskStateAnswer
+): AskElaborationPayload["items"] {
+	const items: AskElaborationPayload["items"] = [];
+	for (const value of new Set([
+		...Object.keys(answer.optionNotes ?? {}),
+		...Object.keys(answer.optionNoteImages ?? {}),
+	])) {
+		const note = answer.optionNotes?.[value] ?? "";
+		const images = answer.optionNoteImages?.[value];
 		const option = getQuestionOptionByValue(question, value);
-		if (!(option && note)) {
+		if (!(option && (note || images?.length))) {
 			continue;
 		}
-
 		items.push({
-			target: {
-				kind: "option",
-				optionValue: value,
-			},
-			question: questionContext,
+			target: { kind: "option", optionValue: value },
+			question: createElaborationQuestionContext(question),
 			option: cloneOption(option),
 			selected: isOptionSelected(answer, value),
-			answered,
-			answer: serializedAnswer,
+			answered: isAnswerAnswered(answer),
+			answer: toCommittedResultAnswer(answer),
 			note,
+			...(images?.length ? { images } : {}),
 		});
 	}
-
 	return items;
 }
 
@@ -232,7 +250,9 @@ export function toReviewAnswer(
 	const serialized = serializeAnswer(answer);
 	const hasCommittedAnswer = isResultAnswerCommitted(serialized);
 	if (!showAllNotes) {
-		return hasCommittedAnswer ? serialized : undefined;
+		return hasCommittedAnswer || serialized.noteImages?.length
+			? serialized
+			: undefined;
 	}
 
 	const extraOptionNotes = getExtraOptionNotes({
@@ -241,7 +261,7 @@ export function toReviewAnswer(
 		selectedValues: serialized.values,
 	});
 	if (
-		!(hasCommittedAnswer || serialized.note) &&
+		!(hasCommittedAnswer || serialized.note || serialized.noteImages?.length) &&
 		extraOptionNotes.length === 0
 	) {
 		return;
@@ -261,6 +281,9 @@ export function shouldRenderAnswersIndividually(answer: ReviewAnswer): boolean {
 
 	return (
 		answer.labels.length > 1 ||
-		Boolean(answer.optionNotes && Object.keys(answer.optionNotes).length > 0)
+		Boolean(answer.optionNotes && Object.keys(answer.optionNotes).length > 0) ||
+		Boolean(
+			answer.optionNoteImages && Object.keys(answer.optionNoteImages).length > 0
+		)
 	);
 }

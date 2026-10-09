@@ -2,9 +2,10 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { Editor, type EditorTheme } from "@earendil-works/pi-tui";
+import { Editor, type EditorTheme, matchesKey } from "@earendil-works/pi-tui";
 import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
+import { readClipboardImage } from "../clipboard-image.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
 import {
@@ -23,7 +24,9 @@ import {
 import { createInitialState } from "../state/create.ts";
 import {
 	getEditorDraft,
+	getEditorImages,
 	saveEditorDraft,
+	setEditorImages,
 	submitEditorDraft,
 	syncStateToSelection,
 } from "../state/editor.ts";
@@ -95,12 +98,16 @@ type AskFlowParams = AskParams &
 	};
 
 interface AskFlowController {
+	clipboardNotice?: string;
+	clipboardReading: boolean;
 	config: AskConfig;
 	configNotice?: string;
 	ctx: ExtensionContext;
 	dismissNotice?: string;
+	disposed: boolean;
 	done: Done;
 	editor: Editor;
+	keybindings: Keybindings;
 	pendingQuestionTypeChangeQuestionId?: string;
 	pendingReviewShortcutActionIndex?: number;
 	remoteFlow?: RemoteAskFlowHandle;
@@ -173,7 +180,7 @@ function emitHerdrBlocked(
 }
 
 function createAskFlowController(
-	[tui, theme, _keybindings, done]: [
+	[tui, theme, keybindings, done]: [
 		Tui,
 		Theme,
 		Keybindings,
@@ -182,6 +189,9 @@ function createAskFlowController(
 	params: AskFlowParams
 ) {
 	const controller: AskFlowController = {
+		clipboardReading: false,
+		disposed: false,
+		keybindings,
 		config: params.config,
 		configNotice: params.configNotice,
 		ctx: params.ctx,
@@ -212,7 +222,8 @@ function createAskFlowController(
 	});
 
 	const abort = () => {
-		controller.done({ ...toAskResult(controller.state), cancelled: true });
+		controller.state = cancelFlow(controller.state);
+		controller.done(toAskResult(controller.state));
 	};
 	params.flowOptions.signal?.addEventListener("abort", abort, { once: true });
 	if (params.flowOptions.signal?.aborted) {
@@ -240,6 +251,7 @@ function createAskFlowController(
 			handleControllerInput(controller, data);
 		},
 		dispose() {
+			controller.disposed = true;
 			params.flowOptions.signal?.removeEventListener("abort", abort);
 			controller.remoteFlow?.dispose();
 			controller.unsubscribeConfig();
@@ -271,12 +283,79 @@ function handleControllerInput(controller: AskFlowController, data: string) {
 		isEditingView(controller.state) ? controller.editor.getText() : ""
 	);
 	if (isEditingView(controller.state)) {
+		if (
+			command.kind === "delegateToEditor" &&
+			controller.keybindings.matches(data, "app.clipboard.pasteImage")
+		) {
+			pasteImage(controller);
+			return;
+		}
+		if (
+			command.kind === "delegateToEditor" &&
+			matchesKey(data, "ctrl+alt+d") &&
+			getEditorImages(controller.state).length
+		) {
+			controller.state = setEditorImages(
+				controller.state,
+				getEditorImages(controller.state).slice(0, -1)
+			);
+			refresh(controller);
+			return;
+		}
 		handleEditingCommand(controller, command, data);
 		return;
 	}
 	handleNavigationCommand(controller, command);
 }
 
+function isPasteTarget(
+	controller: AskFlowController,
+	view: AskState["view"]
+): boolean {
+	return (
+		!(controller.disposed || controller.state.completed) &&
+		controller.state.view === view
+	);
+}
+function clipboardErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+async function pasteImage(controller: AskFlowController): Promise<void> {
+	if (controller.clipboardReading) {
+		return;
+	}
+	const view = controller.state.view;
+	controller.clipboardReading = true;
+	controller.clipboardNotice = "Reading image clipboard…";
+	refresh(controller);
+	try {
+		const image = await readClipboardImage();
+		if (!isPasteTarget(controller, view)) {
+			return;
+		}
+		controller.clipboardNotice = image
+			? undefined
+			: "No image in the clipboard.";
+		if (image) {
+			controller.state = setEditorImages(controller.state, [
+				...getEditorImages(controller.state),
+				image,
+			]);
+		}
+	} catch (error) {
+		if (isPasteTarget(controller, view)) {
+			controller.clipboardNotice = clipboardErrorMessage(error);
+		}
+	} finally {
+		controller.clipboardReading = false;
+		if (!isPasteTarget(controller, view)) {
+			controller.clipboardNotice = undefined;
+		}
+		if (!controller.disposed) {
+			refresh(controller);
+		}
+	}
+}
 function isNativeEditorSubmitEnabled(controller: AskFlowController): boolean {
 	if (controller.state.view.kind === "input") {
 		return controller.config.keymaps.editor.submit.includes("enter");
@@ -532,6 +611,7 @@ function shouldRequestDismissConfirmation(
 function clearFooterNotices(controller: AskFlowController) {
 	controller.configNotice = undefined;
 	controller.dismissNotice = undefined;
+	controller.clipboardNotice = undefined;
 }
 
 function clearReviewShortcutPending(controller: AskFlowController) {
@@ -589,7 +669,18 @@ function handleReviewShortcutNumber(
 }
 
 function getFooterNotice(controller: AskFlowController): string | undefined {
-	return controller.dismissNotice ?? controller.configNotice;
+	const notice =
+		controller.clipboardNotice ??
+		controller.dismissNotice ??
+		controller.configNotice;
+	if (!isEditingView(controller.state)) {
+		return notice;
+	}
+	const keys = controller.keybindings
+		.getKeys("app.clipboard.pasteImage")
+		.join("/");
+	const hint = `${keys || "Paste image"}: attach image${getEditorImages(controller.state).length ? " · Ctrl+Alt+D: remove last image" : ""}`;
+	return [notice, hint].filter(Boolean).join("\n");
 }
 
 function showSettingsModal(controller: AskFlowController) {

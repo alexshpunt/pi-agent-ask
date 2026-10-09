@@ -14,6 +14,7 @@ import {
 	type HistoryRecord,
 	HistoryRecordSchema,
 } from "./ask-history-schema.ts";
+import { imageContent } from "./images.ts";
 
 const ListItemSchema = Type.Object({
 	...Type.Pick(HistoryRecordSchema, [
@@ -56,7 +57,16 @@ function invisible() {
 }
 function response<T>(data: T) {
 	return {
-		content: [{ type: "text" as const, text: JSON.stringify(data) }],
+		content: [
+			{
+				type: "text" as const,
+				text: JSON.stringify(data, (key, value) =>
+					key === "data" && typeof value === "string"
+						? "[image bytes in structuredContent]"
+						: value
+				),
+			},
+		],
 		details: data,
 		structuredContent: data,
 	};
@@ -80,6 +90,30 @@ function summary(record: HistoryRecord) {
 	};
 }
 
+function historyResponse(record: HistoryRecord) {
+	const result = response({ record });
+	return {
+		...result,
+		content: [
+			...result.content,
+			...imageContent({
+				cancelled: record.status === "cancelled",
+				mode: record.mode ?? "submit",
+				questions: [record.question],
+				answers: record.answer ? { [record.questionId]: record.answer } : {},
+				...(record.elaboration?.length
+					? {
+							elaboration: {
+								items: record.elaboration,
+								instruction: "",
+								nextAction: "clarify" as const,
+							},
+						}
+					: {}),
+			}),
+		],
+	};
+}
 /** Register three agent-callable tools with intentionally empty native TUI rows. */
 export function registerAskHistoryTools(pi: ExtensionAPI): void {
 	const renderers = {
@@ -132,7 +166,7 @@ export function registerAskHistoryTools(pi: ExtensionAPI): void {
 		...renderers,
 		execute(_id, key, _signal, _update, ctx) {
 			const [record] = selectAskHistory(records(ctx), [key]);
-			return Promise.resolve(response({ record }));
+			return Promise.resolve(historyResponse(record));
 		},
 	});
 	pi.registerTool({

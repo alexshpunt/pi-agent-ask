@@ -97,9 +97,9 @@ async function reopenPendingAsk(
 		return;
 	}
 
-	const text = successfulResponse(result).content[0].text;
+	const content = successfulResponse(result).content;
 	pi.sendUserMessage(
-		text,
+		content.length === 1 ? content[0].text : content,
 		ctx.isIdle() ? undefined : { deliverAs: "followUp" }
 	);
 }

@@ -4,6 +4,9 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { UI_DIMENSIONS, UI_TEXT } from "../constants/ui.ts";
+import { imageMarker } from "../images.ts";
+import { getEditorImages } from "../state/editor.ts";
+import type { AskImage } from "../types.ts";
 import {
 	measurePreviewLeftWidth,
 	mergeColumns,
@@ -54,6 +57,7 @@ function renderQuestionNote(
 			indent: " ",
 			padding: UI_DIMENSIONS.editorContentPadding,
 			placeholder: questionNote.placeholder,
+			images: getEditorImages(context.state),
 		});
 		lines.push("");
 		return;
@@ -206,6 +210,7 @@ function renderOptionDetail(
 			indent,
 			padding,
 			placeholder: detail.placeholder,
+			images: getEditorImages(context.state),
 		});
 		return;
 	}
@@ -238,6 +243,7 @@ function renderEditorWithIndent(args: {
 	indent: string;
 	padding: number;
 	placeholder: string;
+	images: AskImage[];
 }) {
 	const { lines, editor, width, theme, indent, padding, placeholder } = args;
 	renderEditorBlock({
@@ -252,6 +258,17 @@ function renderEditorWithIndent(args: {
 		placeholder,
 		isEmpty: editor.getText().length === 0,
 	});
+	if (args.images.length) {
+		pushWrappedText(
+			lines,
+			imageMarker(args.images),
+			width,
+			theme,
+			"muted",
+			indent,
+			indent
+		);
+	}
 }
 
 function formatOptionLabel(row: OptionRowModel): string {

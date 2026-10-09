@@ -45,6 +45,14 @@ It still has to wait before doing work that depends on your answer. “Keep work
 
 The bundled [skill](skills/ask-user/SKILL.md) guides the agent to ask when a decision matters. It doesn't force every agent to behave.
 
+## Paste a screenshot into your answer
+
+In **Type your own**, a question note, or an option note, use Pi's image-paste shortcut shown in the form. It is usually `Ctrl+V` on Linux/macOS and `Alt+V` on Windows/WSL. Paste several images if needed; `Ctrl+Alt+D` removes the last image in that editor.
+
+The form shows `[1 image]`, not a graphical preview. Text is optional. The agent receives the image itself, including in background answers and clarification requests. Images stay in session history; Markdown exports embed them as data URIs, which not every viewer can display.
+
+Linux needs a working native clipboard, `wl-paste`, or `xclip`. WSL can read screenshots from the Windows clipboard through PowerShell. File-path attachments and remote-client image uploads are not included.
+
 ## Your answers aren't disposable
 
 The agent can look up earlier questions and answers, then export them as a Markdown artifact for your task:
