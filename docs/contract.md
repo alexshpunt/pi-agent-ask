@@ -242,6 +242,8 @@ Results already delivered asynchronously are not repeated. Forms completed durin
 
 Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
 
+Recovered forms wait until Pi restores the editor after its lifecycle loading screen. They then open in the usual editor slot; the loading screen must not hide a still-pending form. This wait does not use a timer, reopen completed forms, or stop independent agent work.
+
 Open background forms emit `herdr:blocked` while the agent keeps working, with cleanup when the form closes. Aborting an explicit wait does not clear an open form's blocked status. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
 
 ## Supported UX
