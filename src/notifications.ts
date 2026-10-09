@@ -4,7 +4,7 @@ import type { AskConfig } from "./config/schema.ts";
 import type { AskQuestion } from "./types.ts";
 
 const execAsync = promisify(exec);
-const DEFAULT_TITLE = "pi ask";
+const DEFAULT_TITLE = "pi-agent-ask";
 const EVENT = "question.waiting";
 const MAX_MESSAGE_LENGTH = 120;
 const COMMAND_TIMEOUT_MS = 5000;

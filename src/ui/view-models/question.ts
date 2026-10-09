@@ -16,9 +16,9 @@ export type QuestionNoteModel =
 	| { kind: "saved"; text: string };
 
 export type OptionDetailModel =
-	| { kind: "editor"; placeholder: string; withGap: boolean }
-	| { kind: "saved-note"; text: string; withGap: boolean }
-	| { kind: "custom-text"; text: string; withGap: boolean };
+	| { kind: "editor"; placeholder: string }
+	| { kind: "saved-note"; text: string }
+	| { kind: "custom-text"; text: string };
 
 export interface OptionRowModel {
 	color: "accent" | "text" | "success";
@@ -26,7 +26,6 @@ export interface OptionRowModel {
 	detail?: OptionDetailModel;
 	index: number;
 	isCustom: boolean;
-	isFreeformOnly: boolean;
 	label: string;
 	pointer: string;
 	prefix: string;
@@ -91,7 +90,7 @@ function buildOptionRowModel(
 	const answered = option.isCustomOption
 		? !!(answer?.customSelected && answer.customText?.trim())
 		: isOptionSelected(answer, option.value);
-	const pointer = getOptionPointer(option, selected);
+	const pointer = getOptionPointer(selected);
 	return {
 		color: getOptionColor(answered, selected),
 		description: option.description,
@@ -101,7 +100,6 @@ function buildOptionRowModel(
 				: buildOptionDetailModel(context, option, selected),
 		index,
 		isCustom: !!option.isCustomOption,
-		isFreeformOnly: !!option.isFreeformOnlyOption,
 		label: option.label,
 		pointer,
 		prefix: getOptionPrefix(question.type, option, answered),
@@ -110,10 +108,7 @@ function buildOptionRowModel(
 	};
 }
 
-function getOptionPointer(option: AskDisplayOption, selected: boolean): string {
-	if (option.isFreeformOnlyOption) {
-		return "";
-	}
+function getOptionPointer(selected: boolean): string {
 	return selected ? "❯ " : "  ";
 }
 
@@ -144,25 +139,22 @@ function buildOptionDetailModel(
 		return {
 			kind: "editor",
 			placeholder: UI_TEXT.editorPlaceholderNote,
-			withGap: false,
 		};
 	}
 	if (inputOpen) {
 		return {
 			kind: "editor",
 			placeholder: UI_TEXT.editorPlaceholderInput,
-			withGap: !!option.isFreeformOnlyOption,
 		};
 	}
 	if (customText) {
 		return {
 			kind: "custom-text",
 			text: customText,
-			withGap: !!option.isFreeformOnlyOption,
 		};
 	}
 	if (note) {
-		return { kind: "saved-note", text: note, withGap: false };
+		return { kind: "saved-note", text: note };
 	}
 	return;
 }

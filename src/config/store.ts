@@ -31,13 +31,9 @@ export class AskConfigStore {
 	private notice?: AskConfigNotice;
 	private readonly listeners = new Set<(config: AskConfig) => void>();
 	private readonly configPath: string;
-	private readonly legacyConfigPaths: string[];
 
-	constructor(configPath?: string, legacyConfigPaths?: string[]) {
+	constructor(configPath?: string) {
 		this.configPath = configPath ?? getAskConfigPath();
-		this.legacyConfigPaths = (
-			legacyConfigPaths ?? (configPath ? [] : getLegacyAskConfigPaths())
-		).filter((path) => path !== this.configPath);
 	}
 
 	subscribe(onChange: (config: AskConfig) => void): () => void {
@@ -104,13 +100,8 @@ export class AskConfigStore {
 		return this.loadParsedConfig(parsed.value);
 	}
 
-	private async readDiskConfig(): Promise<string | undefined> {
-		for (const path of [this.configPath, ...this.legacyConfigPaths]) {
-			const content = await readConfigFileIfPresent(path);
-			if (content !== undefined) {
-				return content;
-			}
-		}
+	private readDiskConfig(): Promise<string | undefined> {
+		return readConfigFileIfPresent(this.configPath);
 	}
 
 	private async loadMissingConfig(): Promise<AskConfigLoadResult> {
@@ -176,17 +167,13 @@ export function resetAskConfigStore(): void {
 }
 
 export function getAskConfigPath(): string {
-	return join(getAgentDir(), "extensions", "eko24ive-pi-ask.json");
-}
-
-export function getLegacyAskConfigPaths(): string[] {
-	return [join(getAgentDir(), "eko24ive-pi-ask.json")];
+	return join(getAgentDir(), "extensions", "pi-agent-ask.json");
 }
 
 function createConfigSaveError(path: string, error: unknown): Error {
 	const detail = getErrorMessage(error);
 	return new Error(
-		`Unable to save ask config at ${path}. The file may be read-only or managed outside pi-ask; edit it manually and run /reload. ${detail}`
+		`Unable to save ask config at ${path}. The file may be read-only or managed outside pi-agent-ask; edit it manually and run /reload. ${detail}`
 	);
 }
 

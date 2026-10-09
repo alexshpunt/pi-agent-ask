@@ -1,11 +1,6 @@
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 
-const AskAnswerModelPreferenceSchema = Type.Object({
-	id: Type.String(),
-	provider: Type.String(),
-});
-
 const AskNotificationChannelSchema = Type.Union([
 	Type.Literal("bell"),
 	Type.Literal("osc9"),
@@ -104,15 +99,6 @@ const AskConfigKeymapsSchema = Type.Object({
 
 export const AskConfigFileV5Schema = Type.Object({
 	schemaVersion: Type.Literal(5),
-	answer: Type.Optional(
-		Type.Object({
-			extractionModels: Type.Optional(
-				Type.Array(AskAnswerModelPreferenceSchema)
-			),
-			extractionRetries: Type.Optional(Type.Number()),
-			extractionTimeoutMs: Type.Optional(Type.Number()),
-		})
-	),
 	behaviour: Type.Optional(
 		Type.Object({
 			autoSubmitWhenAnsweredWithoutNotes: Type.Optional(Type.Boolean()),
@@ -133,15 +119,6 @@ export const AskConfigFileV5Schema = Type.Object({
 
 export const AskConfigFileV4Schema = Type.Object({
 	schemaVersion: Type.Literal(4),
-	answer: Type.Optional(
-		Type.Object({
-			extractionModels: Type.Optional(
-				Type.Array(AskAnswerModelPreferenceSchema)
-			),
-			extractionRetries: Type.Optional(Type.Number()),
-			extractionTimeoutMs: Type.Optional(Type.Number()),
-		})
-	),
 	behaviour: Type.Optional(
 		Type.Object({
 			autoSubmitWhenAnsweredWithoutNotes: Type.Optional(Type.Boolean()),
@@ -161,15 +138,6 @@ export const AskConfigFileV4Schema = Type.Object({
 
 export const AskConfigFileV3Schema = Type.Object({
 	schemaVersion: Type.Literal(3),
-	answer: Type.Optional(
-		Type.Object({
-			extractionModels: Type.Optional(
-				Type.Array(AskAnswerModelPreferenceSchema)
-			),
-			extractionRetries: Type.Optional(Type.Number()),
-			extractionTimeoutMs: Type.Optional(Type.Number()),
-		})
-	),
 	behaviour: Type.Optional(
 		Type.Object({
 			autoSubmitWhenAnsweredWithoutNotes: Type.Optional(Type.Boolean()),
@@ -207,15 +175,9 @@ export type AskConfigFileV3 = Static<typeof AskConfigFileV3Schema>;
 export type AskConfigFileV2 = Static<typeof AskConfigFileV2Schema> & {
 	schemaVersion: 2;
 };
-export type AskConfigFileV1 = Omit<
-	AskConfigFileV2,
-	"answer" | "schemaVersion"
-> & { schemaVersion: 1 };
-
-export interface AskAnswerModelPreference {
-	id: string;
-	provider: string;
-}
+export type AskConfigFileV1 = Omit<AskConfigFileV2, "schemaVersion"> & {
+	schemaVersion: 1;
+};
 
 export type AskNotificationChannel =
 	| "bell"
@@ -265,11 +227,6 @@ export interface AskConfigKeymaps {
 }
 
 export interface AskConfig {
-	answer: {
-		extractionModels: AskAnswerModelPreference[];
-		extractionRetries: number;
-		extractionTimeoutMs: number;
-	};
 	behaviour: {
 		autoSubmitWhenAnsweredWithoutNotes: boolean;
 		confirmDismissWhenDirty: boolean;

@@ -94,9 +94,7 @@ function renderStandardOption(
 		context.width,
 		context.theme
 	);
-	renderOptionDetail(lines, row.detail, context, {
-		suppressLeadingGap: !!row.description,
-	});
+	renderOptionDetail(lines, row.detail, context);
 }
 
 function renderPreviewQuestion(
@@ -189,7 +187,7 @@ function renderOptionDetail(
 	lines: string[],
 	detail: OptionDetailModel | undefined,
 	context: QuestionRenderContext,
-	options: { indent?: string; suppressLeadingGap?: boolean } = {}
+	options: { indent?: string } = {}
 ) {
 	if (!detail) {
 		return;
@@ -199,9 +197,6 @@ function renderOptionDetail(
 		indent === " "
 			? UI_DIMENSIONS.editorContentPadding
 			: UI_DIMENSIONS.editorIndentedPadding;
-	if (detail.withGap && !options.suppressLeadingGap) {
-		lines.push("");
-	}
 	if (detail.kind === "editor") {
 		renderEditorWithIndent({
 			lines,
@@ -260,9 +255,7 @@ function renderEditorWithIndent(args: {
 }
 
 function formatOptionLabel(row: OptionRowModel): string {
-	return row.isFreeformOnly
-		? row.label
-		: `${row.index + 1}. ${row.prefix}${row.label}`;
+	return `${row.index + 1}. ${row.prefix}${row.label}`;
 }
 
 function renderInteractiveCustomOption(
@@ -270,7 +263,7 @@ function renderInteractiveCustomOption(
 	row: OptionRowModel,
 	context: QuestionRenderContext
 ) {
-	const indent = row.isFreeformOnly ? " " : row.pointer;
+	const indent = row.pointer;
 	pushWrappedText(
 		lines,
 		formatOptionLabel(row),
@@ -280,9 +273,7 @@ function renderInteractiveCustomOption(
 		indent,
 		" ".repeat(visibleWidth(indent))
 	);
-	renderOptionDetail(lines, row.detail, context, {
-		indent: row.isFreeformOnly ? " " : undefined,
-	});
+	renderOptionDetail(lines, row.detail, context);
 }
 
 function renderOptionSubtitle(

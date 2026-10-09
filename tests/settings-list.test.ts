@@ -7,9 +7,6 @@ import type { AskConfigNotice } from "../src/config/store.ts";
 import { AskSettingsList } from "../src/ui/settings-list.ts";
 
 const savedConfig: AskConfig = {
-	answer: {
-		...DEFAULT_ASK_CONFIG.answer,
-	},
 	behaviour: {
 		autoSubmitWhenAnsweredWithoutNotes: false,
 		confirmDismissWhenDirty: true,
@@ -49,7 +46,7 @@ function createList(
 			// test callback intentionally unused
 		});
 	return new AskSettingsList(plainTheme(), {
-		configPath: "/tmp/eko24ive-pi-ask.json",
+		configPath: "/tmp/pi-agent-ask.json",
 		notice: options.notice,
 		onClose,
 		onSave: options.onSave ?? ((config) => Promise.resolve(config)),
@@ -67,7 +64,7 @@ test("settings list renders behaviour settings and config path", () => {
 	const text = list.render(72).join("\n");
 
 	assert(text.includes("╭"));
-	assert(text.includes("@eko24ive/pi-ask"));
+	assert(text.includes("pi-agent-ask"));
 	assert(text.includes("Live settings"));
 	assert(text.includes("Defaults for future asks"));
 	assert(text.includes("Auto-submit when answered without notes"));
@@ -78,8 +75,8 @@ test("settings list renders behaviour settings and config path", () => {
 	assert(text.includes("Edit this config file to customize"));
 	assert(text.includes("keymaps"));
 	assert(text.includes("notifications"));
-	assert(text.includes("extraction settings"));
-	assert(text.includes("/tmp/eko24ive-pi-ask.json"));
+	assert(!text.includes("extraction settings"));
+	assert(text.includes("/tmp/pi-agent-ask.json"));
 	assert(text.includes("Esc / Ctrl+C / ? to close"));
 	assert.equal(text.includes("Esc to cancel"), false);
 	assert.equal(text.includes("Keymaps"), false);
@@ -93,7 +90,7 @@ test("settings list stays within narrow render width", () => {
 
 	assert(lines.every((line) => visibleWidth(line) <= 28));
 	const text = lines.join("\n");
-	assert(text.includes("/tmp/eko24ive-pi-ask"));
+	assert(text.includes("/tmp/pi-agent-ask"));
 	assert(text.includes("n"));
 });
 

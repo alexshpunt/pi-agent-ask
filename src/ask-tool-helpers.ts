@@ -38,7 +38,6 @@ export const ASK_TOOL_PROMPT_GUIDELINES = [
 ] as const;
 
 interface ValidateParamsOptions {
-	allowFreeform?: boolean;
 	presentSingleAsMulti?: boolean;
 }
 
@@ -48,7 +47,7 @@ export function validateParams(
 ):
 	| { ok: true; state: ReturnType<typeof createInitialState> }
 	| { ok: false; issues: AskValidationIssue[] } {
-	const issues = collectValidationIssues(params, options);
+	const issues = collectValidationIssues(params);
 	if (issues.length > 0) {
 		return { ok: false, issues };
 	}

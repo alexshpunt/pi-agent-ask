@@ -14,7 +14,7 @@ test("notification payload uses question label before prompt", () => {
 
 	assert.deepEqual(payload, {
 		event: "question.waiting",
-		title: "pi ask",
+		title: "pi-agent-ask",
 		message: "Question waiting: Scope",
 	});
 });

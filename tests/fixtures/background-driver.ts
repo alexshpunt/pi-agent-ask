@@ -91,7 +91,7 @@ export default function backgroundDriver(pi: ExtensionAPI): void {
 				const beforeAnswer = {
 					activeForms: active.size,
 					blocked: [...blocked],
-					readSucceeded: document.includes("pi-ask"),
+					readSucceeded: document.includes("pi-agent-ask"),
 				};
 				answerFirst();
 				await new Promise<void>((resolve) => setImmediate(resolve));

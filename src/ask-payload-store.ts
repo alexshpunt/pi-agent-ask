@@ -10,7 +10,7 @@ import type { AskParams } from "./types.ts";
 export const ASK_PAYLOAD_ENTRY_TYPE = "ask:payload";
 export const ASK_PAYLOAD_ENTRY_VERSION = 1;
 
-export type AskPayloadSource = "answer-extraction" | "tool";
+export type AskPayloadSource = "tool";
 
 export interface AskPayloadEntryData {
 	params: AskParams;
@@ -29,27 +29,6 @@ export function appendAskPayload(
 		timestamp: Date.now(),
 		...data,
 	});
-}
-
-export function findLatestPayloadInCurrentBranch(
-	ctx: Pick<ExtensionContext, "sessionManager">,
-	source: AskPayloadSource
-): { data?: AskPayloadEntryData; invalidMatchFound: boolean } {
-	let invalidMatchFound = false;
-	for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
-		if (!isAskPayloadEntry(entry)) {
-			continue;
-		}
-		const data = entry.data;
-		if (data?.source !== source) {
-			continue;
-		}
-		if (isValidAskPayloadData(data)) {
-			return { data, invalidMatchFound };
-		}
-		invalidMatchFound = true;
-	}
-	return { invalidMatchFound };
 }
 
 export function findPayloadForSourceEntry(
@@ -93,14 +72,12 @@ function isValidAskPayloadData(data: unknown): data is AskPayloadEntryData {
 	if (payload.version !== ASK_PAYLOAD_ENTRY_VERSION) {
 		return false;
 	}
-	if (payload.source !== "tool" && payload.source !== "answer-extraction") {
+	if (payload.source !== "tool") {
 		return false;
 	}
 	if (
 		!Value.Check(AskParamsSchema, payload.params) ||
-		validateParams(payload.params, {
-			allowFreeform: payload.source === "answer-extraction",
-		}).ok === false
+		validateParams(payload.params).ok === false
 	) {
 		return false;
 	}

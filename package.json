@@ -1,16 +1,16 @@
 {
-  "name": "@alexshpunt/pi-ask",
+  "name": "pi-agent-ask",
   "version": "1.2.6",
-  "description": "Interactive clarification flows for Pi with native Herdr blocked-state support.",
+  "description": "Structured user questions for Pi agents, with background answers and session history.",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alexshpunt/pi-ask.git"
+    "url": "git+https://github.com/alexshpunt/pi-agent-ask.git"
   },
-  "homepage": "https://github.com/alexshpunt/pi-ask#readme",
+  "homepage": "https://github.com/alexshpunt/pi-agent-ask#readme",
   "bugs": {
-    "url": "https://github.com/alexshpunt/pi-ask/issues"
+    "url": "https://github.com/alexshpunt/pi-agent-ask/issues"
   },
   "keywords": [
     "pi-package",

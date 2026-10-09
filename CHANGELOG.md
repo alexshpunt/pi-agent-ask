@@ -1,3 +1,10 @@
+# Unreleased
+
+- Rename the package and repository to `pi-agent-ask`, focused on agent-issued questions.
+- Remove `/answer`, `/answer:again`, `/ask:replay`, and model-based question extraction.
+- Use `extensions/pi-agent-ask.json` for settings and `pi-agent-ask:*` for integration events. Old settings files and event names are not reused.
+- Rewrite README to explain the tool, its supported features, and differences from upstream.
+
 # [1.2.6](https://github.com/alexshpunt/pi-ask/compare/v1.2.5...v1.2.6) (2026-10-09)
 
 - Keep background questions visible after reload without losing answers, notes, or typed drafts.

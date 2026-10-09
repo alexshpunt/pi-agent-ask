@@ -16,7 +16,7 @@ labels: [bug]
 
 ## Environment
 
-- pi-ask version:
+- pi-agent-ask version:
 - pi version:
 - Terminal app:
 - OS:
