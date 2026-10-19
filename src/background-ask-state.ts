@@ -21,6 +21,7 @@ export const AskQueuedSchema = Type.Object({
 /** One terminal form, including explicit cancellation, elaboration, or a UI failure. */
 export const QueuedAnswerSchema = Type.Object({
 	requestId: Type.String(),
+	parentToolCallId: Type.Optional(Type.String()),
 	result: Type.Optional(AskResultSchema),
 	error: Type.Optional(Type.String()),
 });
@@ -37,6 +38,7 @@ const QueuedEntrySchema = Type.Object({
 	requestId: Type.String(),
 	params: AskParamsSchema,
 	toolCallId: Type.Optional(Type.String()),
+	parentToolCallId: Type.Optional(Type.String()),
 	presentSingleAsMulti: Type.Boolean(),
 });
 
@@ -47,6 +49,8 @@ export interface QueuedRequest {
 	completion?: QueuedAnswer;
 	delivered: boolean;
 	params: AskParams;
+	/** Real visible execution root captured before the receipt returns. */
+	parentToolCallId?: string;
 	presentSingleAsMulti: boolean;
 	requestId: string;
 	/** Original Pi tool-call identity, distinct from the generated journal key. */

@@ -45,15 +45,19 @@ export function registerWaitForAnswersTool(
 		},
 		renderCall: (_args, theme) =>
 			new Text(theme.fg("toolTitle", theme.bold("wait_for_answers")), 0, 0),
-		renderResult: (result) =>
-			new Text(
-				result.content
-					.filter((part) => part.type === "text")
-					.map((part) => part.text)
-					.join("\n"),
+		renderResult: (result) => {
+			const details = result.details as WaitForAnswersResult | undefined;
+			return new Text(
+				details?.status === "complete"
+					? `Consumed ${details.results.length} background answer(s).${details.results.length ? " Cards remain at the original calls." : ""}`
+					: result.content
+							.filter((part) => part.type === "text")
+							.map((part) => part.text)
+							.join("\n"),
 				0,
 				0
-			),
+			);
+		},
 	});
 }
 
