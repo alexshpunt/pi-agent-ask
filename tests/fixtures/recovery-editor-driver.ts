@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { registerAskTool } from "../../src/ask-tool.ts";
+import { registerBackgroundAnswerRenderer } from "../../src/background-answer.ts";
 import { createBackgroundAskRuntime } from "../../src/background-ask.ts";
 import {
 	createRemoteAskRuntime,
@@ -28,6 +29,7 @@ function contains(tree: unknown, target: Component): boolean {
 export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 	const remote = createRemoteAskRuntime(pi.events);
 	const queue = createBackgroundAskRuntime(pi, remote);
+	registerBackgroundAnswerRenderer(pi);
 	registerAskTool(pi, remote, queue);
 	registerWaitForAnswersTool(pi, queue);
 	const state: { active?: RemoteAskStartedEvent } = {};
