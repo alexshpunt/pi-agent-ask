@@ -520,3 +520,220 @@ test("an active agent signal prevents an idle wake during a transient idle repor
 	assert.equal(h.messages.length, 1);
 	h.runtime.dispose();
 });
+
+test("delayed cards retain direct and nested visible owners independently of Wait consumption", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	const start = h.handlers.get("tool_execution_start");
+	assert(start);
+	start({ toolCallId: "direct", toolName: "ask_user" });
+	start({ toolCallId: "outer", toolName: "codemode" });
+	start({
+		toolCallId: "middle",
+		parentToolCallId: "outer",
+		toolName: "wrapper",
+	});
+	start({
+		toolCallId: "leaf",
+		parentToolCallId: "middle",
+		toolName: "ask_user",
+	});
+	h.runtime.enqueue("one", params, h.ctx as never, false, "direct");
+	h.runtime.enqueue("two", params, h.ctx as never, false, "leaf");
+	await tick();
+	const waiting = h.runtime.wait(undefined);
+	h.forms[0](answer);
+	await tick();
+	h.forms[1](answer);
+	const result = await waiting;
+	assert.deepEqual(
+		result.results.map((item) => item.parentToolCallId),
+		["direct", "outer"]
+	);
+	const cards = h.branch.filter(
+		(entry) => entry.customType === "ask:queue-completed"
+	);
+	assert.deepEqual(
+		cards.map((entry) => entry.data.parentToolCallId),
+		["direct", "outer"]
+	);
+	assert(cards.every((entry) => entry.data.display === true));
+	h.branch.push({
+		type: "message",
+		message: {
+			role: "toolResult",
+			toolName: "wait_for_answers",
+			isError: false,
+			details: result,
+		},
+	});
+	h.runtime.restore(h.ctx as never);
+	await tick();
+	assert.deepEqual((await h.runtime.wait(undefined)).results, []);
+	assert.equal(h.messages.length, 0);
+	assert.equal(
+		h.branch.filter((entry) => entry.customType === "ask:queue-completed")
+			.length,
+		2
+	);
+});
+
+test("automatic model delivery is hidden while the durable answer card stays at its owner", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.handlers.get("tool_execution_start")?.({
+		toolCallId: "origin",
+		toolName: "ask_user",
+	});
+	h.runtime.enqueue("one", params, h.ctx as never, false, "origin");
+	await tick();
+	h.forms[0](answer);
+	await tick();
+	h.boundary();
+	assert.equal(h.messages[0].display, false);
+	assert.deepEqual(h.messages[0].details.result, answer);
+	assert.equal(
+		h.branch.find((entry) => entry.customType === "ask:queue-completed").data
+			.parentToolCallId,
+		"origin"
+	);
+});
+
+test("Wait renders a brief confirmation without removing complete agent data", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	registerWaitForAnswersTool(h.pi as never, h.runtime);
+	h.runtime.enqueue("one", params, h.ctx as never, false);
+	await tick();
+	const tool = h.tools.get("wait_for_answers");
+	const waiting = tool.execute("wait", {}, undefined, undefined, h.ctx);
+	h.forms[0](answer);
+	const result = await waiting;
+	assert(result.content[0].text.includes("Choose?"));
+	const visible = tool
+		.renderResult(result, {}, { fg: (_: string, text: string) => text })
+		.render(100)
+		.join("\n");
+	assert(visible.includes("1 background answer"));
+	assert(!visible.includes("Choose?"));
+});
+
+test("pending recovery keeps captured ownership without retaining live execution maps", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.trackExecution({ toolCallId: "root" });
+	h.runtime.trackExecution({ toolCallId: "nested", parentToolCallId: "root" });
+	h.runtime.enqueue("saved", params, h.ctx as never, false, "nested");
+	await tick();
+	h.runtime.forgetExecution("nested");
+	h.runtime.forgetExecution("root");
+	h.runtime.restore(h.ctx as never);
+	await tick();
+	h.forms[0]({ ...answer, cancelled: true });
+	h.forms[1](answer);
+	await tick();
+	h.boundary();
+	assert.equal(h.messages.length, 1);
+	assert.equal(h.messages[0].details.parentToolCallId, "root");
+	assert.equal(
+		h.branch.filter((entry) => entry.customType === "ask:queue-completed")
+			.length,
+		1
+	);
+});
+
+test("unknown ancestry stays unowned instead of guessing a root from an ID", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.trackExecution({
+		toolCallId: "guessed-root/1",
+		parentToolCallId: "unobserved",
+	});
+	h.runtime.enqueue("unowned", params, h.ctx as never, false, "guessed-root/1");
+	await tick();
+	h.forms[0](answer);
+	await tick();
+	h.boundary();
+	assert.equal(h.messages[0].details.parentToolCallId, undefined);
+});
+
+test("a rejected delivery boundary can retry without duplicating the visible card", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.trackExecution({ toolCallId: "root" });
+	h.runtime.enqueue("retry", params, h.ctx as never, false, "root");
+	await tick();
+	h.forms[0](answer);
+	await tick();
+	const draft = h.handlers.get("turn_end")?.({ entries: [] }, h.ctx);
+	assert(draft);
+	assert.equal(draft.entries.length, 1);
+	// No finalized message: the boundary proposal was not committed.
+	h.runtime.reconcileDelivery(h.ctx as never);
+	h.boundary();
+	assert.equal(h.messages.length, 1);
+	assert.equal(
+		h.branch.filter((entry) => entry.customType === "ask:queue-completed")
+			.length,
+		1
+	);
+});
+
+test("automatic and waited image answers keep complete data on exactly one model path", async (t) => {
+	for (const waited of [false, true]) {
+		const h = harness();
+		t.after(() => h.runtime.dispose());
+		registerWaitForAnswersTool(h.pi as never, h.runtime);
+		h.runtime.trackExecution({ toolCallId: "root" });
+		h.runtime.enqueue("image", params, h.ctx as never, false, "root");
+		await tick();
+		const waiting = waited
+			? h.tools
+					.get("wait_for_answers")
+					.execute("wait", {}, undefined, undefined, h.ctx)
+			: undefined;
+		const image = {
+			id: "example",
+			mimeType: "image/png",
+			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aH9sAAAAASUVORK5CYII=",
+		};
+		h.forms[0]({
+			...answer,
+			answers: { choice: { ...answer.answers.choice, customImages: [image] } },
+		});
+		await tick();
+		const result = waiting ? await waiting : undefined;
+		if (result) {
+			assert.equal(
+				result.content.filter((part: { type: string }) => part.type === "image")
+					.length,
+				1
+			);
+			assert.deepEqual(
+				result.structuredContent.results[0].result.answers.choice.customImages,
+				[image]
+			);
+			h.branch.push({
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "wait_for_answers",
+					isError: false,
+					details: result.details,
+				},
+			});
+		} else {
+			h.boundary();
+			assert.equal(h.messages.length, 1);
+			assert.equal(h.messages[0].display, false);
+			assert.equal(
+				h.messages[0].content.filter(
+					(part: { type: string }) => part.type === "image"
+				).length,
+				1
+			);
+		}
+		h.runtime.reconcileDelivery(h.ctx as never);
+		assert.deepEqual((await h.runtime.wait(undefined)).results, []);
+	}
+});
