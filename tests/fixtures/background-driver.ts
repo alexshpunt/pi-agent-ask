@@ -53,7 +53,11 @@ export default function backgroundDriver(pi: ExtensionAPI): void {
 	});
 	pi.on("tool_call", (event) => {
 		if (event.toolName === "wait_for_answers") {
-			setImmediate(answerFirst);
+			setImmediate(() => {
+				if (active.size) {
+					answerFirst();
+				}
+			});
 		}
 	});
 	pi.registerTool({

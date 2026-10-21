@@ -39,12 +39,31 @@ export class BackgroundAskRuntime {
 	private readonly remoteAsk?: RemoteAskRuntime;
 	private requests: QueuedRequest[] = [];
 	private readonly routed = new Set<string>();
+	private readonly executionOwners = new Map<string, string | undefined>();
 	private waiter?: Waiter;
 	private stopWaitingForEditor?: () => void;
 
 	constructor(pi: ExtensionAPI, remoteAsk?: RemoteAskRuntime) {
 		this.pi = pi;
 		this.remoteAsk = remoteAsk;
+	}
+
+	/** Track actual execution ancestry, never deriving ownership from the call ID's spelling. */
+	trackExecution(event: {
+		toolCallId: string;
+		parentToolCallId?: string;
+	}): void {
+		this.executionOwners.set(
+			event.toolCallId,
+			event.parentToolCallId
+				? this.executionOwners.get(event.parentToolCallId)
+				: event.toolCallId
+		);
+	}
+
+	/** Release completed execution ancestry; queued requests already hold their root. */
+	forgetExecution(toolCallId: string): void {
+		this.executionOwners.delete(toolCallId);
 	}
 
 	/** Persist before returning. Background forms do not own the agent's abort signal. */
@@ -56,17 +75,22 @@ export class BackgroundAskRuntime {
 		toolCallId?: string
 	) {
 		this.context ??= ctx;
+		const parentToolCallId = toolCallId
+			? this.executionOwners.get(toolCallId)
+			: undefined;
 		if (!this.requests.some((request) => request.requestId === requestId)) {
 			this.pi.appendEntry(ASK_QUEUED_ENTRY, {
 				version: 1,
 				requestId,
 				...(toolCallId ? { toolCallId } : {}),
+				...(parentToolCallId ? { parentToolCallId } : {}),
 				params,
 				presentSingleAsMulti,
 			});
 			this.requests.push({
 				requestId,
 				toolCallId,
+				parentToolCallId,
 				params,
 				presentSingleAsMulti,
 				delivered: false,
@@ -171,6 +195,7 @@ export class BackgroundAskRuntime {
 		this.stopWaitingForEditor = undefined;
 		this.generation.abort();
 		this.pendingIdleDelivery.clear();
+		this.executionOwners.clear();
 		if (this.waiter) {
 			this.waiter.cleanup();
 			this.waiter.reject(waitInterrupted());
@@ -315,12 +340,21 @@ export class BackgroundAskRuntime {
 				if (!request) {
 					break;
 				}
-				const completion = await this.completeForm(ctx, request, signal);
+				const completion = {
+					...(await this.completeForm(ctx, request, signal)),
+					...(request.parentToolCallId
+						? { parentToolCallId: request.parentToolCallId }
+						: {}),
+				};
 				if (signal.aborted) {
 					return;
 				}
 				appendAskHistoryCompletion(this.pi, completion);
-				this.pi.appendEntry(ASK_COMPLETED_ENTRY, completion);
+				// The existing completion journal owns the visible card, not the consumption path.
+				this.pi.appendEntry(ASK_COMPLETED_ENTRY, {
+					...completion,
+					display: true,
+				});
 				request.completion = completion;
 				this.updateStatus();
 				this.finishWait();
@@ -360,6 +394,10 @@ export function createBackgroundAskRuntime(
 	remoteAsk?: RemoteAskRuntime
 ): BackgroundAskRuntime {
 	const runtime = new BackgroundAskRuntime(pi, remoteAsk);
+	pi.on("tool_execution_start", (event) => runtime.trackExecution(event));
+	pi.on("tool_execution_end", (event) =>
+		runtime.forgetExecution(event.toolCallId)
+	);
 	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", () => runtime.dispose());
@@ -383,7 +421,7 @@ function answerMessage(answer: QueuedAnswer) {
 		content: images.length
 			? [{ type: "text" as const, text: formatQueuedAnswer(answer) }, ...images]
 			: formatQueuedAnswer(answer),
-		display: true,
+		display: false,
 		details: answer,
 	};
 }

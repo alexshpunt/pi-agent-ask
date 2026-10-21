@@ -1,3 +1,10 @@
+# [1.2.9](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.8...v1.2.9) (2026-10-21)
+
+- Keep background answer cards at the Ask calls that queued them, including calls nested inside another tool.
+- Show a brief confirmation in `wait_for_answers` instead of repeating full answer cards. Complete answers, notes and images still reach the agent exactly once.
+- Preserve saved answer cards independently of answer consumption across supported reload, resume and branch-navigation flows. Compatible split views keep late answers searchable without duplicating them in Conversation.
+- Add regression coverage for direct and nested ownership, automatic and waited delivery, saved-session lifecycle, images and Herdr queue status.
+
 # [1.2.8](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.7...v1.2.8) (2026-10-09)
 
 - Paste clipboard images into custom answers, question notes, and option notes, with or without text.

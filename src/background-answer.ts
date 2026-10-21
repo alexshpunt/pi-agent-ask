@@ -3,6 +3,7 @@ import { Box, Text } from "@earendil-works/pi-tui";
 import { successfulResponse } from "./ask-tool-helpers.ts";
 import {
 	ASK_ANSWER_MESSAGE,
+	ASK_COMPLETED_ENTRY,
 	type QueuedAnswer,
 } from "./background-ask-state.ts";
 import { renderResultText } from "./result.ts";
@@ -141,6 +142,14 @@ function answerBody(
 
 /** Give asynchronous answer messages their own transcript renderer. */
 export function registerBackgroundAnswerRenderer(pi: ExtensionAPI): void {
+	// Older journals keep their visible messages; new completion entries own presentation.
+	pi.registerEntryRenderer<QueuedAnswer & { display?: boolean }>(
+		ASK_COMPLETED_ENTRY,
+		(entry, _options, theme) =>
+			entry.data?.display
+				? renderBackgroundAnswer(entry.data, theme, 1)
+				: undefined
+	);
 	pi.registerMessageRenderer<QueuedAnswer>(
 		ASK_ANSWER_MESSAGE,
 		(message, { outputPad }, theme) =>
