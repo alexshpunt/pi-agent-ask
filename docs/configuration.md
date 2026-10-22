@@ -98,6 +98,19 @@ In a non-empty editor, arrows and Tab move the cursor rather than changing quest
 
 Invalid keymaps fall back to defaults for the session with a notice. Other valid settings still load. The settings list shows the full config path; edit that file to change keymaps or notification channels.
 
+## Background queue controls
+
+Background questions appear above the ordinary editor without changing its focus. These queue controls are fixed and separate from the form keymaps:
+
+- `Alt+Q`: switch between the question panel and normal input; reopen the panel if hidden.
+- `Esc` in the panel: defer all questions, keeping the queue and drafts.
+- `/ask-defer`: defer all questions from ordinary input.
+- `/ask-queue`: reopen and focus the pending questionnaire.
+- `D` in question navigation: skip only the current question. In answer/note editors it remains ordinary text.
+- `PageUp` / `PageDown` in the panel: scroll a tall questionnaire. Navigation brings the active option or answer editor back into view.
+
+Hiding the panel or sending a normal message during `wait_for_answers` releases that wait, not the pending questions. New requests do not reopen a deliberately hidden panel. Foreground forms keep their configured cancellation behavior.
+
 ## Notifications
 
 Notifications run once when an ask form opens and waits for input. They are best-effort: channel failure never fails or cancels a form.
