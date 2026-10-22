@@ -256,3 +256,36 @@ test("a foreground completion keeps Herdr blocked until the separate answer wait
 		{ active: false },
 	]);
 });
+
+test("a real terminal resize keeps a tall questionnaire bounded and ordinary input usable", {
+	timeout: 60_000,
+	skip:
+		process.platform === "win32" &&
+		"This native PTY resize check uses stty on its own test terminal",
+}, async () => {
+	const result = await run("non-modal-terminal-resize", [
+		probe("draft", "draft_message"),
+		call("tall", "ask_user", {
+			background: true,
+			questions: [
+				{
+					id: "tall",
+					prompt: "Choose a row?",
+					options: Array.from({ length: 25 }, (_, index) => ({
+						value: String(index),
+						label: `Row ${index + 1}`,
+					})),
+				},
+			],
+		}),
+		probe("resized", "resize"),
+		assistantMessage([text("The resized terminal remains usable.")]),
+	]);
+	const after = snapshot(result, "resized");
+	assert.deepEqual(after.terminalSize, { cols: 60, rows: 18 });
+	assert.equal(after.normalInput, "ordinary-editor-draft-resized");
+	assert(after.panelRows <= 8);
+	assert(after.panel.includes("PgUp/PgDn"));
+	assert.equal(after.pendingRequestIds.length, 1);
+	assert.deepEqual(after.completed, []);
+});

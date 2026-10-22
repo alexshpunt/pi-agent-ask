@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { stripVTControlCharacters } from "node:util";
 import type {
 	ExtensionAPI,
@@ -28,7 +29,9 @@ export interface NonModalSnapshot {
 	hidden: boolean;
 	normalInput: string;
 	panel: string;
+	panelRows: number;
 	pendingRequestIds: string[];
+	terminalSize: { cols: number; rows: number };
 	userInputs: string[];
 }
 
@@ -48,6 +51,28 @@ function paste(text: string): Promise<void> {
 	return input(`\u001b[200~${text}\u001b[201~`);
 }
 
+function resizeTerminal(): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const onResize = () => {
+			clearTimeout(timeout);
+			resolve();
+		};
+		const timeout = setTimeout(() => {
+			process.stdout.off("resize", onResize);
+			reject(new Error("The owned test terminal did not report its resize."));
+		}, 2000);
+		process.stdout.once("resize", onResize);
+		try {
+			execFileSync("stty", ["cols", "60", "rows", "18"], {
+				stdio: ["inherit", "pipe", "pipe"],
+			});
+		} catch (error) {
+			clearTimeout(timeout);
+			process.stdout.off("resize", onResize);
+			reject(error);
+		}
+	});
+}
 function submitAnswer(pi: ExtensionAPI, flow: RemoteAskStartedEvent): void {
 	pi.events.emit(PI_ASK_SUBMIT_EVENT, {
 		version: 1,
@@ -198,6 +223,11 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 				entry.type === "custom_message" &&
 				entry.customType === "ask:background-answer"
 		).length;
+		const terminalSize = {
+			cols: process.stdout.columns ?? 120,
+			rows: process.stdout.rows ?? 24,
+		};
+		const panelLines = panel?.render(terminalSize.cols) ?? [];
 		return {
 			activeToolCalls: [...active.values()].map((flow) => flow.toolCallId),
 			answerMessages,
@@ -206,7 +236,9 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 			draftText,
 			hidden,
 			normalInput: ctx.ui.getEditorText(),
-			panel: stripVTControlCharacters(panel?.render(120).join("\n") ?? ""),
+			panel: stripVTControlCharacters(panelLines.join("\n")),
+			panelRows: panelLines.length,
+			terminalSize,
 			pendingRequestIds: [...pending],
 			userInputs: [...userInputs],
 		};
@@ -226,6 +258,7 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 				Type.Literal("arm_escape"),
 				Type.Literal("arm_message"),
 				Type.Literal("arm_overlap"),
+				Type.Literal("resize"),
 				Type.Literal("reopen"),
 				Type.Literal("answer"),
 				Type.Literal("snapshot"),
@@ -285,6 +318,11 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 				case "arm_overlap":
 					await formReady();
 					overlap = true;
+					break;
+				case "resize":
+					await formReady();
+					await resizeTerminal();
+					await paste("-resized");
 					break;
 				case "reopen":
 					ctx.ui.setEditorText("/ask-queue");
