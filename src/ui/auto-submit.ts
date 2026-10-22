@@ -21,7 +21,12 @@ export function shouldAutoSubmit(state: AskState, config: AskConfig): boolean {
 	if (!config.behaviour.autoSubmitWhenAnsweredWithoutNotes) {
 		return false;
 	}
-	if (state.completed || state.cancelled || !isSubmitTab(state)) {
+	if (
+		!state.questions.length ||
+		state.completed ||
+		state.cancelled ||
+		!isSubmitTab(state)
+	) {
 		return false;
 	}
 	for (const question of state.questions) {

@@ -382,9 +382,10 @@ export function pushSavedNote(args: {
 
 export function renderFooterText(
 	config: AskConfig,
-	mode: FooterKeymapContext
+	mode: FooterKeymapContext,
+	background = false
 ): string {
-	return renderFooterKeymaps(config, mode);
+	return renderFooterKeymaps(config, mode, background);
 }
 
 function padToVisibleWidth(text: string, width: number): string {

@@ -22,10 +22,10 @@ export const ASK_TOOL_DESCRIPTION =
 
 export const ASK_TOOL_PROMPT_GUIDELINES = [
 	"Set background: true on ask_user when you can continue independent work while the user answers. It returns a queued receipt with requestId, not an answer or approval.",
-	"Background forms open automatically in FIFO order. Each completed form arrives as a correlated background-answer message at the next turn boundary; when idle, the answer wakes the agent.",
+	"Background forms appear in FIFO order beside normal input without taking focus. The user can defer the queue or skip individual questions. Treat skipped questions as unanswered, never as approval. Each completed form arrives as a correlated background-answer message at the next turn boundary; when idle, the answer wakes the agent.",
 	"After asking in background, keep researching only work that does not depend on the pending answers. Never guess answers or cross a dependent decision, approval, or irreversible-action gate.",
 	"Call wait_for_answers when independent work is exhausted or before taking a step that needs pending answers. It waits for all outstanding forms without a built-in timeout. Aborting the wait leaves the forms queued.",
-	"wait_for_answers returns results not already delivered asynchronously. An empty results list does not mean the user approved anything; use answers already in context. Cancellation and elaboration are not approval.",
+	"Check wait_for_answers status. A deferred wait preserves unanswered requests; do not repeat the wait automatically. Follow the user's message or continue only independent work. Results already delivered asynchronously are not repeated. An empty results list, cancellation, skipping, or elaboration is not approval.",
 	"Use `ask_user` before making preference-sensitive decisions about scope, tone, UX, naming, architecture, docs, or implementation direction.",
 	"When multiple valid directions exist, call `ask_user` with 1-3 concise questions instead of committing to one path on your own.",
 	"When calling `ask_user`, prefer one focused decision per question. Use short labels. Provide clear, distinct options. Do not add filler options.",

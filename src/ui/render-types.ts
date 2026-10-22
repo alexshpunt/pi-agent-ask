@@ -12,6 +12,7 @@ export type Theme = ExtensionContext["ui"]["theme"];
 export interface QuestionRenderContext {
 	editor: Editor;
 	lines: string[];
+	markActiveRow?: boolean;
 	options: ReturnType<typeof getRenderableOptions>;
 	question: NonNullable<ReturnType<typeof getCurrentQuestion>>;
 	state: AskState;

@@ -1,6 +1,7 @@
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
+import { type AskDraft, restoreAskDraft } from "./ask-draft.ts";
 import { validateParams } from "./ask-tool-helpers.ts";
 import { AskResultSchema } from "./result-schema.ts";
 import { AskParamsSchema } from "./schema.ts";
@@ -9,6 +10,14 @@ import type { AskParams } from "./types.ts";
 export const ASK_QUEUED_ENTRY = "ask:queued";
 export const ASK_COMPLETED_ENTRY = "ask:queue-completed";
 export const ASK_ANSWER_MESSAGE = "ask:background-answer";
+export const ASK_DRAFT_ENTRY = "ask:queue-draft";
+export const ASK_QUEUE_UI_ENTRY = "ask:queue-ui";
+
+const DraftEntrySchema = Type.Object({
+	requestId: Type.String(),
+	draft: Type.Unknown(),
+});
+const QueueUiSchema = Type.Object({ hidden: Type.Boolean() });
 
 /** Receipt only: queued does not mean answered or approved. */
 export const AskQueuedSchema = Type.Object({
@@ -27,11 +36,20 @@ export const QueuedAnswerSchema = Type.Object({
 });
 
 /** Results not already delivered asynchronously, returned by the explicit wait. */
-export const WaitForAnswersSchema = Type.Object({
-	status: Type.Literal("complete"),
-	requestIds: Type.Array(Type.String()),
-	results: Type.Array(QueuedAnswerSchema),
-});
+export const WaitForAnswersSchema = Type.Union([
+	Type.Object({
+		status: Type.Literal("complete"),
+		requestIds: Type.Array(Type.String()),
+		results: Type.Array(QueuedAnswerSchema),
+	}),
+	Type.Object({
+		status: Type.Literal("deferred"),
+		reason: Type.Union([Type.Literal("hidden"), Type.Literal("user_message")]),
+		requestIds: Type.Array(Type.String()),
+		pendingRequestIds: Type.Array(Type.String()),
+		results: Type.Array(QueuedAnswerSchema),
+	}),
+]);
 
 const QueuedEntrySchema = Type.Object({
 	version: Type.Literal(1),
@@ -48,6 +66,7 @@ export type WaitForAnswersResult = Static<typeof WaitForAnswersSchema>;
 export interface QueuedRequest {
 	completion?: QueuedAnswer;
 	delivered: boolean;
+	draft?: AskDraft;
 	params: AskParams;
 	/** Real visible execution root captured before the receipt returns. */
 	parentToolCallId?: string;
@@ -68,10 +87,12 @@ export function restoreQueuedRequests(
 		if (queued && !requests.has(queued.requestId)) {
 			requests.set(queued.requestId, queued);
 		}
+		restoreDraftEntry(entry, requests);
 		const completion = completedAnswer(entry);
 		const request = completion && requests.get(completion.requestId);
 		if (request) {
 			request.completion = completion;
+			request.draft = undefined;
 		}
 	}
 	return [...requests.values()].map((request) => ({
@@ -80,6 +101,40 @@ export function restoreQueuedRequests(
 	}));
 }
 
+function restoreDraftEntry(
+	entry: SessionEntry,
+	requests: Map<string, QueuedRequest>
+): void {
+	if (
+		entry.type !== "custom" ||
+		entry.customType !== ASK_DRAFT_ENTRY ||
+		!Value.Check(DraftEntrySchema, entry.data)
+	) {
+		return;
+	}
+	const request = requests.get(entry.data.requestId);
+	if (!request || request.completion) {
+		return;
+	}
+	const draft = restoreAskDraft(entry.data.draft, request.params);
+	if (draft) {
+		request.draft = draft;
+	}
+}
+/** Visibility belongs to the active branch, independently of agent waiting state. */
+export function restoreQueueHidden(branch: readonly SessionEntry[]): boolean {
+	let hidden = false;
+	for (const entry of branch) {
+		if (
+			entry.type === "custom" &&
+			entry.customType === ASK_QUEUE_UI_ENTRY &&
+			Value.Check(QueueUiSchema, entry.data)
+		) {
+			hidden = entry.data.hidden;
+		}
+	}
+	return hidden;
+}
 function queuedRequest(entry: SessionEntry): QueuedRequest | undefined {
 	if (
 		entry.type !== "custom" ||

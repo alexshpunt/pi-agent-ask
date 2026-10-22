@@ -1,4 +1,4 @@
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui";
 import { UI_TEXT } from "../constants/ui.ts";
 import type { AskState } from "../types.ts";
 import {
@@ -14,7 +14,8 @@ export function renderSubmitScreen(
 	state: AskState,
 	theme: Theme,
 	width: number,
-	reviewShortcutHint?: string
+	reviewShortcutHint?: string,
+	markActiveRow = false
 ) {
 	const model = buildReviewScreenModel(state, width);
 	if (model.layout === "wide") {
@@ -23,7 +24,8 @@ export function renderSubmitScreen(
 		const actionLines = renderSubmitActions(
 			model,
 			theme,
-			model.actionColumnWidth
+			model.actionColumnWidth,
+			markActiveRow
 		);
 		for (const line of mergeColumns(
 			actionLines,
@@ -38,7 +40,7 @@ export function renderSubmitScreen(
 	}
 
 	const reviewLines = renderSubmitReviewLines(model, theme, width);
-	const actionLines = renderSubmitActions(model, theme, width);
+	const actionLines = renderSubmitActions(model, theme, width, markActiveRow);
 	lines.push(...reviewLines);
 	lines.push("");
 	lines.push(...actionLines);
@@ -72,6 +74,10 @@ export function renderReviewQuestion(
 	width: number
 ) {
 	pushWrappedText(lines, question.label, width, theme, "text", " ", " ");
+	if (question.skipped) {
+		lines.push(truncateToWidth(`   ${theme.fg("dim", "(skipped)")}`, width));
+		return;
+	}
 	if (question.unanswered) {
 		lines.push(
 			truncateToWidth(`   ${theme.fg("dim", UI_TEXT.unanswered)}`, width)
@@ -137,11 +143,14 @@ export function renderReviewQuestion(
 function renderSubmitActions(
 	model: ReturnType<typeof buildReviewScreenModel>,
 	theme: Theme,
-	width: number
+	width: number,
+	markActiveRow: boolean
 ): string[] {
 	const lines: string[] = [];
 	for (const [index, action] of model.actions.entries()) {
-		const prefix = action.selected ? "❯ " : "  ";
+		const prefix = action.selected
+			? `${markActiveRow ? CURSOR_MARKER : ""}❯ `
+			: "  ";
 		pushWrappedText(
 			lines,
 			`${index + 1}. ${action.label}`,

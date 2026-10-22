@@ -1,3 +1,4 @@
+import { CURSOR_MARKER } from "@earendil-works/pi-tui";
 import { UI_DIMENSIONS, UI_TEXT } from "../../constants/ui.ts";
 import { withImageMarker } from "../../images.ts";
 import { hasCustomAnswer, isOptionSelected } from "../../state/answers.ts";
@@ -94,7 +95,7 @@ function buildOptionRowModel(
 	const answered = option.isCustomOption
 		? !!(answer?.customSelected && hasCustomAnswer(answer))
 		: isOptionSelected(answer, option.value);
-	const pointer = getOptionPointer(selected);
+	const pointer = getOptionPointer(selected, context.markActiveRow);
 	return {
 		color: getOptionColor(answered, selected),
 		description: option.description,
@@ -112,8 +113,8 @@ function buildOptionRowModel(
 	};
 }
 
-function getOptionPointer(selected: boolean): string {
-	return selected ? "❯ " : "  ";
+function getOptionPointer(selected: boolean, markActiveRow = false): string {
+	return selected ? `${markActiveRow ? CURSOR_MARKER : ""}❯ ` : "  ";
 }
 
 function buildOptionDetailModel(

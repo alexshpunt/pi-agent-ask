@@ -3,11 +3,13 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme, matchesKey } from "@earendil-works/pi-tui";
+import type { AskDraft } from "../ask-draft.ts";
 import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
 import { readClipboardImage } from "../clipboard-image.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
+import { beginUserWait } from "../herdr-wait-state.ts";
 import {
 	createQuestionWaitingNotification,
 	notifyQuestionWaiting,
@@ -37,6 +39,7 @@ import {
 	getCurrentQuestion,
 	isSubmitTab,
 } from "../state/selectors.ts";
+import { skipCurrentQuestion } from "../state/skip.ts";
 import {
 	applyNumberShortcut,
 	cancelFlow,
@@ -59,7 +62,10 @@ import {
 } from "./dismiss-guard.ts";
 import type { AskInputCommand } from "./input.ts";
 import { getInputCommand } from "./input.ts";
-import { showPersistentAsk } from "./persistent-ask.ts";
+import {
+	type PersistentAskOptions,
+	showPersistentAsk,
+} from "./persistent-ask.ts";
 import { renderAskScreen } from "./render.ts";
 import {
 	getReviewShortcutHint,
@@ -78,8 +84,12 @@ type Done = (result: AskResult) => void;
 type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 
 interface AskFlowOptions {
+	background?: PersistentAskOptions & {
+		draft?: AskDraft;
+		onDefer(): void;
+		onDraft(draft: AskDraft): void;
+	};
 	herdrEvents?: AskEvents;
-	keepVisible?: boolean;
 	presentSingleAsMulti?: boolean;
 	remote?: {
 		runtime: RemoteAskRuntime;
@@ -107,6 +117,7 @@ interface AskFlowController {
 	disposed: boolean;
 	done: Done;
 	editor: Editor;
+	flowOptions: AskFlowOptions;
 	keybindings: Keybindings;
 	pendingQuestionTypeChangeQuestionId?: string;
 	pendingReviewShortcutActionIndex?: number;
@@ -142,8 +153,13 @@ export async function runAskFlow(
 			cancelled: true,
 		};
 	}
-	return withAskSurface(options.signal, async () => {
-		emitHerdrBlocked(options.herdrEvents, true);
+	const run = async () => {
+		if (options.signal?.aborted) {
+			throw new DOMException("Question form interrupted", "AbortError");
+		}
+		const endWait = options.background
+			? undefined
+			: beginUserWait(options.herdrEvents, "Waiting for user response");
 		try {
 			const factory = (...args: [Tui, Theme, Keybindings, Done]) =>
 				createAskFlowController(args, {
@@ -154,29 +170,14 @@ export async function runAskFlow(
 					ctx,
 					flowOptions,
 				});
-			return options.keepVisible
-				? await showPersistentAsk(ctx, factory)
+			return options.background
+				? await showPersistentAsk(ctx, factory, options.background)
 				: await ctx.ui.custom<AskResult>(factory);
 		} finally {
-			emitHerdrBlocked(options.herdrEvents, false);
+			endWait?.();
 		}
-	});
-}
-
-function emitHerdrBlocked(
-	events: AskEvents | undefined,
-	active: boolean
-): void {
-	try {
-		events?.emit(
-			"herdr:blocked",
-			active
-				? { active: true, label: "Waiting for user response" }
-				: { active: false }
-		);
-	} catch {
-		// Herdr status is best effort and must not affect the ask flow.
-	}
+	};
+	return options.background ? run() : withAskSurface(options.signal, run);
 }
 
 function createAskFlowController(
@@ -198,8 +199,11 @@ function createAskFlowController(
 		dismissNotice: undefined,
 		done,
 		editor: createEditor(tui, theme, params.cwd),
+		flowOptions: params.flowOptions,
 		settingsOpen: false,
-		state: createInitialState(params, params.flowOptions),
+		state:
+			params.flowOptions.background?.draft?.state ??
+			createInitialState(params, params.flowOptions),
 		suppressAutoInputForSelection: false,
 		pendingQuestionTypeChangeQuestionId: undefined,
 		pendingReviewShortcutActionIndex: undefined,
@@ -231,7 +235,11 @@ function createAskFlowController(
 	}
 	controller.editor.onSubmit = (value) => submitEditor(controller, value);
 	controller.remoteFlow = startRemoteFlow(controller, params);
-	syncSelection(controller);
+	if (params.flowOptions.background?.draft) {
+		controller.editor.setText(params.flowOptions.background.draft.editorText);
+	} else {
+		syncSelection(controller);
+	}
 	notifyCurrentQuestion(controller).catch(() => {
 		// Notification failures are best-effort and must not affect the ask flow.
 	});
@@ -265,6 +273,7 @@ function renderController(
 ): string[] {
 	return renderAskScreen({
 		config: controller.config,
+		background: !!controller.flowOptions.background,
 		editor: controller.editor,
 		footerNotice: getFooterNotice(controller),
 		reviewShortcutHint: getActiveReviewShortcutHint(controller),
@@ -275,6 +284,19 @@ function renderController(
 }
 
 function handleControllerInput(controller: AskFlowController, data: string) {
+	if (controller.flowOptions.background && matchesKey(data, "esc")) {
+		refresh(controller);
+		controller.flowOptions.background.onDefer();
+		return;
+	}
+	if (
+		controller.flowOptions.background &&
+		!isEditingView(controller.state) &&
+		matchesKey(data, "d")
+	) {
+		commitState(controller, skipCurrentQuestion(controller.state));
+		return;
+	}
 	controller.editor.disableSubmit = !isNativeEditorSubmitEnabled(controller);
 	const command = getInputCommand(
 		controller.state,
@@ -695,6 +717,10 @@ function showSettingsModal(controller: AskFlowController) {
 }
 
 function refresh(controller: AskFlowController) {
+	controller.flowOptions.background?.onDraft({
+		state: controller.state,
+		editorText: controller.editor.getText(),
+	});
 	controller.tui.requestRender();
 }
 
@@ -716,7 +742,7 @@ function maybeFinish(controller: AskFlowController) {
 		const result = toAskResult(controller.state);
 		controller.remoteFlow?.complete(result);
 		controller.done(result);
-		if (result.cancelled) {
+		if (result.cancelled && !controller.flowOptions.background) {
 			controller.ctx.abort();
 		}
 	}

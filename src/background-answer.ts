@@ -85,6 +85,11 @@ function answerStatus(answer: QueuedAnswer): {
 	if (answer.result.mode === "elaborate") {
 		return { color: "warning", text: "? Clarification requested" };
 	}
+	if (
+		answer.result.skippedQuestionIds?.length === answer.result.questions.length
+	) {
+		return { color: "warning", text: "? Questions skipped" };
+	}
 	return { color: "success", text: "✓ Answers received" };
 }
 
@@ -111,6 +116,7 @@ function answerBody(
 		lines.push("");
 		const response = result.answers[question.id];
 		const model = toReviewQuestionModel(question.prompt, response);
+		model.skipped = result.skippedQuestionIds?.includes(question.id);
 		model.unanswered = !(response && isResultAnswerCommitted(response));
 		renderReviewQuestion(lines, model, theme, width);
 		if (model.unanswered && model.note) {

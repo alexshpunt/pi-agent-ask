@@ -130,7 +130,7 @@ export interface AskElaborationPayload {
 }
 
 export interface AskContinuationQuestionState {
-	status: "answered" | "needs_clarification" | "unanswered";
+	status: "answered" | "needs_clarification" | "unanswered" | "skipped";
 }
 
 export interface AskContinuationPayload {
@@ -150,6 +150,8 @@ export interface AskResult {
 	questions: AskQuestionSummary[];
 	/** Stable journal request key for an ask_user tool call. */
 	requestId?: string;
+	/** Questions explicitly skipped by the user, never treated as answers. */
+	skippedQuestionIds?: string[];
 	title?: string;
 }
 
@@ -158,6 +160,12 @@ export type ViewState =
 	| { kind: "submit" }
 	| { kind: "input"; questionId: string }
 	| { kind: "note"; questionId: string; optionValue?: string };
+
+export interface SkippedQuestion {
+	/** Position in the original questionnaire, before any skips. */
+	index: number;
+	question: AskQuestion;
+}
 
 export interface AskState {
 	activeOptionIndex: number;
@@ -168,6 +176,8 @@ export interface AskState {
 	completed: boolean;
 	mode: "submit" | "elaborate";
 	questions: AskQuestion[];
+	/** Removed from active navigation but retained for ordered result metadata. */
+	skippedQuestions?: SkippedQuestion[];
 	title?: string;
 	view: ViewState;
 }

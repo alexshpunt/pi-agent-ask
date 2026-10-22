@@ -100,11 +100,11 @@ After attempt 2:
 Use `ask_user` with `background: true` when you can keep doing independent work while the human answers.
 
 - The immediate result is a queued receipt with `requestId`, not an answer or approval.
-- Forms open automatically, one at a time, in FIFO order. You may add more forms as you learn.
+- Forms appear beside ordinary input, one at a time, in FIFO order, without taking focus. The user can defer the queue or skip individual questions. Treat skipped questions as unanswered, never as approval. You may add more forms as you learn.
 - Each completed form arrives in a `ask:background-answer` message with its request ID. Read its normal answers, cancellation, or elaboration result.
 - Do not guess pending answers, make dependent decisions, or cross an approval gate while waiting.
 - Call `wait_for_answers` directly when independent work is exhausted or before a step that needs answers. It has no built-in timeout. Aborting the wait leaves the forms queued.
-- The wait returns only results not already delivered as messages. An empty result list is not approval.
+- Check the wait status: hiding questions or sending a normal message returns `deferred` and leaves unanswered requests queued. Do not repeat a deferred wait automatically; follow the user's message or continue only independent work. The wait returns only results not already delivered as messages. An empty result list is not approval.
 - Queue state follows the active session branch and survives reload/resume. Ordinary `ask_user` still blocks.
 
 ## Guardrails

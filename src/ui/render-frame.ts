@@ -31,6 +31,7 @@ export function renderFrameHeader(args: {
 export function renderFrameFooter(args: {
 	config: AskConfig;
 	footerNotice?: string;
+	background?: boolean;
 	lines: string[];
 	state: AskState;
 	theme: Theme;
@@ -38,7 +39,7 @@ export function renderFrameFooter(args: {
 }) {
 	const { config, footerNotice, lines, state, theme, width } = args;
 	const add = (text = "") => lines.push(truncateToWidth(text, width));
-	const footer = renderFooter(config, state, width);
+	const footer = renderFooter(config, state, width, args.background);
 	const noticeLines = footerNotice ? wrapText(footerNotice, width) : [];
 	if (noticeLines.length > 0 || footer.length > 0) {
 		add();
@@ -188,23 +189,25 @@ function applyTabGrowth(
 function renderFooter(
 	config: AskConfig,
 	state: AskState,
-	width: number
+	width: number,
+	background = false
 ): string[] {
 	if (!config.behaviour.showFooterHints) {
 		return [];
 	}
 	let footer: string;
 	if (state.view.kind === "input") {
-		footer = renderFooterText(config, "input");
+		footer = renderFooterText(config, "input", background);
 	} else if (state.view.kind === "note") {
-		footer = renderFooterText(config, "note");
+		footer = renderFooterText(config, "note", background);
 	} else if (isSubmitTab(state)) {
-		footer = renderFooterText(config, "submit");
+		footer = renderFooterText(config, "submit", background);
 	} else {
 		const question = getCurrentQuestion(state);
 		footer = renderFooterText(
 			config,
-			question?.type === "multi" ? "multi" : "default"
+			question?.type === "multi" ? "multi" : "default",
+			background
 		);
 	}
 	return wrapDelimitedFooterHints(footer, width);
