@@ -1,10 +1,8 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme, matchesKey } from "@earendil-works/pi-tui";
 import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
+import { type AskEvents, acquireAskBlocked } from "../blocked-status.ts";
 import { readClipboardImage } from "../clipboard-image.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
@@ -75,9 +73,9 @@ type Tui = CustomCallbackArgs[0];
 type Theme = CustomCallbackArgs[1];
 type Keybindings = CustomCallbackArgs[2];
 type Done = (result: AskResult) => void;
-type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 
 interface AskFlowOptions {
+	abortOnCancel?: boolean;
 	herdrEvents?: AskEvents;
 	keepVisible?: boolean;
 	presentSingleAsMulti?: boolean;
@@ -98,6 +96,7 @@ type AskFlowParams = AskParams &
 	};
 
 interface AskFlowController {
+	abortOnCancel: boolean;
 	clipboardNotice?: string;
 	clipboardReading: boolean;
 	config: AskConfig;
@@ -143,7 +142,7 @@ export async function runAskFlow(
 		};
 	}
 	return withAskSurface(options.signal, async () => {
-		emitHerdrBlocked(options.herdrEvents, true);
+		const releaseBlocked = acquireAskBlocked(options.herdrEvents);
 		try {
 			const factory = (...args: [Tui, Theme, Keybindings, Done]) =>
 				createAskFlowController(args, {
@@ -158,25 +157,9 @@ export async function runAskFlow(
 				? await showPersistentAsk(ctx, factory)
 				: await ctx.ui.custom<AskResult>(factory);
 		} finally {
-			emitHerdrBlocked(options.herdrEvents, false);
+			releaseBlocked();
 		}
 	});
-}
-
-function emitHerdrBlocked(
-	events: AskEvents | undefined,
-	active: boolean
-): void {
-	try {
-		events?.emit(
-			"herdr:blocked",
-			active
-				? { active: true, label: "Waiting for user response" }
-				: { active: false }
-		);
-	} catch {
-		// Herdr status is best effort and must not affect the ask flow.
-	}
 }
 
 function createAskFlowController(
@@ -189,6 +172,7 @@ function createAskFlowController(
 	params: AskFlowParams
 ) {
 	const controller: AskFlowController = {
+		abortOnCancel: params.flowOptions.abortOnCancel ?? !params.background,
 		clipboardReading: false,
 		disposed: false,
 		keybindings,
@@ -716,7 +700,7 @@ function maybeFinish(controller: AskFlowController) {
 		const result = toAskResult(controller.state);
 		controller.remoteFlow?.complete(result);
 		controller.done(result);
-		if (result.cancelled) {
+		if (result.cancelled && controller.abortOnCancel) {
 			controller.ctx.abort();
 		}
 	}

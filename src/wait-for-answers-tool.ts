@@ -12,11 +12,12 @@ import { imageContent } from "./images.ts";
 /** Register the explicit wait gate. Completed answers use this result instead of duplicate messages. */
 export function registerWaitForAnswersTool(
 	pi: ExtensionAPI,
-	queue: BackgroundAskRuntime
+	queue: BackgroundAskRuntime,
+	isBackgroundOnly: () => boolean = () => false
 ): void {
 	pi.registerTool({
 		name: "wait_for_answers",
-		exposure: "model-only",
+		exposure: isBackgroundOnly() ? "hidden" : "model-only",
 		label: "Wait for Answers",
 		description:
 			"Wait until all outstanding background ask_user forms finish. Use when no independent work remains or before a step that depends on answers. No built-in timeout. Aborting the wait leaves questions queued. Returns only results not already delivered asynchronously; cancellation and elaboration are not approval.",
@@ -28,6 +29,11 @@ export function registerWaitForAnswersTool(
 		parameters: Type.Object({}),
 		outputSchema: WaitForAnswersSchema,
 		async execute(_toolCallId, _params, signal, _onUpdate, ctx) {
+			if (isBackgroundOnly()) {
+				throw new Error(
+					"wait_for_answers is unavailable in background-only mode. End your turn and receive answers asynchronously."
+				);
+			}
 			if (ctx.mode !== "tui") {
 				throw new Error("wait_for_answers requires interactive TUI mode.");
 			}

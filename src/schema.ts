@@ -83,3 +83,7 @@ export const AskParamsSchema = Type.Object({
 		description: "Questions to ask in the interactive clarification flow",
 	}),
 });
+
+export const AskBackgroundOnlyParamsSchema = Type.Omit(AskParamsSchema, [
+	"background",
+]);

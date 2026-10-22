@@ -376,7 +376,13 @@ export class AskSettingsList {
 			return;
 		}
 		this.resetConfirmUntil = 0;
-		this.saveConfig(normalizeAskConfig(DEFAULT_ASK_CONFIG));
+		this.saveConfig({
+			...normalizeAskConfig(DEFAULT_ASK_CONFIG),
+			behaviour: {
+				...DEFAULT_ASK_CONFIG.behaviour,
+				backgroundOnly: this.config.behaviour.backgroundOnly,
+			},
+		});
 	}
 
 	private isResetConfirmationActive(): boolean {
