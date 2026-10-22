@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_ASK_CONFIG } from "../src/config/defaults.ts";
 import { createInitialState } from "../src/state/create.ts";
+import { panelViewport } from "../src/ui/panel-viewport.ts";
 import { renderAskScreen } from "../src/ui/render.ts";
 
 function mockEditor() {
@@ -292,4 +293,54 @@ test("footer hints can be hidden without affecting frame rendering", () => {
 	assert.equal(lines.at(-1), "──────────────────────");
 	assert.equal(lines.join("\n").includes("? settings"), false);
 	assert.equal(lines.join("\n").includes("Enter confirm"), false);
+});
+
+test("background footers describe Escape as deferring rather than closing or cancelling", () => {
+	const state = createInitialState({
+		questions: [
+			{ id: "q", prompt: "Choose?", options: [{ value: "a", label: "A" }] },
+		],
+	});
+	for (const view of [
+		{ kind: "navigate" as const },
+		{ kind: "input" as const, questionId: "q" },
+	]) {
+		const rendered = renderAskScreen({
+			config: DEFAULT_ASK_CONFIG,
+			background: true,
+			state: { ...state, view },
+			theme: plainTheme(),
+			width: 120,
+			editor: mockEditor(),
+		}).join("\n");
+		assert(rendered.includes("Esc defer all"));
+		assert(!rendered.includes("Esc dismiss"));
+		assert(!rendered.includes("Esc close"));
+	}
+});
+
+test("a prompt arrow cannot hide the selected option in a bounded background panel", () => {
+	const state = createInitialState({
+		questions: [
+			{
+				id: "q",
+				prompt: "The prompt contains ❯ but it is not the active row",
+				options: Array.from({ length: 25 }, (_, index) => ({
+					value: String(index),
+					label: `Option ${index + 1}`,
+				})),
+			},
+		],
+	});
+	const lines = renderAskScreen({
+		config: DEFAULT_ASK_CONFIG,
+		background: true,
+		state: { ...state, activeOptionIndex: 18 },
+		theme: plainTheme(),
+		width: 80,
+		editor: { focused: true, getText: () => "", render: () => [] } as never,
+	});
+	const view = panelViewport(lines, 8, 0, true);
+	assert(view.lines.some((line) => line.includes("Option 19")));
+	assert(view.offset > 0);
 });

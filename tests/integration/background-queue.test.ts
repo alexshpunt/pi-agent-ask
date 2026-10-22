@@ -61,7 +61,7 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 		getToolExecutionDetails(getToolExecution(result, "research")),
 		{
 			activeForms: 1,
-			blocked: [{ active: true, label: "Waiting for user response" }],
+			blocked: [],
 			readSucceeded: true,
 		}
 	);

@@ -50,6 +50,7 @@ function harness() {
 		},
 	};
 	const pi = {
+		registerCommand: () => undefined,
 		registerTool(tool: any) {
 			tools.set(tool.name, tool);
 		},
@@ -81,6 +82,7 @@ function harness() {
 		},
 		sessionManager: { getBranch: () => branch },
 		ui: {
+			onTerminalInput: () => () => undefined,
 			custom(factory: any) {
 				return new Promise<AskResult>((resolve) => {
 					let component: any;
@@ -91,7 +93,11 @@ function harness() {
 					};
 					component = factory(
 						tui,
-						{ fg: (_color: string, text: string) => text },
+						{
+							fg: (_color: string, text: string) => text,
+							bg: (_color: string, text: string) => text,
+							bold: (text: string) => text,
+						},
 						{},
 						done
 					);
@@ -155,6 +161,35 @@ function harness() {
 	};
 }
 
+test("a branch restore during config loading cannot mount the abandoned background form", async () => {
+	const h = harness();
+	const store = getAskConfigStore();
+	const ensureLoaded = store.ensureLoaded.bind(store);
+	let release: (() => void) | undefined;
+	const loading = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	store.ensureLoaded = async () => {
+		await loading;
+		return ensureLoaded();
+	};
+	try {
+		h.runtime.enqueue("loading", params, h.ctx as never, false);
+		await tick();
+		h.runtime.restore(h.ctx as never);
+		release?.();
+		await tick();
+		assert.equal(h.forms.length, 1);
+		h.forms[0](answer);
+		await tick();
+		h.boundary();
+		assert.equal(h.messages.length, 1);
+	} finally {
+		release?.();
+		store.ensureLoaded = ensureLoaded;
+		h.runtime.dispose();
+	}
+});
 test("background receipts return before answers and forms run in FIFO order", async () => {
 	const h = harness();
 	const first = h.runtime.enqueue("first", params, h.ctx as never, false);
@@ -163,12 +198,7 @@ test("background receipts return before answers and forms run in FIFO order", as
 	assert.notEqual(first.requestId, second.requestId);
 	await tick();
 	assert.equal(h.forms.length, 1);
-	assert.deepEqual(h.events, [
-		{
-			channel: "herdr:blocked",
-			data: { active: true, label: "Waiting for user response" },
-		},
-	]);
+	assert.deepEqual(h.events, []);
 	h.forms[0](answer);
 	await tick();
 	assert.equal(h.forms.length, 2);
@@ -561,7 +591,7 @@ test("a persisted direct wait result prevents delivery after recovery", async ()
 	h.runtime.dispose();
 });
 
-test("aborting the wait keeps the open form blocked until it closes", async () => {
+test("aborting the wait clears blocked status without closing the question panel", async () => {
 	const h = harness();
 	registerWaitForAnswersTool(h.pi as never, h.runtime);
 	const tool = h.tools.get("wait_for_answers");
@@ -577,7 +607,7 @@ test("aborting the wait keeps the open form blocked until it closes", async () =
 	await assert.rejects(waiting, { name: "AbortError" });
 	assert.deepEqual(
 		h.events.map((event) => event.data.active),
-		[true]
+		[true, false]
 	);
 	assert.equal(h.runtime.pendingCount(), 1);
 	h.forms[0](answer);

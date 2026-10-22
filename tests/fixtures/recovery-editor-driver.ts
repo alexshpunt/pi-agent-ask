@@ -7,22 +7,12 @@ import { createBackgroundAskRuntime } from "../../src/background-ask.ts";
 import {
 	createRemoteAskRuntime,
 	PI_ASK_STARTED_EVENT,
-	PI_ASK_SUBMIT_EVENT,
-	type RemoteAskStartedEvent,
 } from "../../src/remote-ask.ts";
 import { registerWaitForAnswersTool } from "../../src/wait-for-answers-tool.ts";
 
-function contains(tree: unknown, target: Component): boolean {
-	if (tree === target) {
-		return true;
-	}
-	return (
-		typeof tree === "object" &&
-		tree !== null &&
-		"children" in tree &&
-		Array.isArray(tree.children) &&
-		tree.children.some((child) => contains(child, target))
-	);
+async function input(data: string): Promise<void> {
+	process.stdin.emit("data", data);
+	await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 // biome-ignore lint/style/noDefaultExport: Pi loads extension fixtures through a default factory.
@@ -32,34 +22,42 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 	registerBackgroundAnswerRenderer(pi);
 	registerAskTool(pi, remote, queue);
 	registerWaitForAnswersTool(pi, queue);
-	const state: { active?: RemoteAskStartedEvent } = {};
-	const currentFlow = (): RemoteAskStartedEvent | undefined => state.active;
-	let isVisible: (() => boolean) | undefined;
+	let panel: Component | undefined;
 	let ready: (() => void) | undefined;
-	let mounted: (() => void) | undefined;
 	let startedFlows = 0;
-	pi.events.on(PI_ASK_STARTED_EVENT, (payload) => {
+	pi.events.on(PI_ASK_STARTED_EVENT, (_payload: unknown) => {
 		startedFlows += 1;
-		state.active = payload as RemoteAskStartedEvent;
 		ready?.();
+		ready = undefined;
 	});
 	pi.on("session_start", (_event, ctx) => {
-		const custom = ctx.ui.custom.bind(ctx.ui);
-		ctx.ui.custom = (factory, options) =>
-			custom(async (...args) => {
-				const component = await factory(...args);
-				isVisible = () => contains(args[0], component);
-				if (component.handleInput) {
-					setImmediate(() => mounted?.());
-				}
-				return component;
-			}, options);
+		const setWidget = ctx.ui.setWidget.bind(ctx.ui);
+		ctx.ui.setWidget = (key, content, options) => {
+			if (typeof content === "function") {
+				setWidget(
+					key,
+					(tui, theme) => {
+						const widget = content(tui, theme);
+						if (key === "ask:active-surface") {
+							panel = widget;
+						}
+						return widget;
+					},
+					options
+				);
+				return;
+			}
+			if (key === "ask:active-surface") {
+				panel = undefined;
+			}
+			setWidget(key, content, options);
+		};
 	});
 	pi.registerTool({
 		name: "restore_editor_probe",
 		label: "Restore Editor Probe",
 		description:
-			"Restore a queue while a temporary native loading screen owns the editor.",
+			"Recover pending questions and a raw draft while the native editor is replaced.",
 		parameters: Type.Object({}),
 		async execute(_id, _params, _signal, _update, ctx) {
 			queue.dispose();
@@ -73,57 +71,42 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 				};
 			});
 			await new Promise<void>((resolve) => setImmediate(resolve));
+			const restored = new Promise<void>((resolve) => {
+				ready = resolve;
+			});
 			queue.restore(ctx);
-			state.active = undefined;
-			await new Promise<void>((resolve) => setImmediate(resolve));
 			closeLoading?.();
 			await loading;
-			if (!state.active) {
-				await new Promise<void>((resolve) => {
-					ready = resolve;
-				});
-			}
-			await new Promise<void>((resolve) => setImmediate(resolve));
-			const flowsBeforeRemount = startedFlows;
-			process.stdin.emit("data", "n");
-			process.stdin.emit("data", "saved note");
-			const remounted = new Promise<void>((resolve) => {
-				const timeout = setTimeout(resolve, 500);
-				mounted = () => {
-					clearTimeout(timeout);
-					resolve();
-				};
+			await restored;
+			await input("\u001bq");
+			await input("n");
+			await input("\u001b[200~saved note\u001b[201~");
+
+			// Rebuild the runtime as reload/resume does, including the raw unsaved note text.
+			const draftRestored = new Promise<void>((resolve) => {
+				ready = resolve;
 			});
-			// Real reload can restore the editor again after session_start already opened a form.
-			ctx.ui.setEditorComponent(undefined);
-			await remounted;
+			queue.restore(ctx);
+			await draftRestored;
 			await new Promise<void>((resolve) => setImmediate(resolve));
-			const visible = isVisible?.() ?? false;
-			const flow = currentFlow();
-			if (!flow) {
-				throw new Error("Recovered form did not open");
+			const flowsBeforeEditorReset = startedFlows;
+			ctx.ui.setEditorComponent(undefined);
+			await input("\u001bq");
+			const rendered = panel?.render(120).join("\n") ?? "";
+			const visible =
+				rendered.includes("Recovered question?") &&
+				rendered.includes("saved note");
+			if (!visible) {
+				throw new Error(
+					"The recovered question panel or its note draft was lost."
+				);
 			}
-			if (visible) {
-				process.stdin.emit("data", "\r");
-				await new Promise<void>((resolve) => setImmediate(resolve));
-				process.stdin.emit("data", "\r");
-				await new Promise<void>((resolve) => setImmediate(resolve));
-				process.stdin.emit("data", "\r");
-			} else {
-				// Bound the red run without pretending keyboard input worked.
-				pi.events.emit(PI_ASK_SUBMIT_EVENT, {
-					version: 1,
-					flowId: flow.flowId,
-					requestId: "cleanup-invisible-form",
-					response: {
-						kind: "answer",
-						answers: { choice: { values: ["yes"] } },
-					},
-				});
-			}
+			await input("\r");
+			await input("\r");
+			await input("\r");
 			return {
 				content: [{ type: "text", text: `Recovered form visible: ${visible}` }],
-				details: { visible, newFlows: startedFlows - flowsBeforeRemount },
+				details: { visible, newFlows: startedFlows - flowsBeforeEditorReset },
 			};
 		},
 	});
