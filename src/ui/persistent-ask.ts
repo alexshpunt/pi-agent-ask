@@ -24,20 +24,20 @@ type AskFactory = (
 ) => AskComponent;
 
 export interface PersistentAskHandle {
+	focus(): void;
 	setHidden(hidden: boolean): void;
 	toggleFocus(): void;
 }
 
 export interface PersistentAskOptions {
 	hidden: boolean;
-	onComplete?(focused: boolean): void;
 	onHandle(handle: PersistentAskHandle | undefined): void;
 	onHiddenChange?(hidden: boolean): void;
 }
 
 const SURFACE_WIDGET = "ask:active-surface";
 
-/** Render beside the native editor; an empty non-capturing overlay owns only explicit focus. */
+/** Render beside the native editor; a non-capturing overlay owns questionnaire focus. */
 export async function showPersistentAsk(
 	ctx: ExtensionContext,
 	factory: AskFactory,
@@ -91,10 +91,7 @@ class QuestionPanel implements PersistentAskHandle {
 		this.tui = tui;
 		this.messageEditor = this.tui.getFocusedComponent?.();
 		const onFocusChange = (focused: boolean) => this.onFocusChange(focused);
-		const component = factory(tui, theme, keys, (result) => {
-			this.options.onComplete?.(this.overlay?.isFocused() ?? false);
-			done(result);
-		});
+		const component = factory(tui, theme, keys, done);
 		this.component = component;
 		this.ctx.ui.setWidget(SURFACE_WIDGET, () => ({
 			render: (width) => this.renderWidget(width, theme),
@@ -127,6 +124,8 @@ class QuestionPanel implements PersistentAskHandle {
 		this.overlay = overlay;
 		if (this.hidden) {
 			overlay.setHidden(true);
+		} else {
+			overlay.focus();
 		}
 		this.options.onHandle(this);
 	}
@@ -134,8 +133,15 @@ class QuestionPanel implements PersistentAskHandle {
 	setHidden(hidden: boolean): void {
 		this.hidden = hidden;
 		this.overlay?.setHidden(hidden);
+		if (!hidden) {
+			this.overlay?.focus();
+		}
 		this.options.onHiddenChange?.(hidden);
 		this.tui?.requestRender();
+	}
+
+	focus(): void {
+		this.setHidden(false);
 	}
 
 	toggleFocus(): void {
@@ -144,6 +150,7 @@ class QuestionPanel implements PersistentAskHandle {
 		}
 		if (this.hidden) {
 			this.setHidden(false);
+			return;
 		}
 		if (this.overlay.isFocused()) {
 			this.overlay.unfocus();
@@ -202,6 +209,10 @@ class QuestionPanel implements PersistentAskHandle {
 			this.scrollTop = Math.max(0, this.renderedOffset + event.wheelDelta);
 			return { handled: true };
 		}
+		if (!this.overlay?.isFocused()) {
+			return this.focusFromMouse(event);
+		}
+		const panelClick = event.type === "click" && event.button === "left";
 		const result =
 			event.y >= 1 && event.y <= this.renderedRows
 				? this.component?.handleMouse?.({
@@ -209,12 +220,8 @@ class QuestionPanel implements PersistentAskHandle {
 						y: event.y - 1 + this.renderedOffset,
 					})
 				: undefined;
-		const panelClick = event.type === "click" && event.button === "left";
 		if (!(result?.handled || panelClick)) {
 			return;
-		}
-		if (!this.disposed) {
-			this.overlay?.focus();
 		}
 		if (event.type === "click") {
 			this.followSelection = true;
@@ -223,6 +230,23 @@ class QuestionPanel implements PersistentAskHandle {
 		return { handled: true };
 	}
 
+	private focusFromMouse(
+		event: TuiMouseEvent
+	): TuiMouseEventResult | undefined {
+		if (event.button !== "left") {
+			return;
+		}
+		if (event.type === "press") {
+			return { handled: true, render: false };
+		}
+		if (event.type !== "click") {
+			return;
+		}
+		this.overlay?.focus();
+		this.followSelection = true;
+		this.tui?.requestRender();
+		return { handled: true };
+	}
 	private handleInput(data: string): void {
 		if (matchesKey(data, "pageUp") || matchesKey(data, "pageDown")) {
 			this.followSelection = false;
