@@ -74,6 +74,7 @@ This document defines the stable external behavior. It does not explain internal
       type: "single" | "multi" | "preview";
       presentedType?: "single" | "multi" | "preview";
     }>;
+    skippedQuestionIds?: string[];
     answers: Record<
       string,
       {
@@ -97,7 +98,7 @@ This document defines the stable external behavior. It does not explain internal
         optionNotes?: Record<string, string>;
       }>;
       questionStates: Record<string, {
-        status: "answered" | "needs_clarification" | "unanswered";
+        status: "answered" | "needs_clarification" | "unanswered" | "skipped";
       }>;
     };
     elaboration?: {
@@ -190,7 +191,8 @@ remain standard tool errors.
 - `continuation.strategy === "refine_only"` means the next ask should refine the current flow rather than restart it
 - `continuation.preservedAnswers` contains previously committed answers that should be kept as context and not re-asked
 - `continuation.affectedQuestionIds` lists the only questions that should be revisited
-- `continuation.questionStates` marks each question as `answered`, `needs_clarification`, or `unanswered`
+- `continuation.questionStates` marks each question as `answered`, `needs_clarification`, `unanswered`, or `skipped`
+- `skippedQuestionIds` lists explicitly skipped questions in original order; their questions remain in result metadata, but their answers, notes, and images are omitted. Skipping is not approval.
 - single-select answers still use arrays
 - recommendation markers never change canonical submitted labels or values
 - when `behaviour.presentSingleAsMulti` is enabled, requested single-select questions are presented and handled as multi-select in future/recovered ask flows; result question metadata keeps the requested `type`, adds `presentedType` when final presentation differs, and result text uses one compact note when any answered questions were presented differently
@@ -250,7 +252,9 @@ The global setting is inherited unless a trusted project explicitly overrides it
 { status: "queued", requestId: string, questionIds: string[], pendingRequests: number }
 ```
 
-A receipt is not an answer or approval. The queue automatically opens one form at a time, in FIFO order. Other ask surfaces share the same input lock. Agent work continues while a background form is open; it does not hide the working indicator itself.
+A receipt is not an answer or approval. By default the queue shows one questionnaire at a time, in FIFO order, above the ordinary editor without taking focus or clearing its draft. Agent work continues; the panel does not hide the working indicator or hold the foreground input lock.
+
+`Alt+Q` switches focus between the panel and ordinary input. `Esc` in the panel or `/ask-defer` defers all questions, preserving the queue and drafts. `/ask-queue` reopens and focuses the pending questionnaire. New requests do not reopen a deliberately hidden panel. `D` in question navigation skips only the current question, removing its answer and notes; in answer/note editors it is ordinary text. Review and completed results mark skipped questions explicitly, including when all questions were skipped. Skipping every question still requires explicit completion.
 
 Each completed form is saved before delivery. Its saved completion renders the answer card, linked by `parentToolCallId` to the original visible execution. Nested calls retain their real outer execution root; missing ownership stays unlinked rather than being guessed. During work the complete answer enters context at the next turn boundary as a hidden `ask:background-answer` custom message with `{ requestId, parentToolCallId?, result?: AskResult, error?: string }` in details. While idle, answers start a new agent turn; cancellation only adds context and never wakes the agent. Cancellation and elaboration are terminal form results, not approval.
 
@@ -264,13 +268,21 @@ Background answer text includes the form title when present, its request ID, and
 { status: "complete", requestIds: string[], results: Array<{ requestId: string, parentToolCallId?: string, result?: AskResult, error?: string }> }
 ```
 
-Results already delivered asynchronously are not repeated. Forms completed during the wait return through the wait result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued. User cancellation closes only that background form without aborting unrelated agent work. UI failures are reported with an error, never invented answers.
+Hiding the question panel or sending ordinary input during a wait releases only that wait:
+
+```ts
+{ status: "deferred", reason: "hidden" | "user_message", requestIds: string[], pendingRequestIds: string[], results: Array<{ requestId: string, parentToolCallId?: string, result?: AskResult, error?: string }> }
+```
+
+The questions and drafts remain pending. `results` includes only completed outcomes not already delivered; `pendingRequestIds` identifies unanswered requests. Sending a message also hides the panel and lets the agent process that message. A deferred wait is not an answer, cancellation, or approval; the agent must not repeat the wait automatically or proceed with dependent decisions.
+
+Results already delivered asynchronously are not repeated. Forms completed during the wait return through its result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued. Explicit cancellation finishes only that background questionnaire and does not abort unrelated agent work. UI failures are reported with an error, never invented answers.
 
 Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
 
-Recovered forms wait for the native editor and open in its usual slot. If later lifecycle cleanup replaces that slot again, the same form mounts again without losing answers, notes, or editor drafts. This does not create a new remote flow, repeat notifications, use a timer, or reopen completed forms. Other input dialogs keep their slot until they close.
+Recovered panels wait for the native editor without replacing it. Drafts, skipped questions, and panel visibility follow the active branch across reload and resume. Other input dialogs retain their own input surface.
 
-The queue holds `herdr:blocked` from enqueue or recovery until its last unresolved form closes, while the agent keeps working. Closing one of several forms, waiting for the editor, or aborting an explicit wait does not clear that status. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
+A pending or visible background panel does not emit `herdr:blocked`. An active `wait_for_answers` emits `{ active: true, label: "Waiting for user answers" }` and releases its waiting status when it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked. Tool guidelines and the bundled skill distinguish these states and forbid dependent work before answers.
 
 ## Session question history
 
@@ -320,6 +332,12 @@ The npm package and product name are `pi-agent-ask`. Settings use `extensions/pi
 - if the flow is already on the review tab, all questions are answered, and no notes exist, enabling auto-submit can complete the current ask flow immediately
 - elaborate results are phrased as direct follow-up instructions, for example: `User asked to elaborate on question "Which option would you like to select?" option "Option A" with note "why this one?"`
 
+## Mouse behavior
+
+Fullscreen forms accept clicks on visible options, question tabs, Review, and review actions. An option click uses the same selection behavior as its number shortcut, including multi-select toggles and custom-answer editing. Review actions keep the configured double-press safeguard. Pressing, dragging, or releasing alone never submits an answer.
+
+The whole visible background panel is a keyboard-focus area: clicking its heading, prompt, blank space, borders, or scroll footer gives the questionnaire keyboard control without selecting or submitting an answer. Option and tab clicks still perform their own actions. No prior `Alt+Q` is needed. It takes keyboard focus only after an explicit panel interaction and preserves ordinary input. Clicking the ordinary editor releases panel focus without closing or answering the questionnaire; closing a settings overlay still restores the previous form focus. Wheel scrolling and resized layouts use the visible rows, not stale screen positions. Preview and review text beside an action is not part of its click target. Regular terminal mode leaves mouse input to terminal selection and keeps keyboard controls.
+
 ## Keyboard behavior
 
 Main flow:
@@ -329,6 +347,8 @@ Main flow:
 - `main.nextTab` / `main.previousTab` move between tabs; defaults: `Tab`/`Right`, `Shift+Tab`/`Left`
 - `main.nextOption` / `main.previousOption` move between options or review actions; defaults: `Down`, `Up`
 - `main.confirm`, `main.cancel`, and `main.toggle` confirm, cancel, or toggle; defaults: `Enter`, `Esc`, `Space`
+- on multi-select questions, `Space` toggles the highlighted choice without advancing; `Enter` keeps all choices and advances to the next question or Review, even when a saved custom answer is highlighted
+- submitting custom-answer text with `Enter` also advances; closing that editor with `Esc` saves without advancing
 - cancelling or dismissing a foreground form stops the current agent operation; cancelling a background form closes only that form, in either question mode; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
 - a background cancellation is recorded and can be delivered as context, but never starts a new agent turn by itself
 - `main.changeQuestionType` changes the active question type (non-preview: `single <-> multi`; preview: `preview <-> multi`); default: `t`; destructive `multi -> single` changes require pressing the type hotkey again, with no timeout, and the pending confirmation clears on other navigation/actions
@@ -378,12 +398,15 @@ When enabled, pi-agent-ask emits one best-effort external notification per ask s
 
 ## Herdr blocked lifecycle
 
-For TUI questions, the extension emits on `pi.events`:
+For foreground interactive TUI ask flows, the extension optionally emits on `pi.events`:
 
-- `herdr:blocked` with `{ active: true, label: "Waiting for user response" }` when the first background form is queued or recovered, or a foreground form opens;
-- `herdr:blocked` with `{ active: false }` when no unresolved background requests or foreground surfaces remain.
+- `herdr:blocked` with `{ active: true, label: "Waiting for user response" }`
+  immediately before waiting for input;
+- `herdr:blocked` with `{ active: false }` when the last active wait ends.
 
-The Herdr session header can show blocked while the agent continues independent work. Closing one form cannot clear another's status. Session shutdown releases the current runtime's status; recovery restores it for unresolved requests. Status is best-effort and contains no questions, answers, notes, or remote submission data. Non-TUI execution does not emit this lifecycle.
+Successful answers, cancellation, abort/timeout, and UI errors release the flow's waiting status. A separate foreground flow or explicit answer wait keeps Herdr blocked until it also ends. This signal is status-only: it does not include questions, context,
+answers, notes, or remote submission data. Non-interactive execution does not emit
+this lifecycle.
 
 ## Remote inter-extension events
 

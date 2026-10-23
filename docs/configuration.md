@@ -125,7 +125,24 @@ Bindings must be unique within each context. Global bindings must not overlap wi
 
 In a non-empty editor, arrows and Tab move the cursor rather than changing questions. Empty editors use the `*WhenEmpty` actions for navigation.
 
+For multi-select questions, `Space` toggles the highlighted choice. `Enter` keeps the choices and moves to the next question or Review, including when a saved custom answer is highlighted. In the custom-answer editor, `Enter` saves the text and advances; `Esc` saves it without advancing.
+
 Invalid keymaps fall back to defaults for the session with a notice. Other valid settings still load. The settings list shows the full config path; edit that file to change keymaps or notification channels.
+
+## Background queue controls
+
+Background questions appear above the ordinary editor without changing its focus. These queue controls are fixed and separate from the form keymaps:
+
+- `Alt+Q`: switch between the question panel and normal input; reopen the panel if hidden.
+- `Esc` in the panel: defer all questions, keeping the queue and drafts.
+- `/ask-defer`: defer all questions from ordinary input.
+- `/ask-queue`: reopen and focus the pending questionnaire.
+- `D` in question navigation: skip only the current question. In answer/note editors it remains ordinary text.
+- `PageUp` / `PageDown` in the panel: scroll a tall questionnaire. Navigation brings the active option or answer editor back into view.
+
+In fullscreen mode, click anywhere inside the question panel to give it keyboard focus, including its heading, prompt, blank space, borders, or scroll footer. Clicking an option also selects it or toggles a multi-select choice. Click a question tab or Review to switch tabs, and use the wheel over the panel to scroll. Clicking a choice focuses the panel without changing the ordinary editor's draft. Click the ordinary editor to return to writing a message while the form stays open. Review actions require two clicks when `Double-press review shortcuts` is enabled. In regular terminal mode, use the keyboard; the terminal keeps mouse selection.
+
+Hiding the panel or sending a normal message during `wait_for_answers` releases that wait, not the pending questions. New requests do not reopen a deliberately hidden panel. Foreground forms keep their configured cancellation behavior.
 
 ## Notifications
 
