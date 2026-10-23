@@ -11,7 +11,12 @@ export function formatResultLines(
 
 	let hasPresentationOverride = false;
 
+	const skipped = new Set(result.skippedQuestionIds);
 	for (const question of result.questions) {
+		if (skipped.has(question.id)) {
+			lines.push(formatSkippedLine(question.label, options.mode));
+			continue;
+		}
 		const answer = result.answers[question.id];
 		if (!answer) {
 			lines.push(formatUnansweredLine(question.label, options.mode));
@@ -44,6 +49,15 @@ export function formatResultLines(
 	}
 
 	return lines;
+}
+
+function formatSkippedLine(
+	questionLabel: string,
+	mode: "summary" | "render"
+): string {
+	return mode === "summary"
+		? `${questionLabel}: (skipped)`
+		: `? ${questionLabel}: (skipped)`;
 }
 
 function formatUnansweredLine(
@@ -101,8 +115,12 @@ function formatQuestionNoteLine(
 
 export function formatElaborationLines(
 	result: AskResult,
-	_options: { mode: "summary" | "render" }
+	options: { mode: "summary" | "render" }
 ): string[] {
+	const skipped = new Set(result.skippedQuestionIds);
+	const skippedLines = result.questions
+		.filter((question) => skipped.has(question.id))
+		.map((question) => formatSkippedLine(question.label, options.mode));
 	const items = result.elaboration?.items ?? [];
 	const lines = items.map((item) => {
 		const answerContext = formatElaborationAnswerContext(item.answer);
@@ -117,7 +135,7 @@ export function formatElaborationLines(
 	});
 
 	if (lines.length > 0) {
-		return lines;
+		return [...skippedLines, ...lines];
 	}
 
 	const answerLines = result.questions
@@ -129,7 +147,10 @@ export function formatElaborationLines(
 		})
 		.filter((line): line is string => Boolean(line));
 
-	return answerLines.length > 0 ? answerLines : [ELABORATED_SUMMARY];
+	if (skippedLines.length || answerLines.length) {
+		return [...skippedLines, ...answerLines];
+	}
+	return [ELABORATED_SUMMARY];
 }
 
 function formatElaborationAnswerContext(

@@ -54,6 +54,7 @@ export const AskResultSchema = Type.Object({
 	cancelled: Type.Boolean(),
 	mode: StringEnum(["submit", "elaborate"] as const),
 	questions: Type.Array(QuestionSummarySchema),
+	skippedQuestionIds: Type.Optional(Type.Array(Type.String())),
 	answers: Type.Record(Type.String(), AnswerSchema),
 	error: Type.Optional(
 		Type.Object({
@@ -75,6 +76,7 @@ export const AskResultSchema = Type.Object({
 						"answered",
 						"needs_clarification",
 						"unanswered",
+						"skipped",
 					] as const),
 				})
 			),

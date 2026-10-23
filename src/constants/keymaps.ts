@@ -168,12 +168,6 @@ const DESCRIPTIONS: Record<AskKeymapContext, Record<string, string>> = {
 	},
 };
 
-const footerHint = (
-	binding: AskKeyBinding,
-	action: string,
-	label = binding.label
-) => `${label} ${action}`;
-
 const footerKeyIdLabel = (binding: AskKeyBinding) => binding.keys.join(" / ");
 
 export function formatKeybindingLabel(key: string): string {
@@ -304,8 +298,27 @@ export function getAskKeymaps(config: AskConfig): {
 
 export function renderFooterKeymaps(
 	config: AskConfig,
-	context: FooterKeymapContext
+	context: FooterKeymapContext,
+	background = false
 ): string {
+	const footerHint = (
+		binding: AskKeyBinding,
+		action: string,
+		label = binding.label
+	) => {
+		const keys = background
+			? binding.keys.filter(
+					(key) =>
+						key !== "esc" &&
+						key !== "alt+q" &&
+						(key !== "d" || context === "input" || context === "note")
+				)
+			: binding.keys;
+		if (!keys.length) {
+			return "";
+		}
+		return `${keys.length === binding.keys.length ? label : formatBindingLabel(keys)} ${action}`;
+	};
 	const global = getGlobalBindings(config);
 	const main = getAskContextBindings(config, "main");
 	const editor = getAskContextBindings(config, "editor");
@@ -353,7 +366,11 @@ export function renderFooterKeymaps(
 			footerHint(global.settings, "settings"),
 		],
 	};
-	return ` ${hintsByContext[context].join(" · ")}`;
+	const hints = hintsByContext[context].filter(Boolean);
+	if (background) {
+		hints.push("Esc defer all");
+	}
+	return ` ${hints.join(" · ")}`;
 }
 
 export function renderSettingsFooterKeymaps(config: AskConfig): string {

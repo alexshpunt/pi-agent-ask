@@ -1,0 +1,43 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+type AskEvents = Pick<ExtensionAPI["events"], "emit">;
+const activeWaits = new WeakMap<AskEvents, Map<symbol, string>>();
+
+/** Keep status blocked until every actual foreground or explicit answer wait ends. */
+export function beginUserWait(
+	events: AskEvents | undefined,
+	label: string
+): () => void {
+	if (!events) {
+		return () => undefined;
+	}
+	let owners = activeWaits.get(events);
+	if (!owners) {
+		owners = new Map();
+		activeWaits.set(events, owners);
+	}
+	const owner = Symbol("ask wait");
+	owners.set(owner, label);
+	publish(events, owners);
+	return () => {
+		if (!owners.delete(owner)) {
+			return;
+		}
+		if (!owners.size) {
+			activeWaits.delete(events);
+		}
+		publish(events, owners);
+	};
+}
+
+function publish(events: AskEvents, owners: Map<symbol, string>): void {
+	const label = [...owners.values()].at(-1);
+	try {
+		events.emit(
+			"herdr:blocked",
+			label === undefined ? { active: false } : { active: true, label }
+		);
+	} catch {
+		// Status reporting must not change question or wait results.
+	}
+}

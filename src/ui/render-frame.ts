@@ -8,9 +8,10 @@ import {
 import { wrapText } from "../text.ts";
 import type { AskState } from "../types.ts";
 import { renderFooterText } from "./render-helpers.ts";
-import type { Theme } from "./render-types.ts";
+import type { AskMouseTarget, Theme } from "./render-types.ts";
 
 export function renderFrameHeader(args: {
+	targets?: AskMouseTarget[];
 	lines: string[];
 	state: AskState;
 	theme: Theme;
@@ -24,13 +25,14 @@ export function renderFrameHeader(args: {
 		add(` ${theme.fg("accent", theme.bold(state.title))}`);
 		add();
 	}
-	add(renderTabs(state, theme, width));
+	add(renderTabs(state, theme, width, lines.length, args.targets));
 	add();
 }
 
 export function renderFrameFooter(args: {
 	config: AskConfig;
 	footerNotice?: string;
+	background?: boolean;
 	lines: string[];
 	state: AskState;
 	theme: Theme;
@@ -38,7 +40,7 @@ export function renderFrameFooter(args: {
 }) {
 	const { config, footerNotice, lines, state, theme, width } = args;
 	const add = (text = "") => lines.push(truncateToWidth(text, width));
-	const footer = renderFooter(config, state, width);
+	const footer = renderFooter(config, state, width, args.background);
 	const noticeLines = footerNotice ? wrapText(footerNotice, width) : [];
 	if (noticeLines.length > 0 || footer.length > 0) {
 		add();
@@ -56,7 +58,13 @@ const TAB_PREFIX = " ← ";
 const TAB_SUFFIX = " →";
 const TAB_SEPARATOR_WIDTH = visibleWidth(" ");
 
-function renderTabs(state: AskState, theme: Theme, width: number): string {
+function renderTabs(
+	state: AskState,
+	theme: Theme,
+	width: number,
+	y: number,
+	targets?: AskMouseTarget[]
+): string {
 	const tabs = state.questions.map((question, index) => {
 		const active = state.activeTabIndex === index;
 		const answered = isQuestionAnswered(state, question.id);
@@ -90,6 +98,22 @@ function renderTabs(state: AskState, theme: Theme, width: number): string {
 		activeIndex,
 		availableTabWidth
 	);
+	let x = visibleWidth(TAB_PREFIX);
+	for (let index = start; index <= end; index += 1) {
+		const tabWidth = tabs[index].width;
+		const targetWidth = Math.min(tabWidth, width - x);
+		if (targetWidth > 0) {
+			targets?.push({
+				kind: "tab",
+				index,
+				x,
+				y,
+				width: targetWidth,
+				height: 1,
+			});
+		}
+		x += tabWidth + TAB_SEPARATOR_WIDTH;
+	}
 	const leftArrow = theme.fg("dim", TAB_PREFIX.trimStart());
 	const rightArrow = theme.fg("dim", TAB_SUFFIX);
 	const visibleTabs = tabs
@@ -188,23 +212,25 @@ function applyTabGrowth(
 function renderFooter(
 	config: AskConfig,
 	state: AskState,
-	width: number
+	width: number,
+	background = false
 ): string[] {
 	if (!config.behaviour.showFooterHints) {
 		return [];
 	}
 	let footer: string;
 	if (state.view.kind === "input") {
-		footer = renderFooterText(config, "input");
+		footer = renderFooterText(config, "input", background);
 	} else if (state.view.kind === "note") {
-		footer = renderFooterText(config, "note");
+		footer = renderFooterText(config, "note", background);
 	} else if (isSubmitTab(state)) {
-		footer = renderFooterText(config, "submit");
+		footer = renderFooterText(config, "submit", background);
 	} else {
 		const question = getCurrentQuestion(state);
 		footer = renderFooterText(
 			config,
-			question?.type === "multi" ? "multi" : "default"
+			question?.type === "multi" ? "multi" : "default",
+			background
 		);
 	}
 	return wrapDelimitedFooterHints(footer, width);

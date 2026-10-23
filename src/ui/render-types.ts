@@ -9,12 +9,23 @@ import type { AskDisplayOption, AskState } from "../types.ts";
 
 export type Theme = ExtensionContext["ui"]["theme"];
 
+export interface AskMouseTarget {
+	height: number;
+	index: number;
+	kind: "option" | "tab" | "submit";
+	width: number;
+	x: number;
+	y: number;
+}
+
 export interface QuestionRenderContext {
 	editor: Editor;
 	lines: string[];
+	markActiveRow?: boolean;
 	options: ReturnType<typeof getRenderableOptions>;
 	question: NonNullable<ReturnType<typeof getCurrentQuestion>>;
 	state: AskState;
+	targets?: AskMouseTarget[];
 	theme: Theme;
 	width: number;
 }

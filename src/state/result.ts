@@ -25,6 +25,7 @@ import {
 	serializeAnswer,
 } from "./answers.ts";
 import { getQuestionOptionByValue } from "./selectors.ts";
+import { getResultQuestions } from "./skip.ts";
 
 export type ReviewAnswer = AskResult["answers"][string] & {
 	extraOptionNotes?: Array<{
@@ -34,8 +35,16 @@ export type ReviewAnswer = AskResult["answers"][string] & {
 };
 
 export function toAskResult(state: AskState): AskResult {
+	const questions = getResultQuestions(state);
+	const skipped = new Set(
+		state.skippedQuestions?.map(({ question }) => question.id)
+	);
+	const skippedQuestionIds = questions
+		.filter((question) => skipped.has(question.id))
+		.map((question) => question.id);
 	const answers = Object.fromEntries(
 		Object.entries(state.answers)
+			.filter(([questionId]) => !skipped.has(questionId))
 			.map(([questionId, answer]) => {
 				const serialized = serializeAnswer(answer);
 				if (state.cancelled) {
@@ -56,7 +65,7 @@ export function toAskResult(state: AskState): AskResult {
 		title: state.title,
 		cancelled: state.cancelled,
 		mode: state.mode,
-		questions: state.questions.map((question) => ({
+		questions: questions.map((question) => ({
 			id: question.id,
 			label: question.label,
 			prompt: question.prompt,
@@ -67,6 +76,7 @@ export function toAskResult(state: AskState): AskResult {
 				: {}),
 		})),
 		answers,
+		...(skippedQuestionIds.length ? { skippedQuestionIds } : {}),
 		continuation:
 			state.mode === "elaborate"
 				? serializeContinuation(state, answers)
@@ -123,6 +133,10 @@ function serializeContinuation(
 		}
 
 		questionStates[question.id] = { status: "unanswered" };
+	}
+
+	for (const { question } of state.skippedQuestions ?? []) {
+		questionStates[question.id] = { status: "skipped" };
 	}
 
 	return {
