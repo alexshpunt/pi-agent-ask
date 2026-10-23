@@ -43,7 +43,6 @@ export class BackgroundAskRuntime {
 	private readonly pi: ExtensionAPI;
 	private pumping = false;
 	private hidden = false;
-	private focusNext = false;
 	private panel?: PersistentAskHandle;
 	private readonly draftSignatures = new Map<string, string>();
 	private readonly remoteAsk?: RemoteAskRuntime;
@@ -215,11 +214,7 @@ export class BackgroundAskRuntime {
 			return;
 		}
 		this.setHidden(false);
-		if (this.panel) {
-			this.panel.toggleFocus();
-		} else {
-			this.focusNext = true;
-		}
+		this.panel?.focus();
 		this.start();
 	}
 
@@ -324,7 +319,6 @@ export class BackgroundAskRuntime {
 		this.executionOwners.clear();
 		this.draftSignatures.clear();
 		this.panel = undefined;
-		this.focusNext = false;
 		if (this.waiter) {
 			this.setWaitingStatus(false);
 			this.waiter.cleanup();
@@ -449,15 +443,6 @@ export class BackgroundAskRuntime {
 							return;
 						}
 						this.panel = handle;
-						if (handle && this.focusNext && !this.hidden) {
-							this.focusNext = false;
-							handle.toggleFocus();
-						}
-					},
-					onComplete: (focused) => {
-						if (!signal.aborted) {
-							this.focusNext = focused;
-						}
 					},
 					onHiddenChange: (hidden) => {
 						if (!signal.aborted) {
@@ -501,7 +486,6 @@ export class BackgroundAskRuntime {
 			while (!signal.aborted) {
 				const request = this.requests.find((item) => !item.completion);
 				if (!request) {
-					this.focusNext = false;
 					break;
 				}
 				const completion = {

@@ -1,3 +1,9 @@
+# [1.2.11](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.10...v1.2.11) (2026-10-23)
+
+- Focus each newly shown question panel automatically, including queued and recovered forms, while preserving the ordinary input draft.
+- Make the first click on an unfocused panel restore focus without choosing an answer, changing tabs, or arming review confirmation. Later clicks act normally.
+- Keep deliberately hidden queues hidden until reopened.
+
 # [1.2.10](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.9...v1.2.10) (2026-10-23)
 
 - Keep background questions beside normal input without taking focus. Use `Alt+Q` or the mouse to switch between answering and writing.

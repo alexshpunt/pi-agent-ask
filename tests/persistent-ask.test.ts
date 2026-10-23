@@ -86,7 +86,7 @@ function harness() {
 	};
 }
 
-test("a question widget leaves the editor focused and retains its controller when deferred", async () => {
+test("a new question widget takes focus and retains its controller when deferred", async () => {
 	const h = harness();
 	let finish: ((result: AskResult) => void) | undefined;
 	let panel: PersistentAskHandle | undefined;
@@ -111,15 +111,17 @@ test("a question widget leaves the editor focused and retains its controller whe
 			},
 		}
 	);
-	assert.equal(h.focused, h.editor);
+	assert.notEqual(h.focused, h.editor);
 	assert.equal(h.editor.draft, "ordinary message");
+	panel?.focus();
+	assert.notEqual(h.focused, h.editor, "focusing twice must not release focus");
 	assert(
 		[...h.widgets.values()].some((widget) =>
 			widget.render(80).includes("answer draft")
 		)
 	);
 	panel?.toggleFocus();
-	assert.notEqual(h.focused, h.editor);
+	assert.equal(h.focused, h.editor);
 	panel?.setHidden(true);
 	assert.equal(h.focused, h.editor);
 	assert(
@@ -136,4 +138,40 @@ test("a question widget leaves the editor focused and retains its controller whe
 	assert.equal(disposed, 1);
 	assert.equal(h.widgets.size, 0);
 	assert.equal(h.input, undefined);
+});
+
+test("hidden questions keep ordinary input focused until explicitly shown", async () => {
+	const h = harness();
+	let finish: ((result: AskResult) => void) | undefined;
+	let panel: PersistentAskHandle | undefined;
+	const running = showPersistentAsk(
+		h.ctx as never,
+		(_tui, _theme, _keys, done) => {
+			finish = done;
+			return { render: () => ["question"], invalidate: () => undefined };
+		},
+		{
+			hidden: true,
+			onHandle: (handle) => {
+				panel = handle;
+			},
+		}
+	);
+	assert.equal(h.focused, h.editor);
+	assert(
+		[...h.widgets.values()].every((widget) => widget.render(80).length === 0)
+	);
+	panel?.setHidden(false);
+	assert.notEqual(h.focused, h.editor);
+	panel?.setHidden(true);
+	assert.equal(h.focused, h.editor);
+	panel?.toggleFocus();
+	assert.notEqual(
+		h.focused,
+		h.editor,
+		"Alt+Q must focus a hidden panel when reopening it"
+	);
+	assert.equal(h.editor.draft, "ordinary message");
+	finish?.(answer);
+	await running;
 });

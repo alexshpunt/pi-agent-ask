@@ -87,12 +87,30 @@ test("the visible widget routes a click to its scrolled question row and takes f
 	assert(widget);
 	widget.render(80);
 	assert.equal(typeof widget.handleMouse, "function");
+	assert.equal(focused, true, "new questions must take keyboard focus");
+	focused = false;
+	widget.handleMouse?.({ ...click(7, 2), type: "press" });
+	assert.equal(focused, false, "press alone must not focus or answer");
+	widget.handleMouse?.({ ...click(7, 2), type: "release" });
+	assert.equal(focused, false, "release alone must not focus or answer");
 	widget.handleMouse?.(click(7, 2));
 	assert.equal(focused, true);
+	assert.equal(received.length, 0, "the focus click must not reach any action");
+	widget.handleMouse?.(click(7, 2));
 	assert.equal(received.length, 1);
 	assert.equal(received[0].y, 10);
 	assert.equal(received[0].x, 7);
 	assert.equal(received[0].screenY, 42);
+	for (const y of [1, 4, 8]) {
+		focused = false;
+		widget.handleMouse?.(click(7, y));
+		assert.equal(focused, true);
+		assert.equal(
+			received.length,
+			1,
+			"every body row must be focus-only when unfocused"
+		);
+	}
 	focused = false;
 	widget.handleMouse?.(click(75, 0));
 	assert.equal(

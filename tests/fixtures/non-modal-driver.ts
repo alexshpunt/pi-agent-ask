@@ -271,6 +271,7 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 					break;
 				case "skip_first": {
 					await formReady();
+					await input(ALT_Q);
 					await paste("-still-typing");
 					if (ctx.ui.getEditorText() !== "ordinary-editor-draft-still-typing") {
 						throw new Error(
@@ -302,17 +303,18 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 				}
 				case "type_after_empty":
 					await formReady();
+					await input(ALT_Q);
 					await paste("-after-empty");
 					break;
 				case "arm_escape":
 					await formReady();
-					await input(ALT_Q);
 					await input("\u001b[B");
 					await paste("saved-answer-draft");
 					nextWait = "escape";
 					break;
 				case "arm_message":
 					await formReady();
+					await input(ALT_Q);
 					nextWait = "message";
 					break;
 				case "arm_overlap":
@@ -322,6 +324,7 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 				case "resize":
 					await formReady();
 					await resizeTerminal();
+					await input(ALT_Q);
 					await paste("-resized");
 					break;
 				case "reopen":
