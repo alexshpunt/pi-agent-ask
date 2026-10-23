@@ -59,7 +59,7 @@ export class AskModeController {
 			return;
 		}
 		this.projectOverride = projectOverride;
-		this.apply(projectOverride ?? config.behaviour.backgroundOnly);
+		this.apply(projectOverride ?? config.behaviour.backgroundOnly ?? false);
 	}
 
 	endSession(): void {
@@ -105,7 +105,7 @@ export class AskModeController {
 			scope === "project" ? await readProjectConfig(ctx.cwd) : undefined;
 		const enabled =
 			scope === "project"
-				? (value ?? config.behaviour.backgroundOnly)
+				? (value ?? config.behaviour.backgroundOnly ?? false)
 				: (this.projectOverride ?? Boolean(value));
 		if (!(await this.confirmChange(enabled, ctx))) {
 			return false;

@@ -345,7 +345,7 @@ export class AskSettingsList {
 	private getSettingValue(key: SettingKey): boolean {
 		return key === "notifications.enabled"
 			? this.config.notifications.enabled
-			: this.config.behaviour[key];
+			: (this.config.behaviour[key] ?? false);
 	}
 
 	private moveFocus(delta: 1 | -1): void {

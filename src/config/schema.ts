@@ -229,7 +229,7 @@ export interface AskConfigKeymaps {
 
 export interface AskConfig {
 	behaviour: {
-		backgroundOnly: boolean;
+		backgroundOnly?: boolean;
 		autoSubmitWhenAnsweredWithoutNotes: boolean;
 		confirmDismissWhenDirty: boolean;
 		doublePressReviewShortcuts: boolean;
