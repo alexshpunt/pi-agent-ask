@@ -341,6 +341,8 @@ Main flow:
 - `main.nextTab` / `main.previousTab` move between tabs; defaults: `Tab`/`Right`, `Shift+Tab`/`Left`
 - `main.nextOption` / `main.previousOption` move between options or review actions; defaults: `Down`, `Up`
 - `main.confirm`, `main.cancel`, and `main.toggle` confirm, cancel, or toggle; defaults: `Enter`, `Esc`, `Space`
+- on multi-select questions, `Space` toggles the highlighted choice without advancing; `Enter` keeps all choices and advances to the next question or Review, even when a saved custom answer is highlighted
+- submitting custom-answer text with `Enter` also advances; closing that editor with `Esc` saves without advancing
 - cancelling or dismissing the whole form stops the current agent operation, for both foreground and background forms; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
 - a background cancellation is recorded and can be delivered as context, but never starts a new agent turn by itself
 - `main.changeQuestionType` changes the active question type (non-preview: `single <-> multi`; preview: `preview <-> multi`); default: `t`; destructive `multi -> single` changes require pressing the type hotkey again, with no timeout, and the pending confirmation clears on other navigation/actions

@@ -96,6 +96,8 @@ Bindings must be unique within each context. Global bindings must not overlap wi
 
 In a non-empty editor, arrows and Tab move the cursor rather than changing questions. Empty editors use the `*WhenEmpty` actions for navigation.
 
+For multi-select questions, `Space` toggles the highlighted choice. `Enter` keeps the choices and moves to the next question or Review, including when a saved custom answer is highlighted. In the custom-answer editor, `Enter` saves the text and advances; `Esc` saves it without advancing.
+
 Invalid keymaps fall back to defaults for the session with a notice. Other valid settings still load. The settings list shows the full config path; edit that file to change keymaps or notification channels.
 
 ## Background queue controls
