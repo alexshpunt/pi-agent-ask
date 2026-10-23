@@ -62,7 +62,7 @@ The codebase is split so the implementation reads through file boundaries and na
 
 - `src/ui/controller.ts` — connects key input, editor lifecycle, live config subscription, dirty-dismiss confirmation, and pure state transitions
 - `src/ui/wait-for-editor.ts` — uses an empty native widget to wait for the editor to return before opening recovered background forms
-- `src/ui/persistent-ask.ts` — shows the question controller in a widget beside the native editor; a non-capturing overlay provides explicit focus without replacing normal input
+- `src/ui/persistent-ask.ts` — shows the question controller beside the native editor; translates native widget mouse coordinates through the rendered viewport and explicitly focuses a non-capturing keyboard overlay without replacing normal input
 - `src/ui/input.ts` — raw input to commands using resolved context-aware config-backed keymaps
 - `src/ui/dismiss-guard.ts` — pure helpers for dirty-flow exit confirmation behavior
 - `src/ui/render.ts` and `src/ui/render-*.ts` — screen rendering, including config-backed footer/keymap hints

@@ -326,6 +326,12 @@ The npm package and product name are `pi-agent-ask`. Settings use `extensions/pi
 - if the flow is already on the review tab, all questions are answered, and no notes exist, enabling auto-submit can complete the current ask flow immediately
 - elaborate results are phrased as direct follow-up instructions, for example: `User asked to elaborate on question "Which option would you like to select?" option "Option A" with note "why this one?"`
 
+## Mouse behavior
+
+Fullscreen forms accept clicks on visible options, question tabs, Review, and review actions. An option click uses the same selection behavior as its number shortcut, including multi-select toggles and custom-answer editing. Review actions keep the configured double-press safeguard. Pressing, dragging, or releasing alone never submits an answer.
+
+The background panel accepts clicks without a prior `Alt+Q`. It takes keyboard focus only after an explicit panel interaction and preserves ordinary input. Wheel scrolling and resized layouts use the visible rows, not stale screen positions. Preview and review text beside an action is not part of its click target. Regular terminal mode leaves mouse input to terminal selection and keeps keyboard controls.
+
 ## Keyboard behavior
 
 Main flow:

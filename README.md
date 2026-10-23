@@ -39,7 +39,7 @@ Remove any other pi-ask installation so only one extension provides `ask_user`, 
 
 The agent calls `ask_user`. You get a form with choices, previews, your own answer, and notes. Not another wall of text to untangle.
 
-With `background: true`, questions appear above your normal input without taking focus. The agent continues independent work. Press `Alt+Q` to switch between answering and writing a message. Your answer arrives between turns, or wakes an idle agent.
+With `background: true`, questions appear above your normal input without taking focus. The agent continues independent work. In fullscreen mode, click a choice to answer or toggle it; click tabs and Review to navigate. Review actions need two clicks by default. Press `Alt+Q` to switch between answering and writing a message, or use the keyboard throughout. Your answer arrives between turns, or wakes an idle agent.
 
 Press `Esc` in the question panel or run `/ask-defer` to put all questions aside. The queue and drafts stay saved; `/ask-queue` reopens them. New questions do not reopen a panel you've hidden. Press `D` on a question to skip just that question, not the whole form. In text editors, `D` is ordinary text.
 
