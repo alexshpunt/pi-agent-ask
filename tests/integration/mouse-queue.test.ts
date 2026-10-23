@@ -22,7 +22,7 @@ const probe = (id: string, action: string) =>
 		{ stopReason: "toolUse" }
 	);
 
-test("native mouse clicks answer unfocused and scrolled questions without changing ordinary input", {
+test("new questions take focus and native mouse clicks focus before answering", {
 	timeout: 60_000,
 	skip: process.platform === "win32" && "This owned PTY resize check uses stty",
 }, async () => {
@@ -84,6 +84,7 @@ test("native mouse clicks answer unfocused and scrolled questions without changi
 					],
 					{ stopReason: "toolUse" }
 				),
+				probe("auto-focus", "auto_focus"),
 				probe("drag", "drag"),
 				probe("resize", "resize"),
 				probe("single", "single"),
@@ -96,6 +97,7 @@ test("native mouse clicks answer unfocused and scrolled questions without changi
 			],
 		}).run("Answer the questions through actual native terminal mouse input.");
 		for (const id of [
+			"auto-focus",
 			"drag",
 			"resize",
 			"single",

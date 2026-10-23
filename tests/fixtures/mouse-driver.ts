@@ -22,6 +22,8 @@ async function input(data: string): Promise<void> {
 export default function mouseDriver(pi: ExtensionAPI): void {
 	let panel: Component | undefined;
 	let tui: TUI | undefined;
+	let messageEditor: Component | null = null;
+	let editorClicks = 0;
 	let lines: string[] = [];
 	let lastMouse: TuiMouseEvent | undefined;
 	let lastEditorMouse: TuiMouseEvent | undefined;
@@ -51,6 +53,7 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 					const editor = (
 						nativeTui as TUI & { getFocusedComponent(): Component | null }
 					).getFocusedComponent();
+					messageEditor = editor;
 					if (editor) {
 						const handleMouse = editor.handleMouse?.bind(editor);
 						editor.handleMouse = (event) => {
@@ -183,25 +186,27 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		await input("1");
 		await paint();
 	}
-	async function returnToEditor(typeText = true): Promise<void> {
+	async function locateEditor(): Promise<TuiMouseEvent> {
 		await paint();
-		let origin: TuiMouseEvent | undefined;
 		for (let y = 0; y < (tui?.terminal.rows ?? 0); y += 1) {
 			lastEditorMouse = undefined;
 			await input(`\u001b[<35;2;${y + 1}M`);
 			const observed = lastEditorMouse as TuiMouseEvent | undefined;
 			if (observed?.type === "move" && observed.y === 0) {
-				origin = observed;
-				break;
+				return observed;
 			}
 		}
-		if (!origin) {
-			throw new Error("Native mouse motion did not reach the ordinary editor");
-		}
+		throw new Error("Native mouse motion did not reach the ordinary editor");
+	}
+
+	async function returnToEditor(typeText = true): Promise<void> {
+		const origin = await locateEditor();
+		// Alternate border rows so rapid checks do not become native double-click selection.
 		const x = origin.screenX + 1;
-		const y = origin.screenY + 2;
+		const y = origin.screenY + (editorClicks++ % 2 === 0 ? 1 : origin.height);
 		await input(`\u001b[<0;${x};${y}M`);
 		await input(`\u001b[<0;${x};${y}m`);
+		assertEditorFocused();
 		if (typeText) {
 			await input("\u0005");
 			await input("\u001b[200~-back-to-editor\u001b[201~");
@@ -302,6 +307,74 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		}
 		await input("\r");
 	}
+
+	function assertEditorFocused(): void {
+		const focused = (
+			tui as TUI & { getFocusedComponent(): Component | null }
+		).getFocusedComponent();
+		if (focused !== messageEditor) {
+			throw new Error(
+				`Editor click did not release focus: ${focused?.constructor.name}, expected ${messageEditor?.constructor.name}`
+			);
+		}
+	}
+
+	async function chooseSingle(): Promise<void> {
+		await returnToEditor(false);
+		await clickLabel("2. Second choice");
+		if (
+			!lines.some((line) =>
+				stripVTControlCharacters(line).includes("Pick by mouse")
+			)
+		) {
+			throw new Error("The focus-only click selected an answer");
+		}
+		await clickLabel("2. Second choice");
+		if (
+			!lines.some((line) =>
+				stripVTControlCharacters(line).includes("Pick two distant choices")
+			)
+		) {
+			throw new Error("The native click did not select the second answer");
+		}
+	}
+
+	async function chooseMulti(): Promise<void> {
+		await clickLabel("12. [ ] Choice 12");
+		await clickLabel("13. [ ] Choice 13");
+		const origin = await locate();
+		for (let index = 0; index < 15; index += 1) {
+			await input(`\u001b[<64;${origin.x + 2};${origin.y + 2}M`);
+			await paint();
+		}
+		await input("\r");
+		await paint();
+		if (
+			!lines.some((line) =>
+				stripVTControlCharacters(line).includes("1. Submit")
+			)
+		) {
+			throw new Error(
+				"Enter did not advance the multi-select question to Review"
+			);
+		}
+	}
+
+	async function submitWithFocusGuard(): Promise<void> {
+		await returnToEditor(false);
+		await clickLabel("1. Submit");
+		if (completed.length) {
+			throw new Error("The focus-only click submitted the form");
+		}
+		await clickLabel("1. Submit");
+		if (completed.length) {
+			throw new Error("The focus-only click armed review confirmation");
+		}
+		await clickLabel("1. Submit");
+		await input("\u0005");
+		await input("\u001b[200~-after-click\u001b[201~");
+	}
+
 	pi.registerTool({
 		name: "mouse_probe",
 		label: "Mouse Probe",
@@ -316,6 +389,16 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 				case "draft":
 					await input("\u001b[200~ordinary-mouse-draft\u001b[201~");
 					break;
+				case "auto_focus": {
+					await paint();
+					const focused = (
+						tui as TUI & { getFocusedComponent(): Component | null }
+					).getFocusedComponent();
+					if (!focused || focused === messageEditor) {
+						throw new Error("New questions did not take keyboard focus");
+					}
+					break;
+				}
 				case "drag":
 					await dragOption();
 					break;
@@ -332,45 +415,13 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 					await resize();
 					break;
 				case "single":
-					await clickLabel("2. Second choice");
-					if (
-						!lines.some((line) =>
-							stripVTControlCharacters(line).includes(
-								"Pick two distant choices"
-							)
-						)
-					) {
-						throw new Error(
-							"The native click did not select the second answer"
-						);
-					}
+					await chooseSingle();
 					break;
-				case "multi": {
-					await clickLabel("12. [ ] Choice 12");
-					await clickLabel("13. [ ] Choice 13");
-					const origin = await locate();
-					for (let index = 0; index < 15; index += 1) {
-						await input(`\u001b[<64;${origin.x + 2};${origin.y + 2}M`);
-						await paint();
-					}
-					await input("\r");
-					await paint();
-					if (
-						!lines.some((line) =>
-							stripVTControlCharacters(line).includes("1. Submit")
-						)
-					) {
-						throw new Error(
-							"Enter did not advance the multi-select question to Review"
-						);
-					}
+				case "multi":
+					await chooseMulti();
 					break;
-				}
 				case "submit":
-					await clickLabel("1. Submit");
-					await clickLabel("1. Submit");
-					await input("\u0005");
-					await input("\u001b[200~-after-click\u001b[201~");
+					await submitWithFocusGuard();
 					break;
 				default:
 					throw new Error(`Unknown mouse action: ${action}`);
