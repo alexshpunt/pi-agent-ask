@@ -78,7 +78,6 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 			closeLoading?.();
 			await loading;
 			await restored;
-			await input("\u001bq");
 			await input("n");
 			await input("\u001b[200~saved note\u001b[201~");
 
@@ -91,7 +90,6 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
 			await new Promise<void>((resolve) => setImmediate(resolve));
 			const flowsBeforeEditorReset = startedFlows;
 			ctx.ui.setEditorComponent(undefined);
-			await input("\u001bq");
 			const rendered = panel?.render(120).join("\n") ?? "";
 			const visible =
 				rendered.includes("Recovered question?") &&
