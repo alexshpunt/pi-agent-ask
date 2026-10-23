@@ -4,6 +4,8 @@ import {
 	type Focusable,
 	matchesKey,
 	type OverlayHandle,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
 	truncateToWidth,
 } from "@earendil-works/pi-tui";
 import type { AskResult } from "../types.ts";
@@ -64,6 +66,8 @@ class QuestionPanel implements PersistentAskHandle {
 	private scrollTop = 0;
 	private followSelection = true;
 	private pageSize = 8;
+	private renderedOffset = 0;
+	private renderedRows = 0;
 	private unsubscribeInput?: () => void;
 
 	constructor(ctx: ExtensionContext, options: PersistentAskOptions) {
@@ -88,6 +92,7 @@ class QuestionPanel implements PersistentAskHandle {
 		this.ctx.ui.setWidget(SURFACE_WIDGET, () => ({
 			render: (width) => this.renderWidget(width, theme),
 			invalidate: () => component.invalidate(),
+			handleMouse: (event) => this.handleMouse(event),
 		}));
 		this.unsubscribeInput = this.ctx.ui.onTerminalInput((data) => {
 			if (!matchesKey(data, "alt+q")) {
@@ -151,6 +156,41 @@ class QuestionPanel implements PersistentAskHandle {
 		this.component?.dispose?.();
 	}
 
+	private handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		if (
+			this.hidden ||
+			this.disposed ||
+			event.shift ||
+			event.alt ||
+			event.ctrl
+		) {
+			return;
+		}
+		if (event.type === "wheel" && event.wheelDelta) {
+			this.followSelection = false;
+			this.scrollTop = Math.max(0, this.renderedOffset + event.wheelDelta);
+			return { handled: true };
+		}
+		if (event.y < 1 || event.y > this.renderedRows) {
+			return;
+		}
+		const result = this.component?.handleMouse?.({
+			...event,
+			y: event.y - 1 + this.renderedOffset,
+		});
+		if (!result?.handled) {
+			return;
+		}
+		if (!this.disposed) {
+			this.overlay?.focus();
+		}
+		if (event.type === "click") {
+			this.followSelection = true;
+		}
+		this.tui?.requestRender();
+		return { handled: true };
+	}
+
 	private handleInput(data: string): void {
 		if (matchesKey(data, "pageUp") || matchesKey(data, "pageDown")) {
 			this.followSelection = false;
@@ -182,6 +222,8 @@ class QuestionPanel implements PersistentAskHandle {
 			this.followSelection
 		);
 		this.scrollTop = view.offset;
+		this.renderedOffset = view.offset;
+		this.renderedRows = view.lines.length;
 		const hint = this.overlay?.isFocused()
 			? "Questions · Alt+Q: message · Esc: defer all · D: skip question"
 			: "Questions · Alt+Q: answer · normal input remains available";

@@ -8,9 +8,10 @@ import {
 import { wrapText } from "../text.ts";
 import type { AskState } from "../types.ts";
 import { renderFooterText } from "./render-helpers.ts";
-import type { Theme } from "./render-types.ts";
+import type { AskMouseTarget, Theme } from "./render-types.ts";
 
 export function renderFrameHeader(args: {
+	targets?: AskMouseTarget[];
 	lines: string[];
 	state: AskState;
 	theme: Theme;
@@ -24,7 +25,7 @@ export function renderFrameHeader(args: {
 		add(` ${theme.fg("accent", theme.bold(state.title))}`);
 		add();
 	}
-	add(renderTabs(state, theme, width));
+	add(renderTabs(state, theme, width, lines.length, args.targets));
 	add();
 }
 
@@ -57,7 +58,13 @@ const TAB_PREFIX = " ← ";
 const TAB_SUFFIX = " →";
 const TAB_SEPARATOR_WIDTH = visibleWidth(" ");
 
-function renderTabs(state: AskState, theme: Theme, width: number): string {
+function renderTabs(
+	state: AskState,
+	theme: Theme,
+	width: number,
+	y: number,
+	targets?: AskMouseTarget[]
+): string {
 	const tabs = state.questions.map((question, index) => {
 		const active = state.activeTabIndex === index;
 		const answered = isQuestionAnswered(state, question.id);
@@ -91,6 +98,22 @@ function renderTabs(state: AskState, theme: Theme, width: number): string {
 		activeIndex,
 		availableTabWidth
 	);
+	let x = visibleWidth(TAB_PREFIX);
+	for (let index = start; index <= end; index += 1) {
+		const tabWidth = tabs[index].width;
+		const targetWidth = Math.min(tabWidth, width - x);
+		if (targetWidth > 0) {
+			targets?.push({
+				kind: "tab",
+				index,
+				x,
+				y,
+				width: targetWidth,
+				height: 1,
+			});
+		}
+		x += tabWidth + TAB_SEPARATOR_WIDTH;
+	}
 	const leftArrow = theme.fg("dim", TAB_PREFIX.trimStart());
 	const rightArrow = theme.fg("dim", TAB_SUFFIX);
 	const visibleTabs = tabs

@@ -2,7 +2,13 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { Editor, type EditorTheme, matchesKey } from "@earendil-works/pi-tui";
+import {
+	Editor,
+	type EditorTheme,
+	matchesKey,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
+} from "@earendil-works/pi-tui";
 import type { AskDraft } from "../ask-draft.ts";
 import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
@@ -67,6 +73,7 @@ import {
 	showPersistentAsk,
 } from "./persistent-ask.ts";
 import { renderAskScreen } from "./render.ts";
+import type { AskMouseTarget } from "./render-types.ts";
 import {
 	getReviewShortcutHint,
 	resolveReviewShortcutDoublePress,
@@ -119,6 +126,7 @@ interface AskFlowController {
 	editor: Editor;
 	flowOptions: AskFlowOptions;
 	keybindings: Keybindings;
+	mouseTargets: AskMouseTarget[];
 	pendingQuestionTypeChangeQuestionId?: string;
 	pendingReviewShortcutActionIndex?: number;
 	remoteFlow?: RemoteAskFlowHandle;
@@ -190,6 +198,7 @@ function createAskFlowController(
 	params: AskFlowParams
 ) {
 	const controller: AskFlowController = {
+		mouseTargets: [],
 		clipboardReading: false,
 		disposed: false,
 		keybindings,
@@ -258,6 +267,9 @@ function createAskFlowController(
 		handleInput(data: string) {
 			handleControllerInput(controller, data);
 		},
+		handleMouse(event: TuiMouseEvent) {
+			return handleControllerMouse(controller, event);
+		},
 		dispose() {
 			controller.disposed = true;
 			params.flowOptions.signal?.removeEventListener("abort", abort);
@@ -271,7 +283,9 @@ function renderController(
 	controller: AskFlowController,
 	width: number
 ): string[] {
+	controller.mouseTargets = [];
 	return renderAskScreen({
+		targets: controller.mouseTargets,
 		config: controller.config,
 		background: !!controller.flowOptions.background,
 		editor: controller.editor,
@@ -281,6 +295,63 @@ function renderController(
 		theme: controller.theme,
 		width,
 	});
+}
+
+function handleControllerMouse(
+	controller: AskFlowController,
+	event: TuiMouseEvent
+): TuiMouseEventResult | undefined {
+	if (
+		controller.disposed ||
+		controller.settingsOpen ||
+		controller.state.completed ||
+		event.button !== "left" ||
+		event.shift ||
+		event.alt ||
+		event.ctrl ||
+		(event.type !== "press" && event.type !== "click")
+	) {
+		return;
+	}
+	const target = controller.mouseTargets.find(
+		(item) =>
+			event.x >= item.x &&
+			event.x < item.x + item.width &&
+			event.y >= item.y &&
+			event.y < item.y + item.height
+	);
+	if (!target) {
+		return;
+	}
+	if (event.type === "press") {
+		return { handled: true, render: false };
+	}
+	if (target.kind === "tab") {
+		let next = saveEditorState(controller);
+		while (next.activeTabIndex !== target.index) {
+			next = moveTab(next, 1);
+		}
+		clearReviewShortcutPending(controller);
+		clearQuestionTypeChangePending(controller);
+		commitState(controller, next);
+	} else if (target.kind === "submit") {
+		if (!handleReviewShortcutNumber(controller, target.index + 1)) {
+			commitState(
+				controller,
+				applyNumberShortcut(controller.state, target.index + 1),
+				{ finish: true }
+			);
+		}
+	} else {
+		clearReviewShortcutPending(controller);
+		clearQuestionTypeChangePending(controller);
+		commitState(
+			controller,
+			applyNumberShortcut(saveEditorState(controller), target.index + 1),
+			{ finish: true }
+		);
+	}
+	return { handled: true };
 }
 
 function handleControllerInput(controller: AskFlowController, data: string) {
@@ -717,6 +788,7 @@ function showSettingsModal(controller: AskFlowController) {
 }
 
 function refresh(controller: AskFlowController) {
+	controller.mouseTargets = [];
 	controller.flowOptions.background?.onDraft({
 		state: controller.state,
 		editorText: controller.editor.getText(),

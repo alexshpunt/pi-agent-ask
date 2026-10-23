@@ -9,10 +9,15 @@ import type { AskState } from "../types.ts";
 import { renderFrameFooter, renderFrameHeader } from "./render-frame.ts";
 import { renderQuestionScreen } from "./render-question.ts";
 import { renderSubmitScreen } from "./render-submit.ts";
-import type { QuestionRenderContext, Theme } from "./render-types.ts";
+import type {
+	AskMouseTarget,
+	QuestionRenderContext,
+	Theme,
+} from "./render-types.ts";
 
 export function renderAskScreen(args: {
 	config: AskConfig;
+	targets?: AskMouseTarget[];
 	footerNotice?: string;
 	background?: boolean;
 	reviewShortcutHint?: string;
@@ -37,7 +42,7 @@ export function renderAskScreen(args: {
 		args.background && editor.focused && !isEditingView(state)
 	);
 
-	renderFrameHeader({ lines, state, theme, width });
+	renderFrameHeader({ lines, state, theme, width, targets: args.targets });
 
 	if (isSubmitTab(state)) {
 		renderSubmitScreen(
@@ -46,7 +51,8 @@ export function renderAskScreen(args: {
 			theme,
 			width,
 			reviewShortcutHint,
-			markActiveRow
+			markActiveRow,
+			args.targets
 		);
 	} else if (question) {
 		renderQuestionScreen({
@@ -55,6 +61,7 @@ export function renderAskScreen(args: {
 			question,
 			options,
 			markActiveRow,
+			targets: args.targets,
 			theme,
 			width,
 			editor,
