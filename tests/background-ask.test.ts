@@ -143,7 +143,7 @@ function harness() {
 		},
 		cancelForm() {
 			(focused as { handleInput: (data: string) => void }).handleInput(
-				"\u001b"
+				"\u0003"
 			);
 		},
 		setEditorReady(ready: boolean) {
@@ -215,24 +215,24 @@ test("background receipts return before answers and forms run in FIFO order", as
 	h.runtime.dispose();
 });
 
-test("the queue stays blocked from enqueue until its last form closes", async (t) => {
+test("pending questionnaires do not block the agent while their forms close", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
 	const active = () => h.events.map((event) => event.data.active);
 	h.runtime.enqueue("first", params, h.ctx as never, false);
 	h.runtime.enqueue("second", params, h.ctx as never, false);
-	assert.deepEqual(active(), [true]);
+	assert.deepEqual(active(), []);
 	await tick();
 	h.forms[0](answer);
 	await tick();
-	assert.deepEqual(active(), [true]);
+	assert.deepEqual(active(), []);
 	assert.equal(h.runtime.pendingCount(), 1);
 	h.forms[1](answer);
 	await tick();
-	assert.deepEqual(active(), [true, false]);
+	assert.deepEqual(active(), []);
 });
 
-test("recovery stays blocked while its editor is unavailable and clears on branch change", async (t) => {
+test("recovering an unanswered queue does not block while the editor is unavailable", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
 	h.runtime.enqueue("pending", params, h.ctx as never, false);
@@ -240,19 +240,13 @@ test("recovery stays blocked while its editor is unavailable and clears on branc
 	h.runtime.restore(h.ctx as never);
 	await tick();
 	assert.equal(h.forms.length, 0);
-	assert.deepEqual(
-		h.events.map((event) => event.data.active),
-		[true]
-	);
+	assert.deepEqual(h.events, []);
 	h.branch.length = 0;
 	h.runtime.restore(h.ctx as never);
-	assert.deepEqual(
-		h.events.map((event) => event.data.active),
-		[true, false]
-	);
+	assert.deepEqual(h.events, []);
 });
 
-test("a foreground surface cannot clear a still-pending background queue", async (t) => {
+test("closing a foreground surface releases its wait despite a pending background queue", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
 	const foreground = runAskFlow(h.ctx as never, params, {
@@ -266,7 +260,7 @@ test("a foreground surface cannot clear a still-pending background queue", async
 	assert.equal(h.forms.length, 2);
 	assert.deepEqual(
 		h.events.map((event) => event.data.active),
-		[true]
+		[true, false]
 	);
 	h.forms[1](answer);
 	await tick();

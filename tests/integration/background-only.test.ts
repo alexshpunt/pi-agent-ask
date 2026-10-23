@@ -157,12 +157,12 @@ test("real Pi queues background-only questions and delivers idle answers once wi
 	assert.equal(research.activeForms, 1);
 	assert.equal(research.completed, 0);
 	assert.equal(research.answerMessages, 0);
-	assert.deepEqual(research.blocked, [true]);
+	assert.deepEqual(research.blocked, []);
 	const complete = observation(result, "after-boundary");
 	assert.equal(complete.answerMessages, 2);
 	assert.equal(complete.completed, 2);
 	assert.equal(complete.activeForms, 0);
-	assert.deepEqual(complete.blocked, [true, false]);
+	assert.deepEqual(complete.blocked, []);
 
 	const snapshot = result.traceEvents
 		.filter((event) => event.type === "session_snapshot")
