@@ -100,7 +100,7 @@ After attempt 2:
 Use `ask_user` with `background: true` when you can keep doing independent work while the human answers. In background-only mode, `ask_user` has no `background` parameter and always queues the form; omit the parameter.
 
 - The immediate result is a queued receipt with `requestId`, not an answer or approval.
-- Forms appear beside ordinary input, one at a time, in FIFO order, without taking focus. The user can defer the queue or skip individual questions. Treat skipped questions as unanswered, never as approval. You may add more forms as you learn.
+- Forms appear beside ordinary input, one at a time, in FIFO order. Each newly shown visible form takes keyboard focus, including the next queued form and recovered forms, while preserving the ordinary input draft. Hidden queues stay hidden. A click on an unfocused panel only restores focus; later clicks act normally. The user can defer the queue or skip individual questions. Treat skipped questions as unanswered, never as approval. You may add more forms as you learn.
 - Each completed form arrives in a `ask:background-answer` message with its request ID. Read its normal answers, cancellation, or elaboration result.
 - Do not guess pending answers, make dependent decisions, or cross an approval gate while waiting.
 - When `wait_for_answers` is available, call it directly when independent work is exhausted or before a step that needs answers. It has no built-in timeout. Aborting the wait leaves the forms queued.
