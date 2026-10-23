@@ -20,12 +20,12 @@ import type {
 export const ASK_TOOL_DESCRIPTION =
 	"Interactive clarification tool for cases where the next step depends on user preferences, missing requirements, or choosing between multiple valid directions. Ask a short structured interview, collect normalized answers, and continue using those answers explicitly instead of guessing. Supports single-select, multi-select, and preview-pane questions. Always include a stable `id` and non-empty `prompt` for every question, plus a machine-readable `value` and visible `label` for every option. Use `preview` only when every option includes `preview` text or a local UTF-8 `previewFile` path; descriptions alone are not enough.";
 
-export const ASK_TOOL_PROMPT_GUIDELINES = [
-	"Set background: true on ask_user when you can continue independent work while the user answers. It returns a queued receipt with requestId, not an answer or approval.",
+const BACKGROUND_ANSWER_GUIDELINES = [
 	"Background forms open automatically in FIFO order. Each completed form arrives as a correlated background-answer message at the next turn boundary; when idle, the answer wakes the agent.",
 	"After asking in background, keep researching only work that does not depend on the pending answers. Never guess answers or cross a dependent decision, approval, or irreversible-action gate.",
-	"Call wait_for_answers when independent work is exhausted or before taking a step that needs pending answers. It waits for all outstanding forms without a built-in timeout. Aborting the wait leaves the forms queued.",
-	"wait_for_answers returns results not already delivered asynchronously. An empty results list does not mean the user approved anything; use answers already in context. Cancellation and elaboration are not approval.",
+] as const;
+
+const DECISION_GUIDELINES = [
 	"Use `ask_user` before making preference-sensitive decisions about scope, tone, UX, naming, architecture, docs, or implementation direction.",
 	"When multiple valid directions exist, call `ask_user` with 1-3 concise questions instead of committing to one path on your own.",
 	"When calling `ask_user`, prefer one focused decision per question. Use short labels. Provide clear, distinct options. Do not add filler options.",
@@ -37,6 +37,21 @@ export const ASK_TOOL_PROMPT_GUIDELINES = [
 	"After an `ask_user` elaboration or follow-up note, prefer another structured `ask_user` follow-up if a choice is still needed instead of switching to plain-text multiple choice in chat.",
 	"When prior `ask_user` answers narrow the branch, bundle the next 2-3 related unresolved decisions into one follow-up `ask_user` call when possible.",
 	"Use one-at-a-time `ask_user` follow-up calls only when the next question materially depends on the previous answer.",
+] as const;
+
+export const ASK_TOOL_PROMPT_GUIDELINES = [
+	"Set background: true on ask_user when you can continue independent work while the user answers. It returns a queued receipt with requestId, not an answer or approval.",
+	...BACKGROUND_ANSWER_GUIDELINES,
+	"Call wait_for_answers when independent work is exhausted or before taking a step that needs pending answers. It waits for all outstanding forms without a built-in timeout. Aborting the wait leaves the forms queued.",
+	"wait_for_answers returns results not already delivered asynchronously. An empty results list does not mean the user approved anything; use answers already in context. Cancellation and elaboration are not approval.",
+	...DECISION_GUIDELINES,
+] as const;
+
+export const ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES = [
+	"Use ask_user to queue questions and receive a requestId immediately. Treat the receipt as pending, not as an answer or approval.",
+	...BACKGROUND_ANSWER_GUIDELINES,
+	"End your turn when independent work is exhausted. Resume dependent work only after the asynchronous answer arrives. Cancellation and elaboration are not approval.",
+	...DECISION_GUIDELINES,
 ] as const;
 
 interface ValidateParamsOptions {
