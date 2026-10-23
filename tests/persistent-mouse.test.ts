@@ -93,8 +93,27 @@ test("the visible widget routes a click to its scrolled question row and takes f
 	assert.equal(received[0].y, 10);
 	assert.equal(received[0].x, 7);
 	assert.equal(received[0].screenY, 42);
-	widget.handleMouse?.(click(7, 0));
+	focused = false;
+	widget.handleMouse?.(click(75, 0));
+	assert.equal(
+		focused,
+		true,
+		"clicking the panel heading must give keyboard focus"
+	);
+	focused = false;
+	widget.handleMouse?.(click(75, 10));
+	assert.equal(
+		focused,
+		true,
+		"clicking the scroll footer must give keyboard focus"
+	);
+	focused = false;
 	widget.handleMouse?.(click(7, 12));
+	assert.equal(
+		focused,
+		false,
+		"a click outside the panel must not capture input"
+	);
 	assert.equal(received.length, 1);
 	const removedWidget = widget;
 	finish?.();

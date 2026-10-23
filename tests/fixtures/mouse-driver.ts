@@ -183,7 +183,7 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		await input("1");
 		await paint();
 	}
-	async function returnToEditor(): Promise<void> {
+	async function returnToEditor(typeText = true): Promise<void> {
 		await paint();
 		let origin: TuiMouseEvent | undefined;
 		for (let y = 0; y < (tui?.terminal.rows ?? 0); y += 1) {
@@ -202,9 +202,52 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		const y = origin.screenY + 2;
 		await input(`\u001b[<0;${x};${y}M`);
 		await input(`\u001b[<0;${x};${y}m`);
-		await input("\u001b[F");
-		await input("\u001b[200~-back-to-editor\u001b[201~");
+		if (typeText) {
+			await input("\u001b[F");
+			await input("\u001b[200~-back-to-editor\u001b[201~");
+		}
 		await paint();
+	}
+	async function focusWholePanel(): Promise<void> {
+		for (const area of ["heading", "prompt", "blank", "footer"]) {
+			await returnToEditor(false);
+			const origin = await locate();
+			const row =
+				area === "heading"
+					? 0
+					: lines.findIndex((line) => {
+							const plain = stripVTControlCharacters(line);
+							if (area === "prompt") {
+								return plain.includes("Pick two distant choices");
+							}
+							return area === "blank"
+								? plain.trim() === ""
+								: plain.includes("PgUp/PgDn");
+						});
+			if (row < 0) {
+				throw new Error(`Missing panel focus area: ${area}`);
+			}
+			const x = origin.x + (tui?.terminal.columns ?? 80) - 2;
+			const y = origin.y + row + 1;
+			await input(`\u001b[<0;${x};${y}M`);
+			await input(`\u001b[<0;${x};${y}m`);
+			await paint();
+			await input("\u001b[B");
+			await input(" ");
+			await paint();
+			if (
+				!lines.some((line) =>
+					stripVTControlCharacters(line).includes("2. [x] Choice 2")
+				)
+			) {
+				throw new Error(
+					`Clicking the panel ${area} did not enable keyboard selection`
+				);
+			}
+			await input(" ");
+			await input("\u001b[A");
+			await paint();
+		}
 	}
 	async function resize(): Promise<void> {
 		await new Promise<void>((resolve, reject) => {
@@ -249,6 +292,9 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 				case "modal_focus":
 					await checkModalFocus();
 					break;
+				case "area_focus":
+					await focusWholePanel();
+					break;
 				case "editor_focus":
 					await returnToEditor();
 					break;
@@ -283,6 +329,7 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 				case "submit":
 					await clickLabel("1. Submit");
 					await clickLabel("1. Submit");
+					await input("\u001b[F");
 					await input("\u001b[200~-after-click\u001b[201~");
 					break;
 				default:

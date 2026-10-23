@@ -89,6 +89,7 @@ test("native mouse clicks answer unfocused and scrolled questions without changi
 				probe("single", "single"),
 				probe("modal-focus", "modal_focus"),
 				probe("editor-focus", "editor_focus"),
+				probe("area-focus", "area_focus"),
 				probe("multi", "multi"),
 				probe("submit", "submit"),
 				assistantMessage([text("Mouse answers were submitted.")]),
@@ -100,6 +101,7 @@ test("native mouse clicks answer unfocused and scrolled questions without changi
 			"single",
 			"modal-focus",
 			"editor-focus",
+			"area-focus",
 			"multi",
 			"submit",
 		]) {
@@ -130,6 +132,11 @@ test("native mouse clicks answer unfocused and scrolled questions without changi
 			editorFocus.normalInput,
 			"ordinary-mouse-draft-back-to-editor"
 		);
+		const areaFocus = getToolExecutionDetails(
+			getToolExecution(result, "area-focus")
+		) as { normalInput: string; completed: unknown[] };
+		assert.equal(areaFocus.normalInput, "ordinary-mouse-draft-back-to-editor");
+		assert.deepEqual(areaFocus.completed, []);
 		const after = getToolExecutionDetails(
 			getToolExecution(result, "submit")
 		) as { normalInput: string; completed: RemoteAskCompletedEvent[] };
