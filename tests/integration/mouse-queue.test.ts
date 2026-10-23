@@ -147,8 +147,8 @@ test("native mouse clicks answer unfocused and scrolled questions without changi
 		]);
 		assert(result.tuiRenderedOutput.includes("Mouse answers were submitted"));
 		if (process.env.ASK_TEST_STEREO_EXTENSION) {
-			assert(result.tuiRenderedOutput.includes("Conversation"));
-			assert(result.tuiRenderedOutput.includes("Activity"));
+			assert(result.terminalOutput.includes("Conversation"));
+			assert(result.terminalOutput.includes("Activity"));
 		}
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
