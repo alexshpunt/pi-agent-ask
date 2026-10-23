@@ -203,7 +203,7 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		await input(`\u001b[<0;${x};${y}M`);
 		await input(`\u001b[<0;${x};${y}m`);
 		if (typeText) {
-			await input("\u001b[F");
+			await input("\u0005");
 			await input("\u001b[200~-back-to-editor\u001b[201~");
 		}
 		await paint();
@@ -369,7 +369,7 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 				case "submit":
 					await clickLabel("1. Submit");
 					await clickLabel("1. Submit");
-					await input("\u001b[F");
+					await input("\u0005");
 					await input("\u001b[200~-after-click\u001b[201~");
 					break;
 				default:
