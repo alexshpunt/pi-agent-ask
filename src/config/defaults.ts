@@ -11,6 +11,7 @@ import type {
 
 export const DEFAULT_ASK_CONFIG: AskConfig = {
 	behaviour: {
+		backgroundOnly: false,
 		autoSubmitWhenAnsweredWithoutNotes: false,
 		confirmDismissWhenDirty: true,
 		doublePressReviewShortcuts: true,
@@ -29,6 +30,9 @@ export function normalizeAskConfig(
 ): AskConfig {
 	return {
 		behaviour: {
+			backgroundOnly:
+				config?.behaviour?.backgroundOnly ??
+				DEFAULT_ASK_CONFIG.behaviour.backgroundOnly,
 			autoSubmitWhenAnsweredWithoutNotes:
 				config?.behaviour?.autoSubmitWhenAnsweredWithoutNotes ??
 				DEFAULT_ASK_CONFIG.behaviour.autoSubmitWhenAnsweredWithoutNotes,
@@ -60,6 +64,7 @@ export function toAskConfigFileV5(config: AskConfig): AskConfigFileV5 {
 	return {
 		schemaVersion: 5,
 		behaviour: {
+			backgroundOnly: normalized.behaviour.backgroundOnly,
 			autoSubmitWhenAnsweredWithoutNotes:
 				normalized.behaviour.autoSubmitWhenAnsweredWithoutNotes,
 			confirmDismissWhenDirty: normalized.behaviour.confirmDismissWhenDirty,

@@ -45,6 +45,10 @@ Press `Esc` in the question panel or run `/ask-defer` to put all questions aside
 
 If there's nothing else the agent can do, it calls `wait_for_answers`. Hiding the panel or sending a normal message releases that wait without cancelling the questions.
 
+Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into **Background-only**, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after its first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
+
+Unanswered questions keep the Herdr session header marked blocked while the agent works. Cancelling a background form cancels that question, not the agent.
+
 It still has to wait before doing work that depends on your answer. “Keep working” doesn't mean “guess anyway.”
 
 The bundled [skill](skills/ask-user/SKILL.md) guides the agent to ask when a decision matters. It doesn't force every agent to behave.

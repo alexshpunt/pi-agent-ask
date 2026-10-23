@@ -6,6 +6,7 @@ import { createBackgroundAskRuntime } from "../src/background-ask.ts";
 import { DEFAULT_ASK_CONFIG } from "../src/config/defaults.ts";
 import { getAskConfigStore } from "../src/config/store.ts";
 import type { AskParams, AskResult } from "../src/types.ts";
+import { runAskFlow } from "../src/ui/controller.ts";
 import { registerWaitForAnswersTool } from "../src/wait-for-answers-tool.ts";
 
 getAskConfigStore().setConfig({
@@ -38,6 +39,7 @@ function harness() {
 	const forms: Array<(result: AskResult) => void> = [];
 	const handlers = new Map<string, (...args: any[]) => any>();
 	let idle = false;
+	let aborts = 0;
 	let signal: AbortSignal | undefined;
 	let focused: unknown = { getText: () => "", setText: () => undefined };
 	const widgets = new Map<string, { render: (width: number) => string[] }>();
@@ -68,6 +70,9 @@ function harness() {
 		},
 	};
 	const ctx = {
+		abort: () => {
+			aborts += 1;
+		},
 		cwd: process.cwd(),
 		mode: "tui",
 		isIdle: () => idle,
@@ -127,6 +132,14 @@ function harness() {
 		ctx,
 		runtime,
 		boundary,
+		get aborts() {
+			return aborts;
+		},
+		cancelForm() {
+			(focused as { handleInput: (data: string) => void }).handleInput(
+				"\u001b"
+			);
+		},
 		setEditorReady(ready: boolean) {
 			focused = ready ? { getText: () => "", setText: () => undefined } : {};
 			for (const widget of widgets.values()) {
@@ -172,6 +185,100 @@ test("background receipts return before answers and forms run in FIFO order", as
 	h.runtime.dispose();
 });
 
+test("the queue stays blocked from enqueue until its last form closes", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	const active = () => h.events.map((event) => event.data.active);
+	h.runtime.enqueue("first", params, h.ctx as never, false);
+	h.runtime.enqueue("second", params, h.ctx as never, false);
+	assert.deepEqual(active(), [true]);
+	await tick();
+	h.forms[0](answer);
+	await tick();
+	assert.deepEqual(active(), [true]);
+	assert.equal(h.runtime.pendingCount(), 1);
+	h.forms[1](answer);
+	await tick();
+	assert.deepEqual(active(), [true, false]);
+});
+
+test("recovery stays blocked while its editor is unavailable and clears on branch change", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("pending", params, h.ctx as never, false);
+	h.setEditorReady(false);
+	h.runtime.restore(h.ctx as never);
+	await tick();
+	assert.equal(h.forms.length, 0);
+	assert.deepEqual(
+		h.events.map((event) => event.data.active),
+		[true]
+	);
+	h.branch.length = 0;
+	h.runtime.restore(h.ctx as never);
+	assert.deepEqual(
+		h.events.map((event) => event.data.active),
+		[true, false]
+	);
+});
+
+test("a foreground surface cannot clear a still-pending background queue", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	const foreground = runAskFlow(h.ctx as never, params, {
+		herdrEvents: h.pi.events as never,
+	});
+	await tick();
+	h.runtime.enqueue("background", params, h.ctx as never, false);
+	h.forms[0](answer);
+	await foreground;
+	await tick();
+	assert.equal(h.forms.length, 2);
+	assert.deepEqual(
+		h.events.map((event) => event.data.active),
+		[true]
+	);
+	h.forms[1](answer);
+	await tick();
+	assert.deepEqual(
+		h.events.map((event) => event.data.active),
+		[true, false]
+	);
+});
+
+test("cancelling a background form records cancellation without aborting agent work", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("cancel", params, h.ctx as never, false);
+	await tick();
+	h.cancelForm();
+	await tick();
+	assert.equal(h.aborts, 0);
+	assert.equal(h.runtime.pendingCount(), 0);
+	const completion = h.branch.find(
+		(entry) => entry.customType === "ask:queue-completed"
+	);
+	assert.equal(completion.data.result.cancelled, true);
+});
+
+test("an interrupted background form keeps cancellation independent when reopened directly", async () => {
+	const h = harness();
+	const result = runAskFlow(h.ctx as never, { ...params, background: true });
+	await tick();
+	h.cancelForm();
+	assert.equal((await result).cancelled, true);
+	assert.equal(h.aborts, 0);
+});
+
+test("cancelling a foreground form still aborts the current operation", async () => {
+	const h = harness();
+	const result = runAskFlow(h.ctx as never, params);
+	await tick();
+	h.cancelForm();
+	assert.equal((await result).cancelled, true);
+	assert.equal(h.aborts, 1);
+});
+
 test("wait returns the remaining results without also sending them as messages", async () => {
 	const h = harness();
 	const receipt = h.runtime.enqueue("pending", params, h.ctx as never, false);
@@ -194,6 +301,22 @@ test("wait returns the remaining results without also sending them as messages",
 	h.runtime.dispose();
 });
 
+test("disabling explicit waiting preserves pending questions and asynchronous delivery", async () => {
+	const h = harness();
+	h.runtime.enqueue("mode-change", params, h.ctx as never, false);
+	await tick();
+	const waiting = h.runtime.wait(undefined);
+	const stopped = assert.rejects(waiting, { message: "Waiting disabled" });
+	h.runtime.interruptWait(new Error("Waiting disabled"));
+	await stopped;
+	assert.equal(h.aborts, 0);
+	h.forms[0](answer);
+	await tick();
+	h.boundary();
+	assert.equal(h.messages.length, 1);
+	assert.equal(h.messages[0].details.requestId, "mode-change");
+	h.runtime.dispose();
+});
 test("aborting a wait leaves the question queued and restores async delivery", async () => {
 	const h = harness();
 	h.runtime.enqueue("pending", params, h.ctx as never, false);

@@ -15,6 +15,7 @@ import {
 	restoreQueuedRequests,
 	type WaitForAnswersResult,
 } from "./background-ask-state.ts";
+import { acquireAskBlocked } from "./blocked-status.ts";
 import { imageContent } from "./images.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
 import type { AskParams } from "./types.ts";
@@ -38,6 +39,7 @@ export class BackgroundAskRuntime {
 	private pumping = false;
 	private readonly remoteAsk?: RemoteAskRuntime;
 	private requests: QueuedRequest[] = [];
+	private releaseBlocked?: () => void;
 	private readonly routed = new Set<string>();
 	private readonly executionOwners = new Map<string, string | undefined>();
 	private waiter?: Waiter;
@@ -162,14 +164,29 @@ export class BackgroundAskRuntime {
 		});
 	}
 
+	/** Stop explicit waiting without removing requests or aborting agent work. */
+	interruptWait(error: Error): void {
+		const waiter = this.waiter;
+		if (!waiter) {
+			return;
+		}
+		this.waiter = undefined;
+		waiter.cleanup();
+		waiter.reject(error);
+	}
 	/** Rebuild from the current branch and invalidate every older surface and callback. */
 	restore(ctx: ExtensionContext): void {
+		const releaseBlocked = this.releaseBlocked;
+		this.releaseBlocked = undefined;
 		this.dispose();
+		this.releaseBlocked = releaseBlocked;
 		this.generation = new AbortController();
 		this.context = ctx;
 		this.requests = restoreQueuedRequests(ctx.sessionManager.getBranch());
 		this.routed.clear();
 		if (ctx.mode !== "tui") {
+			this.releaseBlocked?.();
+			this.releaseBlocked = undefined;
 			return;
 		}
 		this.updateStatus();
@@ -191,6 +208,8 @@ export class BackgroundAskRuntime {
 
 	/** Idempotent lifecycle cleanup. Persisted requests remain available for recovery. */
 	dispose(): void {
+		this.releaseBlocked?.();
+		this.releaseBlocked = undefined;
 		this.stopWaitingForEditor?.();
 		this.stopWaitingForEditor = undefined;
 		this.generation.abort();
@@ -268,6 +287,12 @@ export class BackgroundAskRuntime {
 
 	private updateStatus(): void {
 		const pending = this.pendingCount();
+		if (pending) {
+			this.releaseBlocked ??= acquireAskBlocked(this.pi.events);
+		} else {
+			this.releaseBlocked?.();
+			this.releaseBlocked = undefined;
+		}
 		this.context?.ui.setStatus(
 			"ask:queue",
 			pending ? `Questions pending: ${pending}` : undefined
@@ -307,6 +332,7 @@ export class BackgroundAskRuntime {
 	): Promise<QueuedAnswer> {
 		try {
 			const result = await runAskFlow(ctx, request.params, {
+				abortOnCancel: false,
 				keepVisible: true,
 				signal,
 				presentSingleAsMulti: request.presentSingleAsMulti,
