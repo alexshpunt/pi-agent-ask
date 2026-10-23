@@ -9,6 +9,7 @@ import {
 } from "./ask-history.ts";
 import { appendAskPayload } from "./ask-payload-store.ts";
 import {
+	ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES,
 	ASK_TOOL_DESCRIPTION,
 	ASK_TOOL_PROMPT_GUIDELINES,
 	invalidPayloadResponse,
@@ -25,7 +26,7 @@ import { connectExternalAskUi, runExternalAskFlow } from "./external-ui.ts";
 import { resolvePreviewFiles } from "./preview-files.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
 import { AskResultSchema } from "./result-schema.ts";
-import { AskParamsSchema } from "./schema.ts";
+import { AskBackgroundOnlyParamsSchema, AskParamsSchema } from "./schema.ts";
 import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams, AskState } from "./types.ts";
 import { runAskFlow } from "./ui/controller.ts";
@@ -33,16 +34,26 @@ import { runAskFlow } from "./ui/controller.ts";
 export function registerAskTool(
 	pi: ExtensionAPI,
 	remoteAsk?: RemoteAskRuntime,
-	backgroundAsk?: BackgroundAskRuntime
+	backgroundAsk?: BackgroundAskRuntime,
+	isBackgroundOnly: () => boolean = () => false
 ) {
+	const backgroundOnly = isBackgroundOnly();
 	pi.registerTool({
 		name: "ask_user",
 		label: "Ask User",
-		description: ASK_TOOL_DESCRIPTION,
+		description: backgroundOnly
+			? "Use ask_user to queue a short structured interview for user decisions. The call returns a pending request receipt, not an answer. Continue independent work and receive the completed form asynchronously."
+			: ASK_TOOL_DESCRIPTION,
 		promptSnippet:
 			"Clarify ambiguous or preference-sensitive decisions with a short interactive interview before proceeding",
-		promptGuidelines: [...ASK_TOOL_PROMPT_GUIDELINES],
-		parameters: AskParamsSchema,
+		promptGuidelines: [
+			...(backgroundOnly
+				? ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES
+				: ASK_TOOL_PROMPT_GUIDELINES),
+		],
+		parameters: backgroundOnly
+			? AskBackgroundOnlyParamsSchema
+			: AskParamsSchema,
 		outputSchema: Type.Union([AskResultSchema, AskQueuedSchema]),
 		prepareArguments: (args) => prepareAskParams(args) as AskParams,
 		execute: (toolCallId, params, signal, onUpdate, ctx) =>
@@ -54,7 +65,8 @@ export function registerAskTool(
 				onUpdate,
 				ctx,
 				remoteAsk,
-				backgroundAsk
+				backgroundAsk,
+				isBackgroundOnly
 			),
 		renderCall: renderAskToolCall,
 		renderResult: renderAskToolResult,
@@ -97,14 +109,18 @@ async function executeAskTool(
 	_onUpdate: unknown,
 	ctx: ExtensionContext,
 	remoteAsk?: RemoteAskRuntime,
-	backgroundAsk?: BackgroundAskRuntime
+	backgroundAsk?: BackgroundAskRuntime,
+	isBackgroundOnly: () => boolean = () => false
 ) {
 	const resolved = await resolvePreviewFiles(input, ctx.cwd);
 	if (!resolved.ok) {
 		return invalidPayloadResponse(input, resolved.issues);
 	}
-	const params = resolved.params;
 	const config = await getAskConfigStore().getConfig();
+	const backgroundOnly = isBackgroundOnly();
+	const params = backgroundOnly
+		? { ...resolved.params, background: true }
+		: resolved.params;
 	const validation = validateParams(params, {
 		presentSingleAsMulti: config.behaviour.presentSingleAsMulti,
 	});
@@ -132,7 +148,8 @@ async function executeAskTool(
 			signal,
 			ctx,
 			remoteAsk,
-			backgroundAsk
+			backgroundAsk,
+			backgroundOnly
 		);
 	} catch (error) {
 		appendAskHistoryCompletion(pi, {
@@ -152,7 +169,8 @@ async function executeRecordedAsk(
 	signal: AbortSignal | undefined,
 	ctx: ExtensionContext,
 	remoteAsk?: RemoteAskRuntime,
-	backgroundAsk?: BackgroundAskRuntime
+	backgroundAsk?: BackgroundAskRuntime,
+	backgroundOnly = false
 ) {
 	if (ctx.mode !== "tui") {
 		const response = await executeNonTuiAsk(
@@ -183,7 +201,7 @@ async function executeRecordedAsk(
 			content: [
 				{
 					type: "text" as const,
-					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. Continue independent work; call wait_for_answers when answers are needed.`,
+					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. Continue independent work; ${backgroundOnly ? "end your turn when it is exhausted and receive the answer asynchronously" : "call wait_for_answers when answers are needed"}.`,
 				},
 			],
 			details: receipt,

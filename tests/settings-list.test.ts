@@ -8,6 +8,7 @@ import { AskSettingsList } from "../src/ui/settings-list.ts";
 
 const savedConfig: AskConfig = {
 	behaviour: {
+		backgroundOnly: false,
 		autoSubmitWhenAnsweredWithoutNotes: false,
 		confirmDismissWhenDirty: true,
 		doublePressReviewShortcuts: true,
@@ -191,13 +192,14 @@ test("settings list uses configured navigation and close keys", async () => {
 	assert.equal(saved?.behaviour.confirmDismissWhenDirty, false);
 });
 
-test("settings list resets config to defaults after double press", async () => {
+test("settings reset keeps the separately managed question mode", async () => {
 	let saveCount = 0;
 	let saved: AskConfig | undefined;
 	const customConfig: AskConfig = {
 		...savedConfig,
 		behaviour: {
 			...savedConfig.behaviour,
+			backgroundOnly: true,
 			autoSubmitWhenAnsweredWithoutNotes: true,
 			showFooterHints: false,
 		},
@@ -224,7 +226,10 @@ test("settings list resets config to defaults after double press", async () => {
 	await new Promise((resolve) => setImmediate(resolve));
 
 	assert.equal(saveCount, 1);
-	assert.deepEqual(saved, DEFAULT_ASK_CONFIG);
+	assert.deepEqual(saved, {
+		...DEFAULT_ASK_CONFIG,
+		behaviour: { ...DEFAULT_ASK_CONFIG.behaviour, backgroundOnly: true },
+	});
 });
 
 test("settings list closes with configured keys and dispose idempotently", () => {

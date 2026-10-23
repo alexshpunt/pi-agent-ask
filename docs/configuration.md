@@ -6,7 +6,7 @@ This is the configuration guide for `pi-agent-ask`. Edit the config file, valida
 
 `~/.pi/agent/extensions/pi-agent-ask.json`
 
-The first ask attempts to create this file with defaults. A read-only location uses in-memory defaults and shows a notice. Loading an existing file never rewrites or backs it up. Invalid files stay unchanged and load defaults for the session.
+The extension attempts to create this file with defaults when it initializes the question mode. A read-only location uses in-memory defaults and shows a notice. Loading an existing file never rewrites or backs it up. Invalid files stay unchanged and load defaults for the session.
 
 Old `eko24ive-pi-ask.json` files are not loaded, moved, or deleted. There is no automatic migration from the old product name. Copy any wanted behaviour, keymap, and notification settings manually into the new file. The old `answer` extraction settings have no use in this package.
 
@@ -18,6 +18,7 @@ Supported older schema versions migrate in memory. Keep `schemaVersion` at `5` w
 {
   "schemaVersion": 5,
   "behaviour": {
+    "backgroundOnly": false,
     "autoSubmitWhenAnsweredWithoutNotes": false,
     "confirmDismissWhenDirty": true,
     "doublePressReviewShortcuts": true,
@@ -79,6 +80,34 @@ Supported older schema versions migrate in memory. Keep `schemaVersion` at `5` w
 Open `/ask-settings` or press `?` inside a form to toggle behaviour or notification enablement. Changes save immediately when possible; save failures revert the setting and show the path for manual editing. Reset-to-defaults requires a quick second press. Use it only when the user asks to reset.
 
 Saved runtime changes affect an open form, except `presentSingleAsMulti`, which applies when a form is created. For a live question-type change, use `main.changeQuestionType` (`t` by default). It toggles `single <-> multi`, or `preview <-> multi`. A multi-to-single change that would discard multiple choices requires another press, without a timeout.
+
+## Question mode
+
+Normal mode is the default. Run `/ask-mode` to choose a scope and mode, or use:
+
+```text
+/ask-mode global background-only
+/ask-mode global normal
+/ask-mode project background-only
+/ask-mode project normal
+/ask-mode project inherit
+```
+
+Background-only mode removes the `background` parameter from `ask_user` and makes every valid call queue a form. It also hides and disables `wait_for_answers`. The agent continues independent work, then ends its turn; an answer wakes it asynchronously. A queued receipt is not an answer or approval. Without a TUI queue, calls keep the cancelled non-interactive result and never open a synchronous external form.
+
+The global file stores `behaviour.backgroundOnly` (default `false`). A trusted project's `.pi/extensions/pi-agent-ask.json` can override just this setting:
+
+```json
+{
+  "behaviour": { "backgroundOnly": true }
+}
+```
+
+A project value of `false` overrides a global `true`. Omit the field, or use `project inherit`, to inherit the global value. Untrusted project config is ignored; the command refuses to save a project override until Pi trusts the project. Other project-local ask settings are not loaded.
+
+Before the first model request in the current running session, a mode change needs no cache warning. After that request, any change to the effective mode asks for confirmation: changing tool definitions can invalidate prompt-cache reuse. Declining keeps both the saved setting and the tool interface unchanged. Updating a global default hidden by a project override does not change tools or require this confirmation. Mode changes preserve queued forms and answers; enabling background-only also interrupts an existing explicit wait without cancelling its questions.
+
+`/ask-settings` and its reset action manage form settings, not the question mode. Use `/ask-mode` to change the mode. Manual config edits take effect after reload or restart.
 
 ## Keymaps
 

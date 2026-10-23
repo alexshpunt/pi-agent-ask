@@ -276,6 +276,17 @@ export class BackgroundAskRuntime {
 		this.endWaitingStatus = undefined;
 	}
 
+	/** Stop explicit waiting without removing requests or aborting agent work. */
+	interruptWait(error: Error): void {
+		const waiter = this.waiter;
+		if (!waiter) {
+			return;
+		}
+		this.waiter = undefined;
+		waiter.cleanup();
+		this.setWaitingStatus(false);
+		waiter.reject(error);
+	}
 	/** Rebuild from the current branch and invalidate every older surface and callback. */
 	restore(ctx: ExtensionContext): void {
 		this.dispose();
@@ -429,6 +440,7 @@ export class BackgroundAskRuntime {
 	): Promise<QueuedAnswer> {
 		try {
 			const result = await runAskFlow(ctx, request.params, {
+				abortOnCancel: false,
 				background: {
 					hidden: this.hidden,
 					draft: request.draft,

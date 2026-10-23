@@ -1,7 +1,4 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	Editor,
 	type EditorTheme,
@@ -12,6 +9,7 @@ import {
 import type { AskDraft } from "../ask-draft.ts";
 import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
+import type { AskEvents } from "../blocked-status.ts";
 import { readClipboardImage } from "../clipboard-image.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
@@ -88,9 +86,9 @@ type Tui = CustomCallbackArgs[0];
 type Theme = CustomCallbackArgs[1];
 type Keybindings = CustomCallbackArgs[2];
 type Done = (result: AskResult) => void;
-type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 
 interface AskFlowOptions {
+	abortOnCancel?: boolean;
 	background?: PersistentAskOptions & {
 		draft?: AskDraft;
 		onDefer(): void;
@@ -115,6 +113,7 @@ type AskFlowParams = AskParams &
 	};
 
 interface AskFlowController {
+	abortOnCancel: boolean;
 	clipboardNotice?: string;
 	clipboardReading: boolean;
 	config: AskConfig;
@@ -199,6 +198,9 @@ function createAskFlowController(
 ) {
 	const controller: AskFlowController = {
 		mouseTargets: [],
+		abortOnCancel:
+			params.flowOptions.abortOnCancel ??
+			!(params.flowOptions.background || params.background),
 		clipboardReading: false,
 		disposed: false,
 		keybindings,
@@ -814,7 +816,7 @@ function maybeFinish(controller: AskFlowController) {
 		const result = toAskResult(controller.state);
 		controller.remoteFlow?.complete(result);
 		controller.done(result);
-		if (result.cancelled && !controller.flowOptions.background) {
+		if (result.cancelled && controller.abortOnCancel) {
 			controller.ctx.abort();
 		}
 	}

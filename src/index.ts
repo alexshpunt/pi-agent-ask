@@ -2,11 +2,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerAskHistoryTools } from "./ask-history-tools.ts";
+import { AskModeController } from "./ask-mode.ts";
+import { registerAskModeCommand } from "./ask-mode-command.ts";
 import { registerAskSettingsCommand } from "./ask-settings-command.ts";
 import { registerAskTool } from "./ask-tool.ts";
 import { registerBackgroundAnswerRenderer } from "./background-answer.ts";
 import { createBackgroundAskRuntime } from "./background-ask.ts";
-import { resetAskConfigStore } from "./config/store.ts";
+import { getAskConfigStore, resetAskConfigStore } from "./config/store.ts";
 import { createRemoteAskRuntime } from "./remote-ask.ts";
 import { registerPendingAskResume } from "./resume-pending-ask.ts";
 import { registerWaitForAnswersTool } from "./wait-for-answers-tool.ts";
@@ -30,9 +32,26 @@ export default function askExtension(pi: ExtensionAPI) {
 	});
 	const backgroundAsk = createBackgroundAskRuntime(pi, remoteAsk);
 	registerBackgroundAnswerRenderer(pi);
-	registerAskTool(pi, remoteAsk, backgroundAsk);
+	const mode = new AskModeController(getAskConfigStore(), (backgroundOnly) => {
+		registerQuestionTools();
+		if (backgroundOnly) {
+			backgroundAsk.interruptWait(
+				new Error(
+					"wait_for_answers is unavailable in background-only mode. End your turn and receive answers asynchronously."
+				)
+			);
+		}
+	});
+	const registerQuestionTools = () => {
+		registerAskTool(pi, remoteAsk, backgroundAsk, () => mode.backgroundOnly);
+		registerWaitForAnswersTool(pi, backgroundAsk, () => mode.backgroundOnly);
+	};
+	registerQuestionTools();
+	pi.on("session_start", (_event, ctx) => mode.initialize(ctx));
+	pi.on("context", () => mode.markModelRequest());
+	pi.on("session_shutdown", () => mode.endSession());
+	registerAskModeCommand(pi, mode);
 	registerAskHistoryTools(pi);
-	registerWaitForAnswersTool(pi, backgroundAsk);
 	registerAskSettingsCommand(pi);
 	registerPendingAskResume(pi, remoteAsk);
 }
