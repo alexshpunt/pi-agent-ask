@@ -4,15 +4,22 @@ import {
 	getRenderableOptions,
 	isSubmitTab,
 } from "../state/selectors.ts";
+import { isEditingView } from "../state/view.ts";
 import type { AskState } from "../types.ts";
 import { renderFrameFooter, renderFrameHeader } from "./render-frame.ts";
 import { renderQuestionScreen } from "./render-question.ts";
 import { renderSubmitScreen } from "./render-submit.ts";
-import type { QuestionRenderContext, Theme } from "./render-types.ts";
+import type {
+	AskMouseTarget,
+	QuestionRenderContext,
+	Theme,
+} from "./render-types.ts";
 
 export function renderAskScreen(args: {
 	config: AskConfig;
+	targets?: AskMouseTarget[];
 	footerNotice?: string;
+	background?: boolean;
 	reviewShortcutHint?: string;
 	state: AskState;
 	theme: Theme;
@@ -31,23 +38,44 @@ export function renderAskScreen(args: {
 	const lines: string[] = [];
 	const question = getCurrentQuestion(state);
 	const options = getRenderableOptions(question);
+	const markActiveRow = Boolean(
+		args.background && editor.focused && !isEditingView(state)
+	);
 
-	renderFrameHeader({ lines, state, theme, width });
+	renderFrameHeader({ lines, state, theme, width, targets: args.targets });
 
 	if (isSubmitTab(state)) {
-		renderSubmitScreen(lines, state, theme, width, reviewShortcutHint);
+		renderSubmitScreen(
+			lines,
+			state,
+			theme,
+			width,
+			reviewShortcutHint,
+			markActiveRow,
+			args.targets
+		);
 	} else if (question) {
 		renderQuestionScreen({
 			lines,
 			state,
 			question,
 			options,
+			markActiveRow,
+			targets: args.targets,
 			theme,
 			width,
 			editor,
 		});
 	}
 
-	renderFrameFooter({ config, footerNotice, lines, state, theme, width });
+	renderFrameFooter({
+		config,
+		footerNotice,
+		lines,
+		state,
+		theme,
+		width,
+		background: args.background,
+	});
 	return lines;
 }

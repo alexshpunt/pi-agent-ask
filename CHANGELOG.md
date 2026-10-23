@@ -1,3 +1,12 @@
+# [1.2.10](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.9...v1.2.10) (2026-10-23)
+
+- Keep background questions beside normal input without taking focus. Use `Alt+Q` or the mouse to switch between answering and writing.
+- Defer and reopen the queue without losing drafts, skip individual questions, and release an active answer wait without cancelling pending questions. Requests remain FIFO.
+- Add opt-in background-only mode through `/ask-mode`, globally or per trusted project. All questions queue asynchronously, and the agent has no wait tool.
+- Cancel background forms without aborting unrelated agent work. Foreground cancellation still interrupts its own operation.
+- Mark Herdr blocked only for actual foreground questions and explicit answer waits, not pending background questions alone.
+- Advance after Enter on saved or newly entered multi-select custom answers while preserving choices. Space and numeric toggles remain unchanged.
+
 # [1.2.9](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.8...v1.2.9) (2026-10-21)
 
 - Keep background answer cards at the Ask calls that queued them, including calls nested inside another tool.

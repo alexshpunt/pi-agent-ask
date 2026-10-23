@@ -1,13 +1,19 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
-import { Editor, type EditorTheme, matchesKey } from "@earendil-works/pi-tui";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	Editor,
+	type EditorTheme,
+	matchesKey,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
+} from "@earendil-works/pi-tui";
+import type { AskDraft } from "../ask-draft.ts";
 import { withAskSurface } from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
+import type { AskEvents } from "../blocked-status.ts";
 import { readClipboardImage } from "../clipboard-image.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
+import { beginUserWait } from "../herdr-wait-state.ts";
 import {
 	createQuestionWaitingNotification,
 	notifyQuestionWaiting,
@@ -37,6 +43,7 @@ import {
 	getCurrentQuestion,
 	isSubmitTab,
 } from "../state/selectors.ts";
+import { skipCurrentQuestion } from "../state/skip.ts";
 import {
 	applyNumberShortcut,
 	cancelFlow,
@@ -59,8 +66,12 @@ import {
 } from "./dismiss-guard.ts";
 import type { AskInputCommand } from "./input.ts";
 import { getInputCommand } from "./input.ts";
-import { showPersistentAsk } from "./persistent-ask.ts";
+import {
+	type PersistentAskOptions,
+	showPersistentAsk,
+} from "./persistent-ask.ts";
 import { renderAskScreen } from "./render.ts";
+import type { AskMouseTarget } from "./render-types.ts";
 import {
 	getReviewShortcutHint,
 	resolveReviewShortcutDoublePress,
@@ -75,11 +86,15 @@ type Tui = CustomCallbackArgs[0];
 type Theme = CustomCallbackArgs[1];
 type Keybindings = CustomCallbackArgs[2];
 type Done = (result: AskResult) => void;
-type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 
 interface AskFlowOptions {
+	abortOnCancel?: boolean;
+	background?: PersistentAskOptions & {
+		draft?: AskDraft;
+		onDefer(): void;
+		onDraft(draft: AskDraft): void;
+	};
 	herdrEvents?: AskEvents;
-	keepVisible?: boolean;
 	presentSingleAsMulti?: boolean;
 	remote?: {
 		runtime: RemoteAskRuntime;
@@ -98,6 +113,7 @@ type AskFlowParams = AskParams &
 	};
 
 interface AskFlowController {
+	abortOnCancel: boolean;
 	clipboardNotice?: string;
 	clipboardReading: boolean;
 	config: AskConfig;
@@ -107,7 +123,9 @@ interface AskFlowController {
 	disposed: boolean;
 	done: Done;
 	editor: Editor;
+	flowOptions: AskFlowOptions;
 	keybindings: Keybindings;
+	mouseTargets: AskMouseTarget[];
 	pendingQuestionTypeChangeQuestionId?: string;
 	pendingReviewShortcutActionIndex?: number;
 	remoteFlow?: RemoteAskFlowHandle;
@@ -142,8 +160,13 @@ export async function runAskFlow(
 			cancelled: true,
 		};
 	}
-	return withAskSurface(options.signal, async () => {
-		emitHerdrBlocked(options.herdrEvents, true);
+	const run = async () => {
+		if (options.signal?.aborted) {
+			throw new DOMException("Question form interrupted", "AbortError");
+		}
+		const endWait = options.background
+			? undefined
+			: beginUserWait(options.herdrEvents, "Waiting for user response");
 		try {
 			const factory = (...args: [Tui, Theme, Keybindings, Done]) =>
 				createAskFlowController(args, {
@@ -154,29 +177,14 @@ export async function runAskFlow(
 					ctx,
 					flowOptions,
 				});
-			return options.keepVisible
-				? await showPersistentAsk(ctx, factory)
+			return options.background
+				? await showPersistentAsk(ctx, factory, options.background)
 				: await ctx.ui.custom<AskResult>(factory);
 		} finally {
-			emitHerdrBlocked(options.herdrEvents, false);
+			endWait?.();
 		}
-	});
-}
-
-function emitHerdrBlocked(
-	events: AskEvents | undefined,
-	active: boolean
-): void {
-	try {
-		events?.emit(
-			"herdr:blocked",
-			active
-				? { active: true, label: "Waiting for user response" }
-				: { active: false }
-		);
-	} catch {
-		// Herdr status is best effort and must not affect the ask flow.
-	}
+	};
+	return options.background ? run() : withAskSurface(options.signal, run);
 }
 
 function createAskFlowController(
@@ -189,6 +197,10 @@ function createAskFlowController(
 	params: AskFlowParams
 ) {
 	const controller: AskFlowController = {
+		mouseTargets: [],
+		abortOnCancel:
+			params.flowOptions.abortOnCancel ??
+			!(params.flowOptions.background || params.background),
 		clipboardReading: false,
 		disposed: false,
 		keybindings,
@@ -198,8 +210,11 @@ function createAskFlowController(
 		dismissNotice: undefined,
 		done,
 		editor: createEditor(tui, theme, params.cwd),
+		flowOptions: params.flowOptions,
 		settingsOpen: false,
-		state: createInitialState(params, params.flowOptions),
+		state:
+			params.flowOptions.background?.draft?.state ??
+			createInitialState(params, params.flowOptions),
 		suppressAutoInputForSelection: false,
 		pendingQuestionTypeChangeQuestionId: undefined,
 		pendingReviewShortcutActionIndex: undefined,
@@ -231,7 +246,11 @@ function createAskFlowController(
 	}
 	controller.editor.onSubmit = (value) => submitEditor(controller, value);
 	controller.remoteFlow = startRemoteFlow(controller, params);
-	syncSelection(controller);
+	if (params.flowOptions.background?.draft) {
+		controller.editor.setText(params.flowOptions.background.draft.editorText);
+	} else {
+		syncSelection(controller);
+	}
 	notifyCurrentQuestion(controller).catch(() => {
 		// Notification failures are best-effort and must not affect the ask flow.
 	});
@@ -250,6 +269,9 @@ function createAskFlowController(
 		handleInput(data: string) {
 			handleControllerInput(controller, data);
 		},
+		handleMouse(event: TuiMouseEvent) {
+			return handleControllerMouse(controller, event);
+		},
 		dispose() {
 			controller.disposed = true;
 			params.flowOptions.signal?.removeEventListener("abort", abort);
@@ -263,8 +285,11 @@ function renderController(
 	controller: AskFlowController,
 	width: number
 ): string[] {
+	controller.mouseTargets = [];
 	return renderAskScreen({
+		targets: controller.mouseTargets,
 		config: controller.config,
+		background: !!controller.flowOptions.background,
 		editor: controller.editor,
 		footerNotice: getFooterNotice(controller),
 		reviewShortcutHint: getActiveReviewShortcutHint(controller),
@@ -274,7 +299,77 @@ function renderController(
 	});
 }
 
+function handleControllerMouse(
+	controller: AskFlowController,
+	event: TuiMouseEvent
+): TuiMouseEventResult | undefined {
+	if (
+		controller.disposed ||
+		controller.settingsOpen ||
+		controller.state.completed ||
+		event.button !== "left" ||
+		event.shift ||
+		event.alt ||
+		event.ctrl ||
+		(event.type !== "press" && event.type !== "click")
+	) {
+		return;
+	}
+	const target = controller.mouseTargets.find(
+		(item) =>
+			event.x >= item.x &&
+			event.x < item.x + item.width &&
+			event.y >= item.y &&
+			event.y < item.y + item.height
+	);
+	if (!target) {
+		return;
+	}
+	if (event.type === "press") {
+		return { handled: true, render: false };
+	}
+	if (target.kind === "tab") {
+		let next = saveEditorState(controller);
+		while (next.activeTabIndex !== target.index) {
+			next = moveTab(next, 1);
+		}
+		clearReviewShortcutPending(controller);
+		clearQuestionTypeChangePending(controller);
+		commitState(controller, next);
+	} else if (target.kind === "submit") {
+		if (!handleReviewShortcutNumber(controller, target.index + 1)) {
+			commitState(
+				controller,
+				applyNumberShortcut(controller.state, target.index + 1),
+				{ finish: true }
+			);
+		}
+	} else {
+		clearReviewShortcutPending(controller);
+		clearQuestionTypeChangePending(controller);
+		commitState(
+			controller,
+			applyNumberShortcut(saveEditorState(controller), target.index + 1),
+			{ finish: true }
+		);
+	}
+	return { handled: true };
+}
+
 function handleControllerInput(controller: AskFlowController, data: string) {
+	if (controller.flowOptions.background && matchesKey(data, "esc")) {
+		refresh(controller);
+		controller.flowOptions.background.onDefer();
+		return;
+	}
+	if (
+		controller.flowOptions.background &&
+		!isEditingView(controller.state) &&
+		matchesKey(data, "d")
+	) {
+		commitState(controller, skipCurrentQuestion(controller.state));
+		return;
+	}
 	controller.editor.disableSubmit = !isNativeEditorSubmitEnabled(controller);
 	const command = getInputCommand(
 		controller.state,
@@ -695,6 +790,11 @@ function showSettingsModal(controller: AskFlowController) {
 }
 
 function refresh(controller: AskFlowController) {
+	controller.mouseTargets = [];
+	controller.flowOptions.background?.onDraft({
+		state: controller.state,
+		editorText: controller.editor.getText(),
+	});
 	controller.tui.requestRender();
 }
 
@@ -716,7 +816,7 @@ function maybeFinish(controller: AskFlowController) {
 		const result = toAskResult(controller.state);
 		controller.remoteFlow?.complete(result);
 		controller.done(result);
-		if (result.cancelled) {
+		if (result.cancelled && controller.abortOnCancel) {
 			controller.ctx.abort();
 		}
 	}

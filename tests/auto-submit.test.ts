@@ -47,6 +47,17 @@ function answeredSubmitState(): AskState {
 	};
 }
 
+test("skipping every question still requires explicit review when auto submit is enabled", () => {
+	const original = answeredSubmitState();
+	const state: AskState = {
+		...original,
+		questions: [],
+		answers: {},
+		skippedQuestions: [{ index: 0, question: original.questions[0] }],
+		activeTabIndex: 0,
+	};
+	assert.equal(maybeAutoSubmitState(state, enabledConfig).completed, false);
+});
 test("auto submit completes answered submit-tab state when enabled", () => {
 	const state = maybeAutoSubmitState(answeredSubmitState(), enabledConfig);
 

@@ -15,7 +15,11 @@ import {
 	renderEditorBlock,
 	renderPreviewPaneContent,
 } from "./render-helpers.ts";
-import type { QuestionRenderContext, Theme } from "./render-types.ts";
+import type {
+	AskMouseTarget,
+	QuestionRenderContext,
+	Theme,
+} from "./render-types.ts";
 import {
 	buildQuestionScreenModel,
 	type OptionDetailModel,
@@ -77,11 +81,7 @@ function renderStandardOption(
 	row: OptionRowModel,
 	context: QuestionRenderContext
 ) {
-	if (row.isCustom && row.detail?.kind === "editor") {
-		renderInteractiveCustomOption(lines, row, context);
-		return;
-	}
-
+	const y = lines.length;
 	pushWrappedText(
 		lines,
 		formatOptionLabel(row),
@@ -98,6 +98,14 @@ function renderStandardOption(
 		context.width,
 		context.theme
 	);
+	context.targets?.push({
+		kind: "option",
+		index: row.index,
+		x: 0,
+		y,
+		width: context.width,
+		height: lines.length - y,
+	});
 	renderOptionDetail(lines, row.detail, context);
 }
 
@@ -108,71 +116,51 @@ function renderPreviewQuestion(
 	if (model.mode !== "preview") {
 		return;
 	}
-
 	const { lines, width, theme } = context;
-	const add = (text = "") => lines.push(truncateToWidth(text, width));
-
-	if (model.previewLayout === "custom") {
-		renderPreviewOptionList(model.rows, theme, width).forEach(add);
-	} else if (model.previewLayout === "wide") {
-		renderWidePreviewLayout(
-			add,
-			model.rows,
-			theme,
-			width,
-			model.selectedOption
+	const wide = model.previewLayout === "wide";
+	const leftWidth = wide ? measurePreviewLeftWidth(model.rows, width) : width;
+	const optionLines = renderPreviewOptionList(
+		model.rows,
+		theme,
+		leftWidth,
+		context.targets,
+		lines.length
+	);
+	if (wide) {
+		const rightWidth = Math.max(
+			UI_DIMENSIONS.previewMinRightWidth,
+			width - leftWidth - 2
+		);
+		lines.push(
+			...mergeColumns(
+				optionLines,
+				renderPreviewPaneContent(model.selectedOption, theme, rightWidth),
+				leftWidth,
+				width
+			)
 		);
 	} else {
-		renderStackedPreviewLayout(
-			add,
-			model.rows,
-			theme,
-			width,
-			model.selectedOption
-		);
+		lines.push(...optionLines);
+		if (model.previewLayout !== "custom") {
+			lines.push(
+				"",
+				...renderPreviewPaneContent(model.selectedOption, theme, width)
+			);
+		}
 	}
-
 	renderOptionDetail(lines, model.selectedOptionDetail, context);
-}
-
-function renderWidePreviewLayout(
-	add: (text?: string) => void,
-	rows: OptionRowModel[],
-	theme: Theme,
-	width: number,
-	selectedOption: ReturnType<typeof buildQuestionScreenModel>["selectedOption"]
-) {
-	const leftWidth = measurePreviewLeftWidth(rows, width);
-	const rightWidth = Math.max(
-		UI_DIMENSIONS.previewMinRightWidth,
-		width - leftWidth - 2
-	);
-	const leftPane = renderPreviewOptionList(rows, theme, leftWidth);
-	const rightPane = renderPreviewPaneContent(selectedOption, theme, rightWidth);
-	for (const line of mergeColumns(leftPane, rightPane, leftWidth, width)) {
-		add(line);
-	}
-}
-
-function renderStackedPreviewLayout(
-	add: (text?: string) => void,
-	rows: OptionRowModel[],
-	theme: Theme,
-	width: number,
-	selectedOption: ReturnType<typeof buildQuestionScreenModel>["selectedOption"]
-) {
-	renderPreviewOptionList(rows, theme, width).forEach(add);
-	add("");
-	renderPreviewPaneContent(selectedOption, theme, width).forEach(add);
 }
 
 function renderPreviewOptionList(
 	rows: OptionRowModel[],
 	theme: Theme,
-	width: number
+	width: number,
+	targets?: AskMouseTarget[],
+	rowOffset = 0
 ): string[] {
 	const lines: string[] = [];
 	for (const row of rows) {
+		const y = lines.length;
 		pushWrappedText(
 			lines,
 			`${row.index + 1}. ${row.label}`,
@@ -183,6 +171,14 @@ function renderPreviewOptionList(
 			"  "
 		);
 		renderOptionSubtitle(lines, row.description, row.recommended, width, theme);
+		targets?.push({
+			kind: "option",
+			index: row.index,
+			x: 0,
+			y: rowOffset + y,
+			width,
+			height: lines.length - y,
+		});
 	}
 	return lines;
 }
@@ -273,24 +269,6 @@ function renderEditorWithIndent(args: {
 
 function formatOptionLabel(row: OptionRowModel): string {
 	return `${row.index + 1}. ${row.prefix}${row.label}`;
-}
-
-function renderInteractiveCustomOption(
-	lines: string[],
-	row: OptionRowModel,
-	context: QuestionRenderContext
-) {
-	const indent = row.pointer;
-	pushWrappedText(
-		lines,
-		formatOptionLabel(row),
-		context.width,
-		context.theme,
-		row.color,
-		indent,
-		" ".repeat(visibleWidth(indent))
-	);
-	renderOptionDetail(lines, row.detail, context);
 }
 
 function renderOptionSubtitle(

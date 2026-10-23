@@ -61,7 +61,7 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 		getToolExecutionDetails(getToolExecution(result, "research")),
 		{
 			activeForms: 1,
-			blocked: [{ active: true, label: "Waiting for user response" }],
+			blocked: [],
 			readSucceeded: true,
 		}
 	);
@@ -87,7 +87,7 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 	assert.equal(stats.activeForms, 0);
 	assert.deepEqual(
 		stats.blocked.map((event) => event.active),
-		[true, false, true, false]
+		[true, false]
 	);
 	assert(getProviderSystemPrompt(result).includes("background: true"));
 	assert(getProviderSystemPrompt(result).includes("Never guess answers"));

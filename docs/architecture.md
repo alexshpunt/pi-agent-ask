@@ -17,9 +17,13 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/background-answer.ts` — complete agent context and durable completion-entry cards, independent of answer consumption; accepted cards reuse the questionnaire's review model and question renderer
 - `src/background-ask.ts` — detached FIFO runtime, observed execution-root ownership, lifecycle recovery, and completion routing; queue records retain ownership after live execution ends
 - `src/wait-for-answers-tool.ts` — explicit wait gate with complete model results and brief visible consumption confirmations
-- `src/ask-surface.ts` — shared input-surface lock for tool, recovery, and queued forms
+- `src/ask-surface.ts` — shared input-surface lock for foreground tool and recovery flows; background widgets do not hold this lock
+- `src/ask-draft.ts` — validated question-panel snapshots for branch-local draft recovery
+- `src/herdr-wait-state.ts` — shared ownership of actual waits; one completed form cannot clear another active wait's blocked status
 
 - `src/index.ts` — extension entrypoint
+- `src/ask-mode.ts` / `src/ask-mode-command.ts` — trusted mode resolution and confirmed mode changes; re-registers the question tool schema and wait-tool exposure without replacing the queue
+- `src/blocked-status.ts` — shared status ownership for the unresolved background queue and foreground surfaces
 - `src/ask-tool.ts` — tool registration, non-interactive fallback, transcript rendering, ask payload capture
 - `src/ask-history.ts` / `src/ask-history-schema.ts` — journal entries, generated identities, per-question outcomes, and active-branch reads
 - `src/ask-history-tools.ts` — silent list/search, read, and export tools
@@ -44,6 +48,7 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/state/selectors.ts` — read-only selectors
 - `src/state/transitions.ts` — navigation, selection, notes, input, submit, cancel
 - `src/state/result.ts` — convert UI state to `AskResult`
+- `src/state/skip.ts` — remove one question from navigation while preserving original result order and explicit skipped identities
 - `src/state/view.ts` — view-mode helpers
 - `src/state.ts` — state barrel used by UI and tests
 
@@ -59,7 +64,7 @@ The codebase is split so the implementation reads through file boundaries and na
 
 - `src/ui/controller.ts` — connects key input, editor lifecycle, live config subscription, dirty-dismiss confirmation, and pure state transitions
 - `src/ui/wait-for-editor.ts` — uses an empty native widget to wait for the editor to return before opening recovered background forms
-- `src/ui/persistent-ask.ts` — remounts a background form when later lifecycle cleanup replaces its slot; the same controller keeps answers, notes, and editor drafts
+- `src/ui/persistent-ask.ts` — shows the question controller beside the native editor; translates native widget mouse coordinates through the rendered viewport and explicitly focuses a non-capturing keyboard overlay without replacing normal input
 - `src/ui/input.ts` — raw input to commands using resolved context-aware config-backed keymaps
 - `src/ui/dismiss-guard.ts` — pure helpers for dirty-flow exit confirmation behavior
 - `src/ui/render.ts` and `src/ui/render-*.ts` — screen rendering, including config-backed footer/keymap hints

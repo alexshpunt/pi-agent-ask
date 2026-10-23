@@ -159,3 +159,21 @@ test("cancelled and failed forms are not rendered as received answers", () => {
 	assert(rendered(failed).join("\n").includes("Surface unavailable"));
 	assert(formatQueuedAnswer(failed).includes("Surface unavailable"));
 });
+
+test("an all-skipped result is labelled honestly without showing stale answers", () => {
+	assert(answer.result);
+	const skipped: QueuedAnswer = {
+		...answer,
+		result: {
+			...answer.result,
+			answers: {},
+			skippedQuestionIds: ["source", "limit"],
+		},
+	};
+	const text = rendered(skipped).join("\n");
+	assert(text.includes("Questions skipped"));
+	assert(!text.includes("Answers received"));
+	assert.equal(text.match(/\(skipped\)/g)?.length, 2);
+	assert(!text.includes("Agent browser"));
+	assert(formatQueuedAnswer(skipped).includes("Choice [source]: (skipped)"));
+});

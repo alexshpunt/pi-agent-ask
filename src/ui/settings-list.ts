@@ -345,7 +345,7 @@ export class AskSettingsList {
 	private getSettingValue(key: SettingKey): boolean {
 		return key === "notifications.enabled"
 			? this.config.notifications.enabled
-			: this.config.behaviour[key];
+			: (this.config.behaviour[key] ?? false);
 	}
 
 	private moveFocus(delta: 1 | -1): void {
@@ -376,7 +376,13 @@ export class AskSettingsList {
 			return;
 		}
 		this.resetConfirmUntil = 0;
-		this.saveConfig(normalizeAskConfig(DEFAULT_ASK_CONFIG));
+		this.saveConfig({
+			...normalizeAskConfig(DEFAULT_ASK_CONFIG),
+			behaviour: {
+				...DEFAULT_ASK_CONFIG.behaviour,
+				backgroundOnly: this.config.behaviour.backgroundOnly ?? false,
+			},
+		});
 	}
 
 	private isResetConfirmationActive(): boolean {

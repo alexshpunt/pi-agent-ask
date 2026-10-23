@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { Component } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { AskQueuedSchema } from "../../src/background-ask-state.ts";
@@ -48,6 +49,10 @@ async function attachCustomImages(
 	form.handleInput?.("\x1b\x04");
 	screens.push(await until(form, "[1 image]"));
 	form.handleInput?.("\r");
+	screens.push(await until(form, "1. Submit"));
+	// Enter advances multi answers; return to the saved custom row before adding notes.
+	form.handleInput?.("\x1b[D");
+	form.handleInput?.("\x1b[B");
 }
 async function attachNote(
 	form: Form,
@@ -113,10 +118,39 @@ export default function imageDriver(pi: ExtensionAPI): void {
 		}
 	});
 	pi.on("session_start", (_event, ctx) => {
+		let panel: Component | undefined;
+		const setWidget = ctx.ui.setWidget.bind(ctx.ui);
+		ctx.ui.setWidget = (key, content, options) => {
+			if (key === "ask:active-surface" && typeof content === "function") {
+				setWidget(
+					key,
+					(tui, theme) => {
+						panel = content(tui, theme);
+						return panel;
+					},
+					options
+				);
+				return;
+			}
+			if (key === "ask:active-surface" && content === undefined) {
+				panel = undefined;
+			}
+			if (typeof content === "function") {
+				setWidget(key, content, options);
+			} else {
+				setWidget(key, content, options);
+			}
+		};
 		const custom = ctx.ui.custom.bind(ctx.ui);
 		ctx.ui.custom = (factory, options) =>
 			custom(async (...args) => {
-				const form = await factory(...args);
+				const component = await factory(...args);
+				// Background forms render in the widget, not the keyboard overlay.
+				const visible = panel ?? component;
+				const form: Form = {
+					handleInput: (data) => component.handleInput?.(data),
+					render: (width) => visible.render(width),
+				};
 				const id = currentId;
 				const clarify = elaborate;
 				const keys = args[2].getKeys("app.clipboard.pasteImage");
@@ -157,7 +191,7 @@ export default function imageDriver(pi: ExtensionAPI): void {
 						answer?.();
 					});
 				}
-				return form;
+				return component;
 			}, options);
 	});
 	pi.registerTool({

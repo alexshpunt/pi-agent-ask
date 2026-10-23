@@ -12,6 +12,7 @@ import {
 	shouldRenderAnswersIndividually,
 	toReviewAnswer,
 } from "../../state/result.ts";
+import { getResultQuestions } from "../../state/skip.ts";
 import type { AskState } from "../../types.ts";
 
 export interface ReviewSelectionModel {
@@ -26,6 +27,7 @@ export interface ReviewQuestionModel {
 	label: string;
 	note?: string;
 	selections?: ReviewSelectionModel[];
+	skipped?: boolean;
 	unanswered: boolean;
 }
 
@@ -51,12 +53,15 @@ export function buildReviewScreenModel(
 		layout: shouldUseWideSubmitLayout(width, actionColumnWidth)
 			? "wide"
 			: "stacked",
-		questions: state.questions.map((question) =>
-			toReviewQuestionModel(
+		questions: getResultQuestions(state).map((question) => ({
+			...toReviewQuestionModel(
 				question.label,
 				toReviewAnswer(question, state.answers[question.id], showAllNotes)
-			)
-		),
+			),
+			skipped: state.skippedQuestions?.some(
+				(entry) => entry.question.id === question.id
+			),
+		})),
 	};
 }
 

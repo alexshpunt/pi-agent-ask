@@ -4,21 +4,27 @@ import type {
 	ExtensionContext,
 	SessionBoundaryDraft,
 } from "@earendil-works/pi-coding-agent";
+import type { AskDraft } from "./ask-draft.ts";
 import { appendAskHistoryCompletion } from "./ask-history.ts";
 import { formatQueuedAnswer } from "./background-answer.ts";
 import {
 	ASK_ANSWER_MESSAGE,
 	ASK_COMPLETED_ENTRY,
+	ASK_DRAFT_ENTRY,
+	ASK_QUEUE_UI_ENTRY,
 	ASK_QUEUED_ENTRY,
 	type QueuedAnswer,
 	type QueuedRequest,
 	restoreQueuedRequests,
+	restoreQueueHidden,
 	type WaitForAnswersResult,
 } from "./background-ask-state.ts";
+import { beginUserWait } from "./herdr-wait-state.ts";
 import { imageContent } from "./images.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
 import type { AskParams } from "./types.ts";
 import { runAskFlow } from "./ui/controller.ts";
+import type { PersistentAskHandle } from "./ui/persistent-ask.ts";
 import { waitForEditor } from "./ui/wait-for-editor.ts";
 
 interface Waiter {
@@ -36,11 +42,16 @@ export class BackgroundAskRuntime {
 	private readonly pendingIdleDelivery = new Set<string>();
 	private readonly pi: ExtensionAPI;
 	private pumping = false;
+	private hidden = false;
+	private focusNext = false;
+	private panel?: PersistentAskHandle;
+	private readonly draftSignatures = new Map<string, string>();
 	private readonly remoteAsk?: RemoteAskRuntime;
 	private requests: QueuedRequest[] = [];
 	private readonly routed = new Set<string>();
 	private readonly executionOwners = new Map<string, string | undefined>();
 	private waiter?: Waiter;
+	private endWaitingStatus?: () => void;
 	private stopWaitingForEditor?: () => void;
 
 	constructor(pi: ExtensionAPI, remoteAsk?: RemoteAskRuntime) {
@@ -140,6 +151,7 @@ export class BackgroundAskRuntime {
 		}
 		return new Promise((resolve, reject) => {
 			const abort = () => {
+				this.setWaitingStatus(false);
 				this.waiter = undefined;
 				signal?.removeEventListener("abort", abort);
 				reject(waitInterrupted());
@@ -159,15 +171,129 @@ export class BackgroundAskRuntime {
 			};
 			signal?.addEventListener("abort", abort, { once: true });
 			this.finishWait();
+			if (this.waiter) {
+				this.setWaitingStatus(true);
+			}
 		});
 	}
 
+	/** Hiding the UI releases only the wait, never its unanswered requests. */
+	defer(reason: "hidden" | "user_message"): void {
+		this.setHidden(true);
+		if (!this.waiter) {
+			return;
+		}
+		const current = this.waiter;
+		this.waiter = undefined;
+		current.cleanup();
+		this.setWaitingStatus(false);
+		const waiting = this.requests.filter((request) =>
+			current.requestIds.has(request.requestId)
+		);
+		const results = waiting.flatMap((request) =>
+			request.completion && !this.isRouted(request) ? [request.completion] : []
+		);
+		for (const result of results) {
+			this.routed.add(result.requestId);
+		}
+		current.resolve({
+			status: "deferred",
+			reason,
+			requestIds: [...current.requestIds],
+			pendingRequestIds: waiting
+				.filter((request) => !request.completion)
+				.map((request) => request.requestId),
+			results,
+		});
+	}
+
+	/** Reopen the FIFO queue without replacing or clearing the ordinary editor. */
+	open(ctx: ExtensionContext): void {
+		this.context ??= ctx;
+		if (!this.pendingCount()) {
+			ctx.ui.notify("No pending questionnaires.", "info");
+			return;
+		}
+		this.setHidden(false);
+		if (this.panel) {
+			this.panel.toggleFocus();
+		} else {
+			this.focusNext = true;
+		}
+		this.start();
+	}
+
+	onUserInput(): void {
+		if (this.waiter) {
+			this.defer("user_message");
+		}
+	}
+
+	private setHidden(hidden: boolean): void {
+		if (this.hidden === hidden) {
+			return;
+		}
+		this.hidden = hidden;
+		this.pi.appendEntry(ASK_QUEUE_UI_ENTRY, { hidden });
+		this.panel?.setHidden(hidden);
+		this.updateStatus();
+	}
+
+	private saveDraft(
+		request: QueuedRequest,
+		draft: AskDraft,
+		signal: AbortSignal
+	): void {
+		if (
+			signal.aborted ||
+			request.completion ||
+			draft.state.completed ||
+			draft.state.cancelled
+		) {
+			return;
+		}
+		const signature = JSON.stringify(draft);
+		if (this.draftSignatures.get(request.requestId) === signature) {
+			return;
+		}
+		request.draft = draft;
+		this.draftSignatures.set(request.requestId, signature);
+		this.pi.appendEntry(ASK_DRAFT_ENTRY, {
+			requestId: request.requestId,
+			draft,
+		});
+	}
+
+	private setWaitingStatus(active: boolean): void {
+		if (active) {
+			this.endWaitingStatus ??= beginUserWait(
+				this.pi.events,
+				"Waiting for user answers"
+			);
+			return;
+		}
+		this.endWaitingStatus?.();
+		this.endWaitingStatus = undefined;
+	}
+
+	/** Stop explicit waiting without removing requests or aborting agent work. */
+	interruptWait(error: Error): void {
+		const waiter = this.waiter;
+		if (!waiter) {
+			return;
+		}
+		this.waiter = undefined;
+		waiter.cleanup();
+		this.setWaitingStatus(false);
+		waiter.reject(error);
+	}
 	/** Rebuild from the current branch and invalidate every older surface and callback. */
 	restore(ctx: ExtensionContext): void {
 		this.dispose();
 		this.generation = new AbortController();
 		this.context = ctx;
 		this.requests = restoreQueuedRequests(ctx.sessionManager.getBranch());
+		this.hidden = restoreQueueHidden(ctx.sessionManager.getBranch());
 		this.routed.clear();
 		if (ctx.mode !== "tui") {
 			return;
@@ -196,7 +322,11 @@ export class BackgroundAskRuntime {
 		this.generation.abort();
 		this.pendingIdleDelivery.clear();
 		this.executionOwners.clear();
+		this.draftSignatures.clear();
+		this.panel = undefined;
+		this.focusNext = false;
 		if (this.waiter) {
+			this.setWaitingStatus(false);
 			this.waiter.cleanup();
 			this.waiter.reject(waitInterrupted());
 			this.waiter = undefined;
@@ -270,7 +400,9 @@ export class BackgroundAskRuntime {
 		const pending = this.pendingCount();
 		this.context?.ui.setStatus(
 			"ask:queue",
-			pending ? `Questions pending: ${pending}` : undefined
+			pending
+				? `Questionnaires pending: ${pending}${this.hidden ? " · /ask-queue" : ""}`
+				: undefined
 		);
 	}
 
@@ -287,6 +419,7 @@ export class BackgroundAskRuntime {
 		const current = this.waiter;
 		this.waiter = undefined;
 		current.cleanup();
+		this.setWaitingStatus(false);
 		const results = waiting.flatMap((request) =>
 			request.completion && !this.isRouted(request) ? [request.completion] : []
 		);
@@ -307,7 +440,37 @@ export class BackgroundAskRuntime {
 	): Promise<QueuedAnswer> {
 		try {
 			const result = await runAskFlow(ctx, request.params, {
-				keepVisible: true,
+				abortOnCancel: false,
+				background: {
+					hidden: this.hidden,
+					draft: request.draft,
+					onHandle: (handle) => {
+						if (signal.aborted) {
+							return;
+						}
+						this.panel = handle;
+						if (handle && this.focusNext && !this.hidden) {
+							this.focusNext = false;
+							handle.toggleFocus();
+						}
+					},
+					onComplete: (focused) => {
+						if (!signal.aborted) {
+							this.focusNext = focused;
+						}
+					},
+					onHiddenChange: (hidden) => {
+						if (!signal.aborted) {
+							this.setHidden(hidden);
+						}
+					},
+					onDefer: () => {
+						if (!signal.aborted) {
+							this.defer("hidden");
+						}
+					},
+					onDraft: (draft) => this.saveDraft(request, draft, signal),
+				},
 				signal,
 				presentSingleAsMulti: request.presentSingleAsMulti,
 				herdrEvents: this.pi.events,
@@ -338,6 +501,7 @@ export class BackgroundAskRuntime {
 			while (!signal.aborted) {
 				const request = this.requests.find((item) => !item.completion);
 				if (!request) {
+					this.focusNext = false;
 					break;
 				}
 				const completion = {
@@ -356,6 +520,8 @@ export class BackgroundAskRuntime {
 					display: true,
 				});
 				request.completion = completion;
+				request.draft = undefined;
+				this.draftSignatures.delete(request.requestId);
 				this.updateStatus();
 				this.finishWait();
 				this.deliverIdle();
@@ -401,6 +567,20 @@ export function createBackgroundAskRuntime(
 	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", () => runtime.dispose());
+	pi.on("input", (event) => {
+		if (event.source === "interactive") {
+			runtime.onUserInput();
+		}
+	});
+	pi.registerCommand("ask-queue", {
+		description: "Reopen pending questions without replacing normal input",
+		handler: async (_args, ctx) => runtime.open(ctx),
+	});
+	pi.registerCommand("ask-defer", {
+		description:
+			"Defer all questions and release the current wait without cancelling requests",
+		handler: async () => runtime.defer("hidden"),
+	});
 	pi.on("agent_settled", () => runtime.deliverIdle());
 	pi.on("turn_start", (_event, ctx) => runtime.reconcileDelivery(ctx));
 	pi.on("turn_end", (event, ctx) => runtime.deliverBoundary(event, ctx));
