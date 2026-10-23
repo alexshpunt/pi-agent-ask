@@ -275,6 +275,33 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		});
 		await paint();
 	}
+	async function confirmMultiWithCustom(): Promise<void> {
+		for (const next of ["Pick last multi", "1. Submit"]) {
+			await clickLabel("1. [ ] Choice 1");
+			await input(" ");
+			await paint();
+			if (
+				!lines.some((line) =>
+					stripVTControlCharacters(line).includes("1. [ ] Choice 1")
+				)
+			) {
+				throw new Error("Space did not toggle the multi choice off");
+			}
+			await input(" ");
+			await input("3");
+			await input("\u001b[200~Custom answer\u001b[201~");
+			await input("\r");
+			await paint();
+			if (
+				!lines.some((line) => stripVTControlCharacters(line).includes(next))
+			) {
+				throw new Error(
+					`Enter did not advance to ${next}:\n${stripVTControlCharacters(lines.join("\n"))}`
+				);
+			}
+		}
+		await input("\r");
+	}
 	pi.registerTool({
 		name: "mouse_probe",
 		label: "Mouse Probe",
@@ -283,6 +310,9 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 		parameters: Type.Object({ action: Type.String() }),
 		async execute(_id, { action }, _signal, _update, ctx) {
 			switch (action) {
+				case "multi_confirm":
+					await confirmMultiWithCustom();
+					break;
 				case "draft":
 					await input("\u001b[200~ordinary-mouse-draft\u001b[201~");
 					break;
@@ -323,7 +353,17 @@ export default function mouseDriver(pi: ExtensionAPI): void {
 						await input(`\u001b[<64;${origin.x + 2};${origin.y + 2}M`);
 						await paint();
 					}
-					await clickLabel("☰ Review");
+					await input("\r");
+					await paint();
+					if (
+						!lines.some((line) =>
+							stripVTControlCharacters(line).includes("1. Submit")
+						)
+					) {
+						throw new Error(
+							"Enter did not advance the multi-select question to Review"
+						);
+					}
 					break;
 				}
 				case "submit":

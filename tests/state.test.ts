@@ -403,7 +403,7 @@ test("confirmed multi-to-single type change preserves custom text and notes", ()
 		{ presentSingleAsMulti: true }
 	);
 	state = toggleCurrentMultiOption(state);
-	state = submitCustomAnswer(
+	state = saveCustomAnswer(
 		{ ...state, view: { kind: "input", questionId: "q1" } },
 		"Custom"
 	);
@@ -512,7 +512,7 @@ test("multi-select keeps existing selections when leaving custom input empty", (
 	assert.equal(state.answers.q1.customText, undefined);
 });
 
-test("multi-select keeps existing selections and stays on tab when submitting custom text", () => {
+test("multi-select keeps existing selections and advances when submitting custom text", () => {
 	let state = createInitialState({
 		questions: [
 			{
@@ -536,7 +536,7 @@ test("multi-select keeps existing selections and stays on tab when submitting cu
 	state = applyNumberShortcut(state, 3);
 	state = submitCustomAnswer(state, "SolidStart");
 
-	assert.equal(state.activeTabIndex, 0);
+	assert.equal(state.activeTabIndex, 1);
 	assert.equal(state.view.kind, "navigate");
 	assert.deepEqual(
 		state.answers.q1.selected.map((selection) => selection.value),
@@ -677,7 +677,7 @@ test("multi-select toggles saved custom text selection with space or number shor
 	});
 
 	state = applyNumberShortcut(state, 2);
-	state = submitCustomAnswer(state, "SolidStart");
+	state = saveCustomAnswer(state, "SolidStart");
 	assert.equal(state.answers.q1.customText, "SolidStart");
 	assert.equal(state.activeTabIndex, 0);
 
