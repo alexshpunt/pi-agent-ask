@@ -12,6 +12,9 @@ import type { AskResult } from "../types.ts";
 import { panelViewport } from "./panel-viewport.ts";
 
 type CustomArgs = Parameters<Parameters<ExtensionContext["ui"]["custom"]>[0]>;
+type FocusAwareTui = CustomArgs[0] & {
+	getFocusedComponent?(): Component | null;
+};
 type AskComponent = Component & Partial<Focusable> & { dispose?(): void };
 type AskFactory = (
 	tui: CustomArgs[0],
@@ -60,7 +63,8 @@ class QuestionPanel implements PersistentAskHandle {
 	private readonly options: PersistentAskOptions;
 	private component?: AskComponent;
 	private overlay?: OverlayHandle;
-	private tui?: CustomArgs[0];
+	private tui?: FocusAwareTui;
+	private messageEditor?: Component | null;
 	private hidden: boolean;
 	private disposed = false;
 	private scrollTop = 0;
@@ -84,6 +88,8 @@ class QuestionPanel implements PersistentAskHandle {
 		done: (result: AskResult) => void
 	): AskComponent {
 		this.tui = tui;
+		this.messageEditor = this.tui.getFocusedComponent?.();
+		const onFocusChange = (focused: boolean) => this.onFocusChange(focused);
 		const component = factory(tui, theme, keys, (result) => {
 			this.options.onComplete?.(this.overlay?.isFocused() ?? false);
 			done(result);
@@ -107,6 +113,7 @@ class QuestionPanel implements PersistentAskHandle {
 			},
 			set focused(value: boolean) {
 				component.focused = value;
+				onFocusChange(value);
 			},
 			render: () => [],
 			invalidate: () => component.invalidate(),
@@ -154,6 +161,25 @@ class QuestionPanel implements PersistentAskHandle {
 		this.options.onHandle(undefined);
 		this.ctx.ui.setWidget(SURFACE_WIDGET, undefined);
 		this.component?.dispose?.();
+	}
+
+	private onFocusChange(focused: boolean): void {
+		if (focused || !this.messageEditor) {
+			return;
+		}
+		// Native mouse focus changes finish after the old focus owner is notified.
+		queueMicrotask(() => {
+			if (
+				this.disposed ||
+				this.hidden ||
+				this.overlay?.isFocused() ||
+				this.tui?.getFocusedComponent?.() !== this.messageEditor
+			) {
+				return;
+			}
+			// A click back to ordinary input is an explicit release, not a modal handoff.
+			this.overlay?.unfocus();
+		});
 	}
 
 	private handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
