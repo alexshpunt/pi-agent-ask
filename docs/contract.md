@@ -236,6 +236,12 @@ Submitted image data is stored in the session journal and survives reload and re
 
 Only clipboard input in the TUI is supported. Linux uses a native clipboard or `wl-paste`/`xclip`; WSL can fall back to Windows clipboard access through PowerShell. This adds no file picker, path input, graphical preview, or remote-client image-upload protocol.
 
+## Background-only mode
+
+The opt-in background-only mode removes `background` from the `ask_user` input schema and forces queue execution, even for a stale call containing `background: false`. `wait_for_answers` is hidden and cannot be reactivated or executed. Receipts keep their existing structure; validation errors and non-TUI cancelled results keep theirs. When independent work ends, the agent ends its turn and receives answers asynchronously.
+
+The global setting is inherited unless a trusted project explicitly overrides it. Untrusted project config is ignored. `/ask-mode` changes the mode; after the first model request in the current running session, changes to the effective tool interface require cache-impact confirmation before saving or applying. Rejection leaves both unchanged. Switching preserves queued questions and answers. Enabling this mode interrupts an already-running explicit wait without cancelling its forms. See [configuration](configuration.md#question-mode).
+
 ## Background queue
 
 `ask_user` accepts optional `background: true`. In TUI mode it validates and persists the form, then returns a receipt instead of waiting:
@@ -258,13 +264,13 @@ Background answer text includes the form title when present, its request ID, and
 { status: "complete", requestIds: string[], results: Array<{ requestId: string, parentToolCallId?: string, result?: AskResult, error?: string }> }
 ```
 
-Results already delivered asynchronously are not repeated. Forms completed during the wait return through the wait result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued; user cancellation closes that form and stops the current agent operation. UI failures are reported with an error, never invented answers.
+Results already delivered asynchronously are not repeated. Forms completed during the wait return through the wait result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued. User cancellation closes only that background form without aborting unrelated agent work. UI failures are reported with an error, never invented answers.
 
 Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
 
 Recovered forms wait for the native editor and open in its usual slot. If later lifecycle cleanup replaces that slot again, the same form mounts again without losing answers, notes, or editor drafts. This does not create a new remote flow, repeat notifications, use a timer, or reopen completed forms. Other input dialogs keep their slot until they close.
 
-Open background forms emit `herdr:blocked` while the agent keeps working, with cleanup when the form closes. Aborting an explicit wait does not clear an open form's blocked status. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
+The queue holds `herdr:blocked` from enqueue or recovery until its last unresolved form closes, while the agent keeps working. Closing one of several forms, waiting for the editor, or aborting an explicit wait does not clear that status. Tool prompt guidelines and the bundled skill explain this workflow and forbid dependent work before answers.
 
 ## Session question history
 
@@ -323,7 +329,7 @@ Main flow:
 - `main.nextTab` / `main.previousTab` move between tabs; defaults: `Tab`/`Right`, `Shift+Tab`/`Left`
 - `main.nextOption` / `main.previousOption` move between options or review actions; defaults: `Down`, `Up`
 - `main.confirm`, `main.cancel`, and `main.toggle` confirm, cancel, or toggle; defaults: `Enter`, `Esc`, `Space`
-- cancelling or dismissing the whole form stops the current agent operation, for both foreground and background forms; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
+- cancelling or dismissing a foreground form stops the current agent operation; cancelling a background form closes only that form, in either question mode; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
 - a background cancellation is recorded and can be delivered as context, but never starts a new agent turn by itself
 - `main.changeQuestionType` changes the active question type (non-preview: `single <-> multi`; preview: `preview <-> multi`); default: `t`; destructive `multi -> single` changes require pressing the type hotkey again, with no timeout, and the pending confirmation clears on other navigation/actions
 - `main.optionNote` and `main.questionNote` open option/question notes; defaults: `n`, `Shift+N`
@@ -372,16 +378,12 @@ When enabled, pi-agent-ask emits one best-effort external notification per ask s
 
 ## Herdr blocked lifecycle
 
-For interactive TUI ask flows, the extension optionally emits on `pi.events`:
+For TUI questions, the extension emits on `pi.events`:
 
-- `herdr:blocked` with `{ active: true, label: "Waiting for user response" }`
-  immediately before waiting for input;
-- `herdr:blocked` with `{ active: false }` in the terminal cleanup path.
+- `herdr:blocked` with `{ active: true, label: "Waiting for user response" }` when the first background form is queued or recovered, or a foreground form opens;
+- `herdr:blocked` with `{ active: false }` when no unresolved background requests or foreground surfaces remain.
 
-The cleanup event is emitted for successful answers, cancellation, abort/timeout,
-and UI errors. This signal is status-only: it does not include questions, context,
-answers, notes, or remote submission data. Non-interactive execution does not emit
-this lifecycle.
+The Herdr session header can show blocked while the agent continues independent work. Closing one form cannot clear another's status. Session shutdown releases the current runtime's status; recovery restores it for unresolved requests. Status is best-effort and contains no questions, answers, notes, or remote submission data. Non-TUI execution does not emit this lifecycle.
 
 ## Remote inter-extension events
 

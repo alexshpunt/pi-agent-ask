@@ -41,6 +41,10 @@ The agent calls `ask_user`. You get a form with choices, previews, your own answ
 
 With `background: true`, the agent continues independent work. Your answer arrives between turns, or wakes an idle agent. If there's nothing else it can do, it calls `wait_for_answers`.
 
+Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into **Background-only**, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after its first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
+
+Unanswered questions keep the Herdr session header marked blocked while the agent works. Cancelling a background form cancels that question, not the agent.
+
 It still has to wait before doing work that depends on your answer. “Keep working” doesn't mean “guess anyway.”
 
 The bundled [skill](skills/ask-user/SKILL.md) guides the agent to ask when a decision matters. It doesn't force every agent to behave.
