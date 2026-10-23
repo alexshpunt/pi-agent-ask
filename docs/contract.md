@@ -330,7 +330,7 @@ The npm package and product name are `pi-agent-ask`. Settings use `extensions/pi
 
 Fullscreen forms accept clicks on visible options, question tabs, Review, and review actions. An option click uses the same selection behavior as its number shortcut, including multi-select toggles and custom-answer editing. Review actions keep the configured double-press safeguard. Pressing, dragging, or releasing alone never submits an answer.
 
-The background panel accepts clicks without a prior `Alt+Q`. It takes keyboard focus only after an explicit panel interaction and preserves ordinary input. Wheel scrolling and resized layouts use the visible rows, not stale screen positions. Preview and review text beside an action is not part of its click target. Regular terminal mode leaves mouse input to terminal selection and keeps keyboard controls.
+The background panel accepts clicks without a prior `Alt+Q`. It takes keyboard focus only after an explicit panel interaction and preserves ordinary input. Clicking the ordinary editor releases panel focus without closing or answering the questionnaire; closing a settings overlay still restores the previous form focus. Wheel scrolling and resized layouts use the visible rows, not stale screen positions. Preview and review text beside an action is not part of its click target. Regular terminal mode leaves mouse input to terminal selection and keeps keyboard controls.
 
 ## Keyboard behavior
 

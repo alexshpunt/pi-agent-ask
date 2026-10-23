@@ -109,7 +109,7 @@ Background questions appear above the ordinary editor without changing its focus
 - `D` in question navigation: skip only the current question. In answer/note editors it remains ordinary text.
 - `PageUp` / `PageDown` in the panel: scroll a tall questionnaire. Navigation brings the active option or answer editor back into view.
 
-In fullscreen mode, click an option to select it or toggle a multi-select choice. Click a question tab or Review to switch tabs, and use the wheel over the panel to scroll. Clicking a choice focuses the panel without changing the ordinary editor's draft. Review actions require two clicks when `Double-press review shortcuts` is enabled. In regular terminal mode, use the keyboard; the terminal keeps mouse selection.
+In fullscreen mode, click an option to select it or toggle a multi-select choice. Click a question tab or Review to switch tabs, and use the wheel over the panel to scroll. Clicking a choice focuses the panel without changing the ordinary editor's draft. Click the ordinary editor to return to writing a message while the form stays open. Review actions require two clicks when `Double-press review shortcuts` is enabled. In regular terminal mode, use the keyboard; the terminal keeps mouse selection.
 
 Hiding the panel or sending a normal message during `wait_for_answers` releases that wait, not the pending questions. New requests do not reopen a deliberately hidden panel. Foreground forms keep their configured cancellation behavior.
 
