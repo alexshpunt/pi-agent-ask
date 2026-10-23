@@ -380,7 +380,7 @@ export class AskSettingsList {
 			...normalizeAskConfig(DEFAULT_ASK_CONFIG),
 			behaviour: {
 				...DEFAULT_ASK_CONFIG.behaviour,
-				backgroundOnly: this.config.behaviour.backgroundOnly,
+				backgroundOnly: this.config.behaviour.backgroundOnly ?? false,
 			},
 		});
 	}
