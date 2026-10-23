@@ -188,13 +188,13 @@ function activateCurrentOption(
 	if (!(question && option)) {
 		return state;
 	}
+	if (question.type === "multi" && trigger === "confirm") {
+		return advanceToNextTab(state);
+	}
 	if (option.isCustomOption) {
 		return activateCustomOption(state, question.id, question.type, trigger);
 	}
 	if (question.type === "multi") {
-		if (trigger === "confirm") {
-			return advanceToNextTab(state);
-		}
 		return updateAnswer(state, question.id, (answer) =>
 			toggleSelection(answer, option, state.activeOptionIndex)
 		);
@@ -258,10 +258,7 @@ function saveInputValue(
 				question.type === "multi" ? "multi" : "single"
 			)
 	);
-	if (
-		question.type === "multi" ||
-		!(submit && isAnswerAnswered(nextState.answers[question.id]))
-	) {
+	if (!(submit && isAnswerAnswered(nextState.answers[question.id]))) {
 		return nextState;
 	}
 	return advanceToNextTab(nextState);
