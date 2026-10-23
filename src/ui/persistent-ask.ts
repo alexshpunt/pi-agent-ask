@@ -72,6 +72,7 @@ class QuestionPanel implements PersistentAskHandle {
 	private pageSize = 8;
 	private renderedOffset = 0;
 	private renderedRows = 0;
+	private renderedHeight = 0;
 	private unsubscribeInput?: () => void;
 
 	constructor(ctx: ExtensionContext, options: PersistentAskOptions) {
@@ -188,7 +189,11 @@ class QuestionPanel implements PersistentAskHandle {
 			this.disposed ||
 			event.shift ||
 			event.alt ||
-			event.ctrl
+			event.ctrl ||
+			event.x < 0 ||
+			event.x >= event.width ||
+			event.y < 0 ||
+			event.y >= this.renderedHeight
 		) {
 			return;
 		}
@@ -197,14 +202,15 @@ class QuestionPanel implements PersistentAskHandle {
 			this.scrollTop = Math.max(0, this.renderedOffset + event.wheelDelta);
 			return { handled: true };
 		}
-		if (event.y < 1 || event.y > this.renderedRows) {
-			return;
-		}
-		const result = this.component?.handleMouse?.({
-			...event,
-			y: event.y - 1 + this.renderedOffset,
-		});
-		if (!result?.handled) {
+		const result =
+			event.y >= 1 && event.y <= this.renderedRows
+				? this.component?.handleMouse?.({
+						...event,
+						y: event.y - 1 + this.renderedOffset,
+					})
+				: undefined;
+		const panelClick = event.type === "click" && event.button === "left";
+		if (!(result?.handled || panelClick)) {
 			return;
 		}
 		if (!this.disposed) {
@@ -268,6 +274,7 @@ class QuestionPanel implements PersistentAskHandle {
 				)
 			);
 		}
+		this.renderedHeight = rendered.length;
 		return rendered;
 	}
 }
