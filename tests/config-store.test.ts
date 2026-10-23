@@ -129,6 +129,31 @@ test("config store writes full normalized config on save", async () => {
 	await rm(dirname(path), { force: true, recursive: true });
 });
 
+test("config store preserves the background-only opt-in across saves and reloads", async () => {
+	const path = await makeTempPath("pi-ask-config-background-only-");
+	try {
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({
+				schemaVersion: 5,
+				behaviour: { backgroundOnly: true },
+			})
+		);
+		const store = new AskConfigStore(path);
+		const config = await store.getConfig();
+		assert.equal(config.behaviour.backgroundOnly, true);
+		await store.save({
+			...config,
+			notifications: { ...config.notifications, enabled: false },
+		});
+		const reloaded = await new AskConfigStore(path).getConfig();
+		assert.equal(reloaded.behaviour.backgroundOnly, true);
+		assert.equal(reloaded.notifications.enabled, false);
+	} finally {
+		await rm(dirname(path), { force: true, recursive: true });
+	}
+});
 test("config store reports friendly save failures", async () => {
 	const path = await makeTempPath("pi-ask-config-save-failure-");
 	await mkdir(path, { recursive: true });
