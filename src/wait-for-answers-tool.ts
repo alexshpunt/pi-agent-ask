@@ -20,12 +20,8 @@ export function registerWaitForAnswersTool(
 		exposure: isBackgroundOnly() ? "hidden" : "model-only",
 		label: "Wait for Answers",
 		description:
-			"Use wait_for_answers when no independent work remains or before a step that depends on background answers. Hiding questions or sending a user message releases the wait without cancelling pending requests. Treat deferred waits and skipped questions as unanswered, never as approval.",
-		promptSnippet:
-			"Wait for pending background user answers before dependent decisions",
-		promptGuidelines: [
-			"Use wait_for_answers when independent work is exhausted. Read existing background-answer messages too; results already delivered there are not repeated by this tool.",
-		],
+			"Use wait_for_answers to wait for answers to pending background forms. It returns them when all are answered, or returns early as deferred when the user hides the questions or sends a message.",
+		promptSnippet: "Wait for pending background answers",
 		parameters: Type.Object({}),
 		outputSchema: WaitForAnswersSchema,
 		async execute(_toolCallId, _params, signal, _onUpdate, ctx) {
@@ -82,7 +78,7 @@ export function registerWaitForAnswersTool(
 function formatWaitResult(result: WaitForAnswersResult): string {
 	if (result.status === "deferred") {
 		const pending = result.pendingRequestIds ?? [];
-		const summary = `Answer wait released (${result.reason}). ${pending.length} questionnaire(s) remain pending: ${pending.join(", ") || "none"}. Pending questions are unanswered, not cancelled or approved. Do not repeat the wait automatically; follow the user's message or continue only independent work.`;
+		const summary = `Answer wait released (${result.reason}). ${pending.length} questionnaire(s) remain pending: ${pending.join(", ") || "none"}. Pending questions are unanswered, not cancelled or approved. Do not repeat the wait automatically.`;
 		return [summary, ...result.results.map(formatQueuedAnswer)].join("\n\n");
 	}
 	return result.results.length

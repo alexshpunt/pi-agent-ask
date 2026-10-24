@@ -18,36 +18,10 @@ import type {
 } from "./types.ts";
 
 export const ASK_TOOL_DESCRIPTION =
-	"Use ask_user to collect structured user answers through an interactive form. Supports single-select, multi-select, and preview-pane questions, with foreground results or background answer delivery.";
+	"Use ask_user to show the user an interactive form of structured questions and return their answers.";
 
-const BACKGROUND_ANSWER_GUIDELINES = [
-	"Background forms appear in FIFO order beside normal input. Each newly shown visible form takes keyboard focus, including the next queued form and recovered forms, while preserving the normal input draft. Hidden queues stay hidden. A click on an unfocused panel only restores focus; later clicks act normally. The user can defer the queue or skip individual questions. Treat skipped questions as unanswered, never as approval. Each completed form arrives as a correlated background-answer message at the next turn boundary; when idle, the answer wakes the agent.",
-	"After asking in background, keep researching only work that does not depend on the pending answers. Never guess answers or cross a dependent decision, approval, or irreversible-action gate.",
-] as const;
-
-const QUESTION_INPUT_GUIDELINES = [
-	"When calling `ask_user`, prefer one focused decision per question. Use short labels. Provide clear, distinct options. Do not add filler options.",
-	"When calling `ask_user`, always include a stable `id` and non-empty `prompt` for every question.",
-	"When calling `ask_user`, always include a non-empty machine-readable `value` and visible `label` for every option.",
-	"When calling `ask_user`, mark grounded preferences with `recommended: true` and use the option `description` to state the reason.",
-	"When calling `ask_user`, choose question `type` from the question semantics: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail.",
-	'When calling `ask_user`, use `type: "preview"` only when every option includes non-empty `preview` text or a local UTF-8 `previewFile` path. Option descriptions do not satisfy this requirement.',
-] as const;
-
-export const ASK_TOOL_PROMPT_GUIDELINES = [
-	"Set background: true on ask_user when you can continue independent work while the user answers. It returns a queued receipt with requestId, not an answer or approval.",
-	...BACKGROUND_ANSWER_GUIDELINES,
-	"Call wait_for_answers when independent work is exhausted or before taking a step that needs pending answers. It waits for all outstanding forms without a built-in timeout. Aborting the wait leaves the forms queued.",
-	"Check wait_for_answers status. A deferred wait preserves unanswered requests; do not repeat the wait automatically. Follow the user's message or continue only independent work. Results already delivered asynchronously are not repeated. An empty results list, cancellation, skipping, or elaboration is not approval.",
-	...QUESTION_INPUT_GUIDELINES,
-] as const;
-
-export const ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES = [
-	"Use ask_user to queue questions and receive a requestId immediately. Treat the receipt as pending, not as an answer or approval.",
-	...BACKGROUND_ANSWER_GUIDELINES,
-	"End your turn when independent work is exhausted. Resume dependent work only after the asynchronous answer arrives. Cancellation and elaboration are not approval.",
-	...QUESTION_INPUT_GUIDELINES,
-] as const;
+export const ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION =
+	"Use ask_user to queue an interactive form of structured questions for the user. It returns a request ID; the answers arrive later as a background-answer message.";
 
 interface ValidateParamsOptions {
 	presentSingleAsMulti?: boolean;

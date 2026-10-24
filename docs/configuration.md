@@ -94,7 +94,7 @@ Normal mode is the default. Run `/ask-mode` to choose a scope and mode, or use:
 /ask-mode project inherit
 ```
 
-Background-only mode removes the `background` parameter from `ask_user` and makes every valid call queue a form. It also hides and disables `wait_for_answers`. The agent continues independent work, then ends its turn; an answer wakes it asynchronously. A queued receipt is not an answer or approval. Without a TUI queue, calls keep the cancelled non-interactive result and never open a synchronous external form.
+Background-only mode removes the `background` parameter from `ask_user` and makes every valid call queue a form. It also hides and disables `wait_for_answers`. An answer arrives asynchronously and wakes an idle agent. A queued receipt is not an answer or approval. Without a TUI queue, calls keep the cancelled non-interactive result and never open a synchronous external form.
 
 The global file stores `behaviour.backgroundOnly` (default `false`). A trusted project's `.pi/extensions/pi-agent-ask.json` can override just this setting:
 

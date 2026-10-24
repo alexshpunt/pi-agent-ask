@@ -50,7 +50,6 @@ function registerMockTool() {
 			outputSchema: Record<string, any>;
 			parameters: Record<string, any>;
 			prepareArguments: (args: unknown) => unknown;
-			promptGuidelines: string[];
 			renderCall: (args: unknown, theme: any) => { text: string };
 			renderResult: (
 				result: any,
@@ -179,9 +178,7 @@ function sampleParams(): AskParams {
 	};
 }
 
-test("ask option schema and tool guidance support grounded recommendations", () => {
-	const { tool } = registerMockTool();
-
+test("ask option schema supports recommendations", () => {
 	assert.equal(
 		Value.Check(AskOptionSchema, {
 			value: "small",
@@ -190,13 +187,6 @@ test("ask option schema and tool guidance support grounded recommendations", () 
 			recommended: true,
 		}),
 		true
-	);
-	assert(
-		tool.promptGuidelines.some(
-			(guideline) =>
-				guideline.includes("grounded preferences") &&
-				guideline.includes("description")
-		)
 	);
 });
 
