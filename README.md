@@ -63,7 +63,7 @@ Linux needs a working native clipboard, `wl-paste`, or `xclip`. WSL can read scr
 
 ## Your answers aren't disposable
 
-The agent can look up earlier questions and answers, then export them as a Markdown artifact for your task:
+Questions and answers are recorded automatically. To let the agent look them up and export them as Markdown, enable the opt-in [history tools](docs/configuration.md#history-tools):
 
 - `list_ask_history` finds past questions.
 - `read_ask_history` reads the question, choices, answer, and notes.

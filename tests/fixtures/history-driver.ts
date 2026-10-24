@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Value } from "typebox/value";
 import { AskQueuedSchema } from "../../src/background-ask-state.ts";
+import { getAskConfigStore } from "../../src/config/store.ts";
 import {
 	PI_ASK_STARTED_EVENT,
 	PI_ASK_SUBMIT_EVENT,
@@ -10,6 +11,14 @@ import { AskResultSchema } from "../../src/result-schema.ts";
 
 // biome-ignore lint/style/noDefaultExport: Pi loads fixture extensions through a default factory.
 export default function historyDriver(pi: ExtensionAPI): void {
+	pi.on("session_start", async () => {
+		const store = getAskConfigStore();
+		const config = await store.getConfig();
+		await store.save({
+			...config,
+			behaviour: { ...config.behaviour, historyTools: true },
+		});
+	});
 	const requests = new Map<string, string>();
 	let pending: RemoteAskStartedEvent | undefined;
 	const submit = (flow: RemoteAskStartedEvent) => {

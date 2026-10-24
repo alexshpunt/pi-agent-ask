@@ -21,7 +21,7 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/ask-draft.ts` — validated question-panel snapshots for branch-local draft recovery
 - `src/herdr-wait-state.ts` — shared ownership of actual waits; one completed form cannot clear another active wait's blocked status
 
-- `src/index.ts` — extension entrypoint
+- `src/index.ts` — extension entrypoint; registers history tools at session startup only when the persisted opt-in is enabled, without injecting configuration guidance
 - `src/ask-mode.ts` / `src/ask-mode-command.ts` — trusted mode resolution and confirmed mode changes; re-registers the question tool schema and wait-tool exposure without replacing the queue
 - `src/blocked-status.ts` — shared status ownership for the unresolved background queue and foreground surfaces
 - `src/ask-tool.ts` — tool registration, non-interactive fallback, transcript rendering, ask payload capture

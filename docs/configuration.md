@@ -19,6 +19,7 @@ Supported older schema versions migrate in memory. Keep `schemaVersion` at `5` w
   "schemaVersion": 5,
   "behaviour": {
     "backgroundOnly": false,
+    "historyTools": false,
     "autoSubmitWhenAnsweredWithoutNotes": false,
     "confirmDismissWhenDirty": true,
     "doublePressReviewShortcuts": true,
@@ -109,6 +110,11 @@ Before the first model request in the current running session, a mode change nee
 
 `/ask-settings` and its reset action manage form settings, not the question mode. Use `/ask-mode` to change the mode. Manual config edits take effect after reload or restart.
 
+## History tools
+
+Set `behaviour.historyTools` to `true` in the global config file, then run `/reload` or restart Pi to expose `list_ask_history`, `read_ask_history`, and `export_ask_history`. The default is `false`. Set it back to `false` and reload to remove these tools.
+
+Question and answer recording stays enabled in either case. This setting has no project override and is not a live `/ask-settings` toggle.
 ## Keymaps
 
 Each action accepts a pi-tui key string or an array of aliases. Contexts:

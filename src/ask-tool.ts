@@ -44,8 +44,7 @@ export function registerAskTool(
 		description: backgroundOnly
 			? "Use ask_user to queue a short structured interview for user decisions. The call returns a pending request receipt, not an answer. Continue independent work and receive the completed form asynchronously."
 			: ASK_TOOL_DESCRIPTION,
-		promptSnippet:
-			"Clarify ambiguous or preference-sensitive decisions with a short interactive interview before proceeding",
+		promptSnippet: "Collect user answers through an interactive form",
 		promptGuidelines: [
 			...(backgroundOnly
 				? ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES

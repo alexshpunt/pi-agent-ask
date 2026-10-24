@@ -2,7 +2,7 @@
 
 `ask_user` is a pi-native clarification tool for cases where implementation depends on user preference or missing requirements.
 
-This document defines the stable external behavior. It does not explain internal helper-by-helper implementation.
+The package's default prompt guidance covers tool inputs and answer delivery. It does not decide when or how often to ask; that policy belongs to the user's instructions and skills. Configuration documentation is available on disk without an injected system-prompt paragraph.
 
 ## Input
 
@@ -290,7 +290,7 @@ Every valid `ask_user` tool call gets an extension-generated UUID `requestId`. F
 
 Normalized questions and loaded previews are saved before waiting for input. Outcomes are saved before answer delivery, even for nested calls that do not have a separate tool-result entry. The journal is stored only in the session file, outside normal model context. It survives compaction, reload, and resume without relying on summaries. Reads follow `getBranch()` including its ancestors; sibling branches and other sessions are not available.
 
-Three agent-callable tools have empty native TUI call/result rows, including errors and resumed history. This does not hide data from the session file or prevent the agent from quoting it.
+The three history tools are disabled by default. Enable them with the global `behaviour.historyTools` setting and reload Pi. Recording does not depend on this setting. When enabled, the tools have empty native TUI call/result rows, including errors and resumed history. This does not hide data from the session file or prevent the agent from quoting it.
 
 ### Tools
 

@@ -12,6 +12,27 @@ const currentConfigFile = {
 	keymaps: DEFAULT_ASK_CONFIG.keymaps,
 };
 
+test("history tools are disabled for existing configs and require an explicit opt-in", () => {
+	for (const behaviour of [
+		{},
+		{ historyTools: false },
+		{ historyTools: true },
+	]) {
+		const result = migrateAskConfig({ schemaVersion: 5, behaviour });
+		assert.equal(
+			result.config.behaviour.historyTools,
+			behaviour.historyTools === true
+		);
+	}
+	assert.throws(
+		() =>
+			migrateAskConfig({
+				schemaVersion: 5,
+				behaviour: { historyTools: "true" },
+			}),
+		INVALID_CONFIG_PATTERN
+	);
+});
 test("config migration framework accepts the current schema version", () => {
 	const result = migrateAskConfig(currentConfigFile);
 
