@@ -9,9 +9,8 @@ import {
 } from "./ask-history.ts";
 import { appendAskPayload } from "./ask-payload-store.ts";
 import {
-	ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES,
+	ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION,
 	ASK_TOOL_DESCRIPTION,
-	ASK_TOOL_PROMPT_GUIDELINES,
 	invalidPayloadResponse,
 	nonInteractiveResponse,
 	renderAskToolCall,
@@ -42,14 +41,10 @@ export function registerAskTool(
 		name: "ask_user",
 		label: "Ask User",
 		description: backgroundOnly
-			? "Use ask_user to queue a short structured interview for user decisions. The call returns a pending request receipt, not an answer. Continue independent work and receive the completed form asynchronously."
+			? ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION
 			: ASK_TOOL_DESCRIPTION,
-		promptSnippet: "Collect user answers through an interactive form",
-		promptGuidelines: [
-			...(backgroundOnly
-				? ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES
-				: ASK_TOOL_PROMPT_GUIDELINES),
-		],
+		promptSnippet:
+			"Ask the user for what you cannot find yourself: missing facts, preferences, decisions",
 		parameters: backgroundOnly
 			? AskBackgroundOnlyParamsSchema
 			: AskParamsSchema,
@@ -200,7 +195,7 @@ async function executeRecordedAsk(
 			content: [
 				{
 					type: "text" as const,
-					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. Continue independent work; ${backgroundOnly ? "end your turn when it is exhausted and receive the answer asynchronously" : "call wait_for_answers when answers are needed"}.`,
+					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. The answer arrives later as a background-answer message${backgroundOnly ? "" : " or from wait_for_answers"}.`,
 				},
 			],
 			details: receipt,

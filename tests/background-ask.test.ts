@@ -572,9 +572,6 @@ test("registered ask_user returns a typed receipt and rejects invalid forms befo
 	assert.equal(Value.Check(tool.outputSchema, result.structuredContent), true);
 	assert.equal(result.details.status, "queued");
 	assert.ok(result.content[0].text.includes("This is not an answer"));
-	assert.ok(
-		tool.promptGuidelines.some((line: string) => line.includes("Never guess"))
-	);
 	await tick();
 	const invalid = await tool.execute(
 		"bad",

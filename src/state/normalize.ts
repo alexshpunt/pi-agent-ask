@@ -99,7 +99,6 @@ function normalizeQuestion(
 		...(presentedType === requestedType
 			? {}
 			: { requestedType, presentedType }),
-		required: question.required ?? false,
 		options: question.options.map(normalizeOption),
 	};
 }

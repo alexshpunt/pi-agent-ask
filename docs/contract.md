@@ -1,8 +1,8 @@
 # Ask tool contract
 
-`ask_user` is a pi-native clarification tool for cases where implementation depends on user preference or missing requirements.
+`ask_user` is a pi-native tool that shows the user a form of structured questions and returns their answers.
 
-The package's default prompt guidance covers tool inputs and answer delivery. It does not decide when or how often to ask; that policy belongs to the user's instructions and skills. Configuration documentation is available on disk without an injected system-prompt paragraph.
+The package adds no system-prompt rules, configuration paragraph, or skill. Each tool presents itself through a one-line index entry, a description of when to use it, and its input schema fields. `ask_user` applies when the agent needs something only the user can provide: information it could not find, an opinion or preference, or a choice between options. `wait_for_answers` applies when no other work is left and pending background answers are needed. Situational guidance appears in tool results: queued receipts, deferred waits, and validation errors. How often to ask and how to run an interview are left to the user's instructions.
 
 ## Input
 
@@ -15,7 +15,6 @@ The package's default prompt guidance covers tool inputs and answer delivery. It
     label?: string;
     prompt: string;
     type?: "single" | "multi" | "preview";
-    required?: boolean;
     options: Array<{
       value: string;
       label: string;
@@ -41,8 +40,6 @@ The package's default prompt guidance covers tool inputs and answer delivery. It
 - `recommended` is optional presentation metadata; zero, one, or multiple options may set it to `true`
 - recommended options render warning-colored `(recommended)` followed by muted ` | <description>`, or only `(recommended)` when no description exists, but are not preselected
 - `type` defaults to `single`
-- `required` defaults to `false`
-- `required` is metadata only; it never blocks submission
 - preview questions require preview text or a preview file for every declared option; option descriptions do not satisfy this requirement, and invalid preview payloads report a fix hint to add preview text or switch to `type: "single"`
 - options may use `previewFile?: string` instead of `preview`: a regular, non-empty UTF-8 text file, with an absolute path or a path relative to `ctx.cwd`
 - non-blank `preview` and `previewFile` on the same option are invalid; blank paths are treated as omitted
@@ -240,7 +237,7 @@ Only clipboard input in the TUI is supported. Linux uses a native clipboard or `
 
 ## Background-only mode
 
-The opt-in background-only mode removes `background` from the `ask_user` input schema and forces queue execution, even for a stale call containing `background: false`. `wait_for_answers` is hidden and cannot be reactivated or executed. Receipts keep their existing structure; validation errors and non-TUI cancelled results keep theirs. When independent work ends, the agent ends its turn and receives answers asynchronously.
+The opt-in background-only mode removes `background` from the `ask_user` input schema and forces queue execution, even for a stale call containing `background: false`. `wait_for_answers` is hidden and cannot be reactivated or executed. Receipts keep their existing structure; validation errors and non-TUI cancelled results keep theirs. Answers arrive asynchronously as background-answer messages.
 
 The global setting is inherited unless a trusted project explicitly overrides it. Untrusted project config is ignored. `/ask-mode` changes the mode; after the first model request in the current running session, changes to the effective tool interface require cache-impact confirmation before saving or applying. Rejection leaves both unchanged. Switching preserves queued questions and answers. Enabling this mode interrupts an already-running explicit wait without cancelling its forms. See [configuration](configuration.md#question-mode).
 
@@ -274,7 +271,7 @@ Hiding the question panel or sending ordinary input during a wait releases only 
 { status: "deferred", reason: "hidden" | "user_message", requestIds: string[], pendingRequestIds: string[], results: Array<{ requestId: string, parentToolCallId?: string, result?: AskResult, error?: string }> }
 ```
 
-The questions and drafts remain pending. `results` includes only completed outcomes not already delivered; `pendingRequestIds` identifies unanswered requests. Sending a message also hides the panel and lets the agent process that message. A deferred wait is not an answer, cancellation, or approval; the agent must not repeat the wait automatically or proceed with dependent decisions.
+The questions and drafts remain pending. `results` includes only completed outcomes not already delivered; `pendingRequestIds` identifies unanswered requests. Sending a message also hides the panel and lets the agent process that message. A deferred wait is not an answer, cancellation, or approval; its result tells the agent not to repeat the wait automatically.
 
 Results already delivered asynchronously are not repeated. Forms completed during the wait return through its result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued. Explicit cancellation finishes only that background questionnaire and does not abort unrelated agent work. UI failures are reported with an error, never invented answers.
 
@@ -282,7 +279,7 @@ Queue state is rebuilt from the active branch on startup, reload, resume, fork, 
 
 Recovered panels wait for the native editor without replacing it. Drafts, skipped questions, and panel visibility follow the active branch across reload and resume. Other input dialogs retain their own input surface.
 
-A visible background question panel holds a `herdr:blocked` indication. Hiding or deferring the panel releases this indication while preserving queued questions; reopening the panel restores it. Completion, cancellation, errors, disposal, and session changes release the panel's ownership. An active `wait_for_answers` holds its own waiting status until it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked when the panel is hidden or finishes. Tool guidelines and the bundled skill forbid dependent work before answers.
+A visible background question panel holds a `herdr:blocked` indication. Hiding or deferring the panel releases this indication while preserving queued questions; reopening the panel restores it. Completion, cancellation, errors, disposal, and session changes release the panel's ownership. An active `wait_for_answers` holds its own waiting status until it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked when the panel is hidden or finishes.
 
 ## Session question history
 
@@ -434,12 +431,6 @@ See [`remote-events.md`](remote-events.md) for payload shapes, examples, and a l
 - recovered flows emit remote lifecycle events with source `ask:resume`
 
 The fallback message includes normalized pending questions and options so the caller can re-ask them manually. `details.questions` still contains normalized question metadata, while `details.answers` stays empty until a user responds.
-
-## Skill alignment (advisory)
-
-The auto-bundled skill profile at `skills/ask-user/SKILL.md` defines agent-side decision-gate guidance for when to call `ask_user`. It is enabled by default when the package is installed, but can be disabled via `pi config`.
-
-It is advisory only. If there is any conflict, contract + tests win.
 
 ## Source of truth
 

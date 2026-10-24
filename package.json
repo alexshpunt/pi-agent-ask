@@ -36,7 +36,6 @@
   ],
   "files": [
     "src/",
-    "skills/",
     "assets/ask.webp",
     "assets/ask-gallery.webp",
     "docs/configuration.md",
@@ -47,7 +46,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "dev": "sh -c 'ROOT=\"$PWD\"; TARGET=\"${1:-.}\"; if [ \"$TARGET\" = \"--\" ]; then TARGET=\"${2:-.}\"; fi; cd \"$TARGET\" && pi --no-extensions --no-skills --no-prompt-templates --no-themes --no-context-files -e \"$ROOT/src/index.ts\" --skill \"$ROOT/skills/ask-user\"' --",
+    "dev": "sh -c 'ROOT=\"$PWD\"; TARGET=\"${1:-.}\"; if [ \"$TARGET\" = \"--\" ]; then TARGET=\"${2:-.}\"; fi; cd \"$TARGET\" && pi --no-extensions --no-skills --no-prompt-templates --no-themes --no-context-files -e \"$ROOT/src/index.ts\"' --",
     "test": "node --test tests/*.test.ts",
     "test:integration": "pi-test run -- node --test tests/integration/*.test.ts",
     "typecheck": "tsc -p tsconfig.json",
@@ -62,9 +61,6 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ],
-    "skills": [
-      "./skills"
     ],
     "image": "https://raw.githubusercontent.com/alexshpunt/pi-agent-ask/main/assets/ask-gallery.webp"
   },

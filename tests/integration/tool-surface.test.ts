@@ -14,8 +14,8 @@ import {
 	toolCall,
 } from "pi-coding-agent-test";
 
-// Protects default tool exposure through the real extension loader.
-test("real Pi exposes question tools without default history tools", {
+// Protects default tool exposure and prompt contributions through the real extension loader.
+test("real Pi exposes question tools without default history tools or prompt rules", {
 	timeout: 60_000,
 }, async () => {
 	const cwd = await mkdtemp(join(tmpdir(), "ask-tool-surface-"));
@@ -50,6 +50,7 @@ test("real Pi exposes question tools without default history tools", {
 		assert.equal(execution.isError, false);
 		const details = getToolExecutionDetails(execution) as {
 			commands: string[];
+			toolGuidelines: Record<string, string[]>;
 			tools: string[];
 		};
 		assert(details.commands.includes("ask-settings"));
@@ -68,6 +69,9 @@ test("real Pi exposes question tools without default history tools", {
 			"export_ask_history",
 		]) {
 			assert(!details.tools.includes(tool), `${tool} must be opt-in`);
+		}
+		for (const tool of ["ask_user", "wait_for_answers"]) {
+			assert.deepEqual(details.toolGuidelines[tool] ?? [], [], tool);
 		}
 	} finally {
 		await rm(cwd, { recursive: true, force: true });

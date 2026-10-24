@@ -32,7 +32,6 @@ function answeredSubmitState(): AskState {
 					label: "Q1",
 					options: [{ label: "Option A", value: "a" }],
 					prompt: "Pick one",
-					required: false,
 					type: "single",
 				},
 			],

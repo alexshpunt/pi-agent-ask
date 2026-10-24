@@ -39,19 +39,17 @@ Remove any other pi-ask installation so only one extension provides `ask_user`, 
 
 The agent calls `ask_user`. You get a form with choices, previews, your own answer, and notes. Not another wall of text to untangle.
 
-With `background: true`, questions appear above your normal input and take keyboard focus when shown, including the next queued form or a recovered visible form. Your message draft stays intact, and the agent continues independent work. In fullscreen mode, clicking anywhere in an unfocused question panel only restores focus. Once focused, click a choice to answer or toggle it; click tabs and Review to navigate. A newly shown form is already focused, so its first click can select an answer. Review actions need two action clicks by default; a focus-only click does not count. Click your normal input to return to writing. `Alt+Q` also switches between answering and writing a message. Your answer arrives between turns, or wakes an idle agent.
+With `background: true`, questions appear above your normal input and take keyboard focus when shown, including the next queued form or a recovered visible form. Your message draft stays intact, and the agent keeps running. In fullscreen mode, clicking anywhere in an unfocused question panel only restores focus. Once focused, click a choice to answer or toggle it; click tabs and Review to navigate. A newly shown form is already focused, so its first click can select an answer. Review actions need two action clicks by default; a focus-only click does not count. Click your normal input to return to writing. `Alt+Q` also switches between answering and writing a message. Your answer arrives between turns, or wakes an idle agent.
 
 Press `Esc` in the question panel or run `/ask-defer` to put all questions aside. The queue and drafts stay saved; `/ask-queue` reopens them. New questions do not reopen a panel you've hidden. Press `D` on a question to skip just that question, not the whole form. In text editors, `D` is ordinary text.
 
-If there's nothing else the agent can do, it calls `wait_for_answers`. Hiding the panel or sending a normal message releases that wait without cancelling the questions.
+The agent can call `wait_for_answers` to wait for your answers. Hiding the panel or sending a normal message releases that wait without cancelling the questions.
 
 Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into **Background-only**, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after its first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
 
 An open question panel marks the session as blocked in Herdr so pending questions are visible outside the terminal. Hiding the panel clears that indication while keeping the queue. Foreground questions and active `wait_for_answers` calls keep their own blocked status. Cancelling a background form cancels that question, not the agent.
 
-It still has to wait before doing work that depends on your answer. “Keep working” doesn't mean “guess anyway.”
-
-The bundled [skill](skills/ask-user/SKILL.md) guides the agent to ask when a decision matters. It doesn't force every agent to behave.
+Each tool's description says when it applies: `ask_user` for what the agent cannot find itself, `wait_for_answers` when nothing else is left to do. The package adds no system-prompt rules, skill, or interview protocol; how often to ask stays with your own instructions.
 
 ## Paste a screenshot into your answer
 
@@ -77,6 +75,6 @@ Use `/ask-settings`, or press `?` in a form. See [configuration](docs/configurat
 
 This fork of [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask) adds background questions, waiting, durable history/export, external UI support, and Herdr status. It drops chat question extraction and manual answer/replay commands. The agent asks directly; the form needs no extra model call.
 
-Herdr support includes [maudelv's work](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state); the skill was inspired by [edlsh/pi-ask-user](https://github.com/edlsh/pi-ask-user).
+Herdr support includes [maudelv's work](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state).
 
 Found a weird case? [Open an issue](https://github.com/alexshpunt/pi-agent-ask/issues). Got an idea? [Start a discussion](https://github.com/alexshpunt/pi-agent-ask/discussions). [Contributions](CONTRIBUTING.md) welcome. [MIT](LICENSE).

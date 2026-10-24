@@ -15,7 +15,6 @@ export interface AskQuestionInput {
 	label?: string;
 	options: AskOption[];
 	prompt: string;
-	required?: boolean;
 	type?: AskQuestionType;
 }
 
@@ -36,12 +35,10 @@ export interface AskValidationError {
 	kind: "invalid_input";
 }
 
-export interface AskQuestion
-	extends Omit<AskQuestionInput, "type" | "required" | "label"> {
+export interface AskQuestion extends Omit<AskQuestionInput, "type" | "label"> {
 	label: string;
 	presentedType?: AskQuestionType;
 	requestedType?: AskQuestionType;
-	required: boolean;
 	type: AskQuestionType;
 }
 
