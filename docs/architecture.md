@@ -35,8 +35,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/remote-ask.ts` — package-prefixed local event contract, active-flow registry, and explicit remote submission validation
 - `src/external-ui.ts` — per-call external UI negotiation and foreground wait, using the same input lock, remote validation, and result serialization
 - `src/schema.ts` — TypeBox schema
-- `src/result-schema.ts` — structured output schema shared with typed response helpers
-- `src/preview-files.ts` — validates and loads local UTF-8 preview files before UI and payload capture; state and rendering remain filesystem-free
+- `src/result-schema.ts` — full result schema for details and history, plus the compact output schema returned to programmatic callers
+- `src/context-files.ts` — loads question contexts given as absolute paths of UTF-8 text files before UI and payload capture; state and rendering remain filesystem-free
 - `src/types.ts` — shared types
 - `src/images.ts` — attachment markers and model image blocks with question/note context
 - `src/clipboard-image.ts` — public native clipboard, Linux command, and WSL clipboard adapters; temporary files are removed after reading
@@ -92,9 +92,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - active-flow question type changes are per-question runtime overrides handled in state/controller logic; they do not mutate the stored source payload or global config
 - single-select free-form answers replace selected options for that question
 - multi-select free-form answers augment selected options instead of clearing them
-- preview questions keep their preview-pane behavior while also supporting the synthetic custom-answer option
-- deselected option notes stay in UI state
-- only selected option notes are emitted in the final result
+- questions with context show it beside the options while keeping the synthetic custom-answer option
+- deselected option notes stay in UI state and are emitted in the final result
 - editor lifecycle stays in the controller, not in the reducers
 - persisted ask settings are migrated to the current schema version in memory, validated, and normalized before use without rewriting the config file on load
 - config schema migrations preserve user-provided values and add new defaults only when fields are absent
@@ -105,7 +104,7 @@ The codebase is split so the implementation reads through file boundaries and na
 - invalid notification channels are skipped and fall back to the default bell channel if none are valid
 - ask settings behaviour and notification enabled changes attempt to persist immediately from the settings list; save failures revert the change and show an error; config reset is guarded by a short double-press confirmation
 - `presentSingleAsMulti` is applied at ask-flow creation; toggling it does not rewrite already-normalized questions in an open flow
-- `main.changeQuestionType` changes the active question type live (non-preview: `single <-> multi`; preview: `preview <-> multi`) and may require confirmation before destructive multi-to-single conversion
+- `main.changeQuestionType` changes the active question type live (`single <-> multi`) and may require confirmation before destructive multi-to-single conversion
 - when the ask config file is missing, the first ask use attempts to write a default persisted config snapshot under `~/.pi/agent/extensions/`; if writing fails, built-in defaults are used for the session
 - upstream config files are not read or changed; the product uses `extensions/pi-agent-ask.json`
 - invalid config files are left untouched; defaults are loaded for the session with a notice

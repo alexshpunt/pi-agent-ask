@@ -25,7 +25,6 @@ const params: AskParams = {
 };
 const answer: AskResult = {
 	cancelled: false,
-	mode: "submit",
 	questions: [{ id: "choice", label: "Q1", prompt: "Choose?", type: "single" }],
 	answers: { choice: { values: ["yes"], labels: ["Yes"], indices: [1] } },
 };

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { Value } from "typebox/value";
 import { registerAskTool } from "../src/ask-tool.ts";
 import { AskOptionSchema, AskParamsSchema } from "../src/schema.ts";
@@ -12,13 +13,11 @@ const SPEED_OPTION_RE = /- Speed \[speed\]/;
 const CUSTOM_OPTION_RE = /- Type your own \[custom\]/;
 const DUPLICATE_ID_RE =
 	/questions\[1\]\.id: Question 2: duplicate question id "scope"/;
-const PREVIEW_RULE_RE =
-	/questions\[0\]\.options\[0\]\.preview: Question 1, option 1: preview questions require preview text for every option; add preview text or use type "single" instead/;
 const MISSING_OPTION_VALUE_RE =
 	/questions\[0\]\.options\[0\]\.value: Question 1, option 1: value is required/;
 const EMPTY_QUESTIONS_RE = /questions: At least one question is required/;
 const INVALID_TYPE_RE =
-	/questions\[0\]\.type: Question 1: invalid type "grid"; expected "single", "multi", or "preview"/;
+	/questions\[0\]\.type: Question 1: invalid type "grid"; expected "single" or "multi"/;
 const UI_FAILED_RE = /UI failed/;
 const HAS_UI = "hasUI";
 const noop = () => {
@@ -64,21 +63,17 @@ function makeCtx(hasUi: boolean, mode = hasUi ? "tui" : "print"): unknown {
 	return { [HAS_UI]: hasUi, mode };
 }
 
-test("ask tool saves file preview text for replay and keeps option labels", async () => {
+test("ask tool saves file context text for replay and keeps option labels", async () => {
 	const { entries, tool } = registerMockTool();
 	const params: AskParams = {
 		questions: [
 			{
 				id: "file",
-				prompt: "Choose",
-				type: "preview",
-				options: [
-					{
-						value: "doc",
-						label: "Document",
-						previewFile: "tests/fixtures/preview.txt",
-					},
-				],
+				prompt: "Accept this document?",
+				context: fileURLToPath(
+					new URL("fixtures/context.txt", import.meta.url)
+				),
+				options: [{ value: "accept", label: "Accept" }],
 			},
 		],
 	};
@@ -88,14 +83,12 @@ test("ask tool saves file preview text for replay and keeps option labels", asyn
 		cwd: process.cwd(),
 	});
 	assert.equal(result.details.error, undefined);
-	const saved = (entries[0].data as { params: AskParams }).params.questions[0]
-		.options[0];
-	assert(saved.preview?.includes("Preview loaded from a local file"));
-	assert.equal(saved.previewFile, undefined);
-	assert.equal(saved.label, "Document");
+	const saved = (entries[0].data as { params: AskParams }).params.questions[0];
+	assert(saved.context?.includes("Context loaded from a local file"));
+	assert.equal(saved.options[0].label, "Accept");
 });
 
-test("ask tool rejects unreadable previews before UI and payload storage", async () => {
+test("ask tool rejects unreadable context files before UI and payload storage", async () => {
 	const { entries, events, tool } = registerMockTool();
 	let uiOpened = false;
 	const result = await tool.execute(
@@ -104,15 +97,11 @@ test("ask tool rejects unreadable previews before UI and payload storage", async
 			questions: [
 				{
 					id: "file",
-					prompt: "Choose",
-					type: "preview",
-					options: [
-						{
-							value: "doc",
-							label: "Document",
-							previewFile: "tests/fixtures/missing.txt",
-						},
-					],
+					prompt: "Accept this document?",
+					context: fileURLToPath(
+						new URL("fixtures/missing.txt", import.meta.url)
+					),
+					options: [{ value: "accept", label: "Accept" }],
 				},
 			],
 		},
@@ -129,7 +118,7 @@ test("ask tool rejects unreadable previews before UI and payload storage", async
 		}
 	);
 	assert.equal(result.details.error.kind, "invalid_input");
-	assert(result.content[0].text.includes("Cannot load preview file"));
+	assert(result.content[0].text.includes("Cannot load context file"));
 	assert.equal(uiOpened, false);
 	assert.deepEqual(entries, []);
 	assert.deepEqual(events, []);
@@ -144,7 +133,11 @@ test("ask tool declares an output schema and returns structured pending results"
 		noop,
 		makeCtx(false)
 	);
-	assert.deepEqual(result.structuredContent, result.details);
+	assert.deepEqual(result.structuredContent, {
+		requestId: result.details.requestId,
+		cancelled: true,
+		answers: {},
+	});
 	assert.equal(Value.Check(tool.outputSchema, result.structuredContent), true);
 });
 
@@ -157,8 +150,11 @@ test("invalid ask input returns the same structured error as its details", async
 		noop,
 		makeCtx(false)
 	);
-	assert.deepEqual(result.structuredContent, result.details);
-	assert.equal(result.structuredContent.error.kind, "invalid_input");
+	assert.deepEqual(result.structuredContent, {
+		cancelled: true,
+		answers: {},
+		error: { issues: result.details.error.issues },
+	});
 	assert.equal(Value.Check(tool.outputSchema, result.structuredContent), true);
 });
 function sampleParams(): AskParams {
@@ -253,7 +249,6 @@ test("ask tool returns pending questions in non-interactive mode", async () => {
 	);
 
 	assert.equal(result.details.cancelled, true);
-	assert.equal(result.details.mode, "submit");
 	assert.deepEqual(result.details.questions, [
 		{
 			id: "goal",
@@ -391,7 +386,7 @@ test("does not emit Herdr blocked state outside TUI mode", async () => {
 	);
 });
 
-test("ask tool includes custom answer fallback for preview questions", async () => {
+test("ask tool includes custom answer fallback for questions with context", async () => {
 	const { tool } = registerMockTool();
 
 	const result = await tool.execute(
@@ -403,8 +398,8 @@ test("ask tool includes custom answer fallback for preview questions", async () 
 					id: "layout",
 					label: "Layout",
 					prompt: "Which layout?",
-					type: "preview",
-					options: [{ value: "compact", label: "Compact", preview: "A" }],
+					context: "Compact keeps every row on one line.",
+					options: [{ value: "compact", label: "Compact" }],
 				},
 			],
 		},
@@ -442,7 +437,6 @@ test("ask tool rejects invalid payloads before UI opens with structured issues",
 	);
 
 	assert.equal(result.details.cancelled, true);
-	assert.equal(result.details.mode, "submit");
 	assert.equal(result.details.questions.length, 0);
 	assert.deepEqual(result.details.error, {
 		kind: "invalid_input",
@@ -544,46 +538,48 @@ test("ask tool reports invalid question types with structured issues", async () 
 			{
 				path: "questions[0].type",
 				message:
-					'Question 1: invalid type "grid"; expected "single", "multi", or "preview"',
+					'Question 1: invalid type "grid"; expected "single" or "multi"',
 			},
 		],
 	});
 	assert.match(result.content[0].text, INVALID_TYPE_RE);
 });
 
-test("ask tool reports preview validation with structured issues", async () => {
+test("ask tool converts legacy preview questions into question context", async () => {
 	const { tool } = registerMockTool();
-
-	const result = await tool.execute(
-		"call-1",
-		{
-			title: "Clarify",
-			questions: [
-				{
-					id: "layout",
-					prompt: "Pick layout",
-					type: "preview",
-					options: [{ value: "compact", label: "Compact", preview: "   " }],
-				},
-			],
-		},
-		undefined,
-		noop,
-		makeCtx(true)
-	);
-
-	assert.equal(result.details.cancelled, true);
-	assert.deepEqual(result.details.error, {
-		kind: "invalid_input",
-		issues: [
+	const prepared = tool.prepareArguments({
+		questions: [
 			{
-				path: "questions[0].options[0].preview",
-				message:
-					'Question 1, option 1: preview questions require preview text for every option; add preview text or use type "single" instead',
+				id: "layout",
+				prompt: "Pick layout",
+				type: "preview",
+				options: [
+					{ value: "compact", label: "Compact", preview: "One line per row" },
+					{ value: "roomy", label: "Roomy", preview: "Two lines per row" },
+				],
 			},
 		],
+	}) as AskParams;
+
+	assert.equal(Value.Check(AskParamsSchema, prepared), true);
+	assert.deepEqual(prepared.questions[0], {
+		id: "layout",
+		prompt: "Pick layout",
+		type: "single",
+		context: "Compact\nOne line per row\n\nRoomy\nTwo lines per row",
+		options: [
+			{ value: "compact", label: "Compact" },
+			{ value: "roomy", label: "Roomy" },
+		],
 	});
-	assert.match(result.content[0].text, PREVIEW_RULE_RE);
+	const result = await tool.execute(
+		"call-legacy",
+		prepared,
+		undefined,
+		noop,
+		makeCtx(false)
+	);
+	assert.equal(result.details.error, undefined);
 });
 
 test("ask tool accepts blank optional presentation fields", async () => {
@@ -595,12 +591,12 @@ test("ask tool accepts blank optional presentation fields", async () => {
 				id: "scope",
 				label: "  ",
 				prompt: "Pick scope",
+				context: "\t",
 				options: [
 					{
 						value: "small",
 						label: "Small",
 						description: " ",
-						preview: "\t",
 					},
 				],
 			},

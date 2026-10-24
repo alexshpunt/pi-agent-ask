@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import type {
 	AskOption,
 	AskParams,
@@ -36,6 +37,7 @@ export function collectValidationIssues(
 	return collector.issues;
 }
 
+/** Fill derivable labels and convert forms saved before question context existed. */
 export function prepareAskParams(input: unknown): unknown {
 	if (!(isRecord(input) && Array.isArray(input.questions))) {
 		return input;
@@ -46,12 +48,66 @@ export function prepareAskParams(input: unknown): unknown {
 			if (!(isRecord(question) && Array.isArray(question.options))) {
 				return question;
 			}
-			return {
+			return migrateLegacyPreview({
 				...question,
 				options: question.options.map(prepareOption),
-			};
+			});
 		}),
 	};
+}
+
+/** Older forms showed per-option previews; their text becomes the question context. */
+function migrateLegacyPreview(
+	question: Record<string, unknown> & { options: unknown[] }
+): Record<string, unknown> {
+	const previews = question.options.flatMap((option) => {
+		if (!isRecord(option)) {
+			return [];
+		}
+		const text = legacyPreviewText(option);
+		return text ? [{ label: option.label, text }] : [];
+	});
+	const options = question.options.map((option) => {
+		if (!isRecord(option)) {
+			return option;
+		}
+		const { preview: _preview, previewFile: _previewFile, ...rest } = option;
+		return rest;
+	});
+	const context =
+		typeof question.context === "string" && question.context.trim()
+			? question.context
+			: legacyContext(previews);
+	return {
+		...question,
+		...(question.type === "preview" ? { type: "single" } : {}),
+		...(context ? { context } : {}),
+		options,
+	};
+}
+
+function legacyPreviewText(
+	option: Record<string, unknown>
+): string | undefined {
+	if (typeof option.preview === "string" && option.preview.trim()) {
+		return option.preview;
+	}
+	const file =
+		typeof option.previewFile === "string" ? option.previewFile.trim() : "";
+	return isAbsolute(file) ? file : undefined;
+}
+
+function legacyContext(
+	previews: Array<{ label: unknown; text: string }>
+): string | undefined {
+	if (previews.length <= 1) {
+		return previews[0]?.text;
+	}
+	return previews
+		.map(
+			({ label, text }) => `${typeof label === "string" ? label : ""}\n${text}`
+		)
+		.join("\n\n");
 }
 
 function prepareOption(input: unknown): unknown {
@@ -95,6 +151,7 @@ function normalizeQuestion(
 		id: question.id.trim(),
 		label: question.label?.trim() || `Q${index + 1}`,
 		prompt: question.prompt.trim(),
+		...(question.context?.trim() ? { context: question.context } : {}),
 		type: presentedType,
 		...(presentedType === requestedType
 			? {}
@@ -108,10 +165,6 @@ function normalizeOption(option: AskOption): AskOption {
 		value: option.value.trim(),
 		label: option.label.trim(),
 		description: option.description?.trim() || undefined,
-		preview: option.preview?.trim() || undefined,
-		...(option.previewFile?.trim()
-			? { previewFile: option.previewFile.trim() }
-			: {}),
 		...(option.recommended === undefined
 			? {}
 			: { recommended: option.recommended }),
@@ -142,8 +195,6 @@ function validateQuestion(
 	const questionNumber = questionIndex + 1;
 	const questionPath = `questions[${questionIndex}]`;
 	const questionId = question.id?.trim();
-	const questionType = normalizeQuestionType(question.type);
-
 	validateQuestionType(
 		question.type,
 		questionNumber,
@@ -183,7 +234,6 @@ function validateQuestion(
 			optionIndex,
 			optionValues,
 			questionNumber,
-			questionType,
 			collector,
 			`${questionPath}.options[${optionIndex}]`
 		);
@@ -195,14 +245,12 @@ function validateOption(
 	optionIndex: number,
 	optionValues: Set<string>,
 	questionNumber: number,
-	questionType: AskQuestion["type"],
 	collector: IssueCollector,
 	optionPath: string
 ) {
 	const optionNumber = optionIndex + 1;
 	const prefix = `Question ${questionNumber}, option ${optionNumber}`;
 	const optionValue = option.value?.trim();
-	const optionPreview = option.preview?.trim();
 
 	assertRequired(
 		optionValue,
@@ -223,26 +271,12 @@ function validateOption(
 		`${optionPath}.label`,
 		`${prefix}: label is required`
 	);
-	if (optionPreview && option.previewFile?.trim()) {
-		collector.add(
-			`${optionPath}.previewFile`,
-			`${prefix}: use either preview or previewFile, not both`
-		);
-	}
-	if (questionType === "preview") {
-		assertRequired(
-			optionPreview || option.previewFile?.trim(),
-			collector,
-			`${optionPath}.preview`,
-			`${prefix}: preview questions require preview text for every option; add preview text or use type "single" instead`
-		);
-	}
 }
 
 function normalizeQuestionType(
 	value: AskQuestionInput["type"]
 ): AskQuestion["type"] {
-	return value === "multi" || value === "preview" ? value : "single";
+	return value === "multi" ? "multi" : "single";
 }
 
 function validateQuestionType(
@@ -251,15 +285,10 @@ function validateQuestionType(
 	collector: IssueCollector,
 	path: string
 ) {
-	if (
-		value !== undefined &&
-		value !== "single" &&
-		value !== "multi" &&
-		value !== "preview"
-	) {
+	if (value !== undefined && value !== "single" && value !== "multi") {
 		collector.add(
 			path,
-			`Question ${questionNumber}: invalid type ${JSON.stringify(value)}; expected "single", "multi", or "preview"`
+			`Question ${questionNumber}: invalid type ${JSON.stringify(value)}; expected "single" or "multi"`
 		);
 	}
 }

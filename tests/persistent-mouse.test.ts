@@ -185,16 +185,16 @@ test("wrapped option labels and descriptions expose the same exact click target"
 	assert.equal(second.y, first.y + first.height);
 });
 
-test("wide preview and review targets do not include the neighboring content pane", () => {
+test("wide context and review targets do not include the neighboring content pane", () => {
 	const state = createInitialState({
 		questions: [
 			{
 				id: "preview",
 				prompt: "Compare",
-				type: "preview",
+				context: "Shared context for both options",
 				options: [
-					{ value: "one", label: "One", preview: "First preview" },
-					{ value: "two", label: "Two", preview: "Second preview" },
+					{ value: "one", label: "One" },
+					{ value: "two", label: "Two" },
 				],
 			},
 		],

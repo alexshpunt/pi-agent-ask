@@ -42,7 +42,6 @@ test("list paging, answer filtering and read schemas keep keys and notes intact"
 		requestId: first,
 		result: {
 			cancelled: false,
-			mode: "submit",
 			questions: [
 				{ id: "scope", label: "Q1", type: "single", prompt: "Choose scope" },
 			],

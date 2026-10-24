@@ -99,21 +99,22 @@ test("question view model exposes saved question notes", () => {
 	assert.deepEqual(model.questionNote, { kind: "saved", text: "saved" });
 });
 
-test("preview view model selects stacked vs custom layouts", () => {
+test("context view model carries the context and selects stacked vs custom layouts", () => {
 	const base = createInitialState({
 		questions: [
 			{
 				id: "q1",
 				prompt: "Pick one",
-				type: "preview",
-				options: [{ value: "a", label: "A", preview: "Preview A" }],
+				context: "Context A",
+				options: [{ value: "a", label: "A" }],
 			},
 		],
 	});
 
 	const stacked = buildQuestionScreenModel(buildContext(base));
-	assert.equal(stacked.mode, "preview");
-	assert.equal(stacked.previewLayout, "stacked");
+	assert.equal(stacked.mode, "context");
+	assert.equal(stacked.context, "Context A");
+	assert.equal(stacked.contextLayout, "stacked");
 
 	const custom = buildQuestionScreenModel(
 		buildContext({
@@ -122,5 +123,5 @@ test("preview view model selects stacked vs custom layouts", () => {
 			view: { kind: "input", questionId: "q1" },
 		})
 	);
-	assert.equal(custom.previewLayout, "custom");
+	assert.equal(custom.contextLayout, "custom");
 });

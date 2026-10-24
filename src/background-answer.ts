@@ -6,7 +6,6 @@ import {
 	ASK_COMPLETED_ENTRY,
 	type QueuedAnswer,
 } from "./background-ask-state.ts";
-import { renderResultText } from "./result.ts";
 import { isResultAnswerCommitted } from "./state/answers.ts";
 import { pushSavedNote } from "./ui/render-helpers.ts";
 import { renderReviewQuestion } from "./ui/render-submit.ts";
@@ -50,12 +49,7 @@ export function renderBackgroundAnswer(
 				(title ? theme.fg("muted", ` · ${title}`) : "");
 			const lines = [header, ...answerBody(answer, theme, width)];
 			const result = answer.result;
-			if (
-				result &&
-				!result.cancelled &&
-				!result.error &&
-				result.mode === "submit"
-			) {
+			if (result && !result.cancelled && !result.error) {
 				if (title) {
 					lines[0] =
 						theme.fg("accent", theme.bold(title)) +
@@ -82,9 +76,6 @@ function answerStatus(answer: QueuedAnswer): {
 	if (answer.result.cancelled) {
 		return { color: "warning", text: "? Questions cancelled" };
 	}
-	if (answer.result.mode === "elaborate") {
-		return { color: "warning", text: "? Clarification requested" };
-	}
 	if (
 		answer.result.skippedQuestionIds?.length === answer.result.questions.length
 	) {
@@ -107,9 +98,6 @@ function answerBody(
 	}
 	if (result.cancelled) {
 		return [theme.fg("muted", "No approval given.")];
-	}
-	if (result.mode === "elaborate") {
-		return ["", theme.fg("toolOutput", renderResultText(result))];
 	}
 	const lines: string[] = [];
 	for (const question of result.questions) {

@@ -121,11 +121,10 @@ test("recovered skip state serializes original question order and presentations"
 	assert.equal(Value.Check(AskResultSchema, result), true);
 });
 
-test("skipped questions do not leak stale answers or elaboration after recovery", () => {
+test("skipped questions do not leak stale answers after recovery", () => {
 	let state = skipCurrentQuestion(createQuestions());
 	state = {
 		...state,
-		mode: "elaborate",
 		answers: {
 			first: {
 				selected: [],
@@ -138,13 +137,7 @@ test("skipped questions do not leak stale answers or elaboration after recovery"
 	const result = toAskResult(state);
 
 	assert.equal(result.answers.first, undefined);
-	assert.deepEqual(
-		result.elaboration?.items.map((item) => item.question.id),
-		["second"]
-	);
-	assert.deepEqual(result.continuation?.questionStates.first, {
-		status: "skipped",
-	});
+	assert.equal(result.answers.second?.note, "Explain the tradeoff");
 	assert.equal(JSON.stringify(result).includes("secret"), false);
 	assert(summarizeResult(result).includes("first: (skipped)"));
 	assert(renderResultText(result).includes("? first: (skipped)"));

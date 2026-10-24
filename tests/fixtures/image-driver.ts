@@ -5,6 +5,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { AskQueuedSchema } from "../../src/background-ask-state.ts";
+import { getAskConfigStore } from "../../src/config/store.ts";
 import { AskResultSchema } from "../../src/result-schema.ts";
 
 interface Form {
@@ -69,24 +70,22 @@ async function attachNote(
 async function submitImageForm(
 	form: Form,
 	paste: string,
-	clarify: boolean,
+	noteUnselectedOption: boolean,
 	screens: string[]
 ): Promise<void> {
 	await attachCustomImages(form, paste, screens);
 	await attachNote(form, paste, "N", "Question text");
-	form.handleInput?.(clarify ? "\x1b[A" : "1");
+	// Moving up leaves "Yes" unselected; "1" selects it before noting it.
+	form.handleInput?.(noteUnselectedOption ? "\x1b[A" : "1");
 	await attachNote(form, paste, "n", "Option text");
 	form.handleInput?.("\t");
 	screens.push(form.render(120).join("\n"));
-	if (clarify) {
-		form.handleInput?.("\x1b[B");
-	}
 	form.handleInput?.("\r");
 }
 // biome-ignore lint/style/noDefaultExport: Pi loads fixture extensions through a default factory.
 export default function imageDriver(pi: ExtensionAPI): void {
 	let background = false;
-	let elaborate = false;
+	let noteUnselectedOption = false;
 	let answer: (() => Promise<void>) | undefined;
 	const requests = new Map<string, string>();
 	const observations: Record<string, string[]> = {};
@@ -94,7 +93,7 @@ export default function imageDriver(pi: ExtensionAPI): void {
 	pi.on("tool_call", (event) => {
 		if (event.toolName === "ask_user") {
 			background = event.input.background === true;
-			elaborate = event.input.title === "clarify";
+			noteUnselectedOption = event.input.title === "unselected";
 			currentId = event.toolCallId;
 		}
 		if (event.toolName === "wait_for_answers") {
@@ -116,6 +115,15 @@ export default function imageDriver(pi: ExtensionAPI): void {
 		) {
 			requests.set(event.toolCallId, event.details.requestId);
 		}
+	});
+	pi.on("session_start", async () => {
+		// History tools are opt-in; this scenario reads and exports history.
+		const store = getAskConfigStore();
+		const config = await store.getConfig();
+		await store.save({
+			...config,
+			behaviour: { ...config.behaviour, historyTools: true },
+		});
 	});
 	pi.on("session_start", (_event, ctx) => {
 		let panel: Component | undefined;
@@ -152,7 +160,7 @@ export default function imageDriver(pi: ExtensionAPI): void {
 					render: (width) => visible.render(width),
 				};
 				const id = currentId;
-				const clarify = elaborate;
+				const unselected = noteUnselectedOption;
 				const keys = args[2].getKeys("app.clipboard.pasteImage");
 				const paste = keys.includes("alt+v") ? "\x1bv" : "\x16";
 				const drive = async () => {
@@ -162,7 +170,7 @@ export default function imageDriver(pi: ExtensionAPI): void {
 							await attachCustomImages(form, paste, screens);
 							ctx.abort();
 						} else {
-							await submitImageForm(form, paste, clarify, screens);
+							await submitImageForm(form, paste, unselected, screens);
 						}
 					} catch (error) {
 						screens.push(`FAIL: ${String(error)}`);

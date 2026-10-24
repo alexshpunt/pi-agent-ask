@@ -25,7 +25,6 @@ export type RemoteAskResponse =
 	| {
 			answers: Record<string, RemoteAskAnswer>;
 			kind: "answer";
-			mode?: "submit" | "elaborate";
 	  }
 	| { kind: "cancel" };
 
@@ -247,9 +246,8 @@ export function applyRemoteAskResponse(
 			...state,
 			answers: validation.answers,
 			activeTabIndex: state.questions.length,
-			activeSubmitActionIndex: response.mode === "elaborate" ? 1 : 0,
+			activeSubmitActionIndex: 0,
 			completed: true,
-			mode: response.mode ?? "submit",
 			view: { kind: "submit" },
 		},
 	};
@@ -263,13 +261,6 @@ function validateAnswerResponse(
 	| { error: "invalid_answer"; message: string; ok: false } {
 	if (!isPlainObject(response.answers)) {
 		return invalidAnswer("Answer response must include an answers object.");
-	}
-	if (
-		response.mode !== undefined &&
-		response.mode !== "submit" &&
-		response.mode !== "elaborate"
-	) {
-		return invalidAnswer('Answer mode must be "submit" or "elaborate".');
 	}
 
 	const answers: Record<string, AskStateAnswer> = {};
@@ -521,7 +512,6 @@ export function parseRemoteResponse(
 			response: {
 				kind: "answer",
 				answers: data.answers as Record<string, RemoteAskAnswer>,
-				mode: data.mode as "submit" | "elaborate" | undefined,
 			},
 		};
 	}

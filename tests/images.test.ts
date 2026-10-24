@@ -37,15 +37,12 @@ test("image-only answers survive editing and can be deselected without losing th
 	assert.deepEqual(getEditorImages(enterInputMode(state, "q")), [image]);
 });
 
-test("image-only notes on unselected options are sent only for clarification", () => {
+test("image-only notes on unselected options are sent with the submitted answers", () => {
 	let state = enterOptionNoteMode(createInitialState(params), "q", "yes");
 	state = saveNote(setEditorImages(state, [image]), "");
-	assert.equal(toAskResult(state).answers.q, undefined);
-	const result = toAskResult({ ...state, mode: "elaborate" });
-	const item = result.elaboration?.items[0];
-	assert(item && "selected" in item);
-	assert.equal(item.selected, false);
-	assert.deepEqual(result.elaboration?.items[0].images, [image]);
+	const result = toAskResult(state);
+	assert.deepEqual(result.answers.q?.values, []);
+	assert.deepEqual(result.answers.q?.optionNoteImages, { yes: [image] });
 	assert.deepEqual(
 		imageContent(result).filter((part) => part.type === "image"),
 		[{ type: "image", mimeType: image.mimeType, data: image.data }]

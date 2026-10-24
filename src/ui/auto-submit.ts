@@ -13,7 +13,6 @@ export function maybeAutoSubmitState(
 	return {
 		...state,
 		completed: true,
-		mode: "submit",
 	};
 }
 

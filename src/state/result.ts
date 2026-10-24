@@ -1,30 +1,13 @@
+import { CANCELLED_SUMMARY, SUBMITTED_SUMMARY } from "../constants/text.ts";
+import { formatResultLines } from "../result-format.ts";
+import type { AskResult, AskState, AskStateAnswer } from "../types.ts";
 import {
-	CANCELLED_SUMMARY,
-	ELABORATED_SUMMARY,
-	ELABORATION_INSTRUCTION,
-	SUBMITTED_SUMMARY,
-} from "../constants/text.ts";
-import { formatElaborationLines, formatResultLines } from "../result-format.ts";
-import type {
-	AskContinuationPayload,
-	AskElaborationPayload,
-	AskResult,
-	AskResultAnswer,
-	AskState,
-	AskStateAnswer,
-} from "../types.ts";
-import {
-	cloneResultAnswer,
 	getExtraOptionNotes,
-	hasAnswerNotes,
-	isAnswerAnswered,
 	isAnswerEmpty,
-	isOptionSelected,
 	isResultAnswerCommitted,
 	isResultAnswerEmpty,
 	serializeAnswer,
 } from "./answers.ts";
-import { getQuestionOptionByValue } from "./selectors.ts";
 import { getResultQuestions } from "./skip.ts";
 
 export type ReviewAnswer = AskResult["answers"][string] & {
@@ -54,17 +37,12 @@ export function toAskResult(state: AskState): AskResult {
 				}
 				return [questionId, serialized] as const;
 			})
-			.filter(([, answer]) =>
-				state.mode === "elaborate"
-					? isResultAnswerCommitted(answer)
-					: !isResultAnswerEmpty(answer)
-			)
+			.filter(([, answer]) => !isResultAnswerEmpty(answer))
 	);
 
 	return {
 		title: state.title,
 		cancelled: state.cancelled,
-		mode: state.mode,
 		questions: questions.map((question) => ({
 			id: question.id,
 			label: question.label,
@@ -77,14 +55,6 @@ export function toAskResult(state: AskState): AskResult {
 		})),
 		answers,
 		...(skippedQuestionIds.length ? { skippedQuestionIds } : {}),
-		continuation:
-			state.mode === "elaborate"
-				? serializeContinuation(state, answers)
-				: undefined,
-		elaboration:
-			state.mode === "elaborate" && !state.cancelled
-				? serializeElaboration(state)
-				: undefined,
 	};
 }
 
@@ -92,11 +62,6 @@ export function summarizeResult(result: AskResult): string {
 	if (result.cancelled) {
 		return CANCELLED_SUMMARY;
 	}
-	if (result.mode === "elaborate") {
-		const lines = formatElaborationLines(result, { mode: "summary" });
-		return lines.join("\n") || ELABORATED_SUMMARY;
-	}
-
 	const lines = formatResultLines(result, { mode: "summary" });
 	return lines.join("\n") || SUBMITTED_SUMMARY;
 }
@@ -106,156 +71,9 @@ export function hasAnswerContent(state: AskState, questionId: string): boolean {
 	return !!answer && !isAnswerEmpty(answer);
 }
 
-function serializeContinuation(
-	state: AskState,
-	answers: AskResult["answers"]
-): AskContinuationPayload {
-	const affectedQuestionIds: string[] = [];
-	const preservedAnswers: AskContinuationPayload["preservedAnswers"] = {};
-	const questionStates: AskContinuationPayload["questionStates"] = {};
-
-	for (const question of state.questions) {
-		const answer = state.answers[question.id];
-		const hasClarificationNeed = hasAnswerNotes(answer);
-		const committedAnswer = answers[question.id];
-		const answered = !!committedAnswer;
-
-		if (hasClarificationNeed) {
-			affectedQuestionIds.push(question.id);
-			questionStates[question.id] = { status: "needs_clarification" };
-			continue;
-		}
-
-		if (answered) {
-			preservedAnswers[question.id] = cloneResultAnswer(committedAnswer);
-			questionStates[question.id] = { status: "answered" };
-			continue;
-		}
-
-		questionStates[question.id] = { status: "unanswered" };
-	}
-
-	for (const { question } of state.skippedQuestions ?? []) {
-		questionStates[question.id] = { status: "skipped" };
-	}
-
-	return {
-		affectedQuestionIds,
-		preservedAnswers,
-		questionStates,
-		strategy: "refine_only",
-	};
-}
-
-function serializeElaboration(state: AskState): AskElaborationPayload {
-	const items = state.questions.flatMap((question) =>
-		serializeElaborationItemsForQuestion(question, state.answers[question.id])
-	);
-
-	return {
-		instruction: ELABORATION_INSTRUCTION,
-		nextAction: "clarify_then_reask",
-		items,
-	};
-}
-
-function serializeElaborationItemsForQuestion(
-	question: AskState["questions"][number],
-	answer: AskStateAnswer | undefined
-): AskElaborationPayload["items"] {
-	if (!(answer && hasAnswerNotes(answer))) {
-		return [];
-	}
-
-	const questionContext = createElaborationQuestionContext(question);
-	const serializedAnswer = toCommittedResultAnswer(answer);
-	const answered = isAnswerAnswered(answer);
-	const items: AskElaborationPayload["items"] = [];
-
-	if (answer.note || answer.noteImages?.length) {
-		items.push({
-			target: { kind: "question" },
-			question: questionContext,
-			answered,
-			answer: serializedAnswer,
-			note: answer.note ?? "",
-			...(answer.noteImages?.length ? { images: answer.noteImages } : {}),
-		});
-	}
-
-	return [...items, ...serializeOptionNotes(question, answer)];
-}
-
-function serializeOptionNotes(
-	question: AskState["questions"][number],
-	answer: AskStateAnswer
-): AskElaborationPayload["items"] {
-	const items: AskElaborationPayload["items"] = [];
-	for (const value of new Set([
-		...Object.keys(answer.optionNotes ?? {}),
-		...Object.keys(answer.optionNoteImages ?? {}),
-	])) {
-		const note = answer.optionNotes?.[value] ?? "";
-		const images = answer.optionNoteImages?.[value];
-		const option = getQuestionOptionByValue(question, value);
-		if (!(option && (note || images?.length))) {
-			continue;
-		}
-		items.push({
-			target: { kind: "option", optionValue: value },
-			question: createElaborationQuestionContext(question),
-			option: cloneOption(option),
-			selected: isOptionSelected(answer, value),
-			answered: isAnswerAnswered(answer),
-			answer: toCommittedResultAnswer(answer),
-			note,
-			...(images?.length ? { images } : {}),
-		});
-	}
-	return items;
-}
-
-function createElaborationQuestionContext(
-	question: AskState["questions"][number]
-) {
-	return {
-		id: question.id,
-		label: question.label,
-		prompt: question.prompt,
-		type: question.requestedType ?? question.type,
-		...(question.presentedType &&
-		question.presentedType !== question.requestedType
-			? { presentedType: question.presentedType }
-			: {}),
-		options: question.options.map(cloneOption),
-	};
-}
-
-function cloneOption(option: AskState["questions"][number]["options"][number]) {
-	return {
-		value: option.value,
-		label: option.label,
-		...(option.description ? { description: option.description } : {}),
-		...(option.preview ? { preview: option.preview } : {}),
-		...(option.recommended === undefined
-			? {}
-			: { recommended: option.recommended }),
-	};
-}
-
-function toCommittedResultAnswer(
-	answer: AskStateAnswer | undefined
-): AskResultAnswer | undefined {
-	if (!(answer && isAnswerAnswered(answer))) {
-		return;
-	}
-	return cloneResultAnswer(serializeAnswer(answer));
-}
-
 export function toReviewAnswer(
 	question: AskState["questions"][number],
-	answer: AskStateAnswer | undefined,
-	showAllNotes: boolean
+	answer: AskStateAnswer | undefined
 ): ReviewAnswer | undefined {
 	if (!answer) {
 		return;
@@ -263,11 +81,6 @@ export function toReviewAnswer(
 
 	const serialized = serializeAnswer(answer);
 	const hasCommittedAnswer = isResultAnswerCommitted(serialized);
-	if (!showAllNotes) {
-		return hasCommittedAnswer || serialized.noteImages?.length
-			? serialized
-			: undefined;
-	}
 
 	const extraOptionNotes = getExtraOptionNotes({
 		answer,
