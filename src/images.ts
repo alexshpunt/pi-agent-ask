@@ -39,10 +39,9 @@ function addAnswerImages(
 	add(answer.noteImages, `${context} — question note`);
 	for (const [value, images] of Object.entries(answer.optionNoteImages ?? {})) {
 		const index = answer.values.indexOf(value);
-		add(
-			images,
-			`${context} — option note for ${answer.labels[index] ?? value}`
-		);
+		const label =
+			index >= 0 ? (answer.labels[index] ?? value) : `${value} (not selected)`;
+		add(images, `${context} — option note for ${label}`);
 	}
 }
 /** Convert saved attachments to model content with their exact question and note association. */
@@ -68,16 +67,6 @@ export function imageContent(
 	};
 	for (const question of result.questions) {
 		addAnswerImages(question, result.answers[question.id], add);
-	}
-	for (const item of result.elaboration?.items ?? []) {
-		const target =
-			item.target.kind === "option" && "option" in item
-				? `option note for ${item.option.label}`
-				: "question note";
-		add(
-			item.images,
-			`[${item.question.id}] ${item.question.prompt} — ${target}`
-		);
 	}
 	return content;
 }

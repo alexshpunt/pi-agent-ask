@@ -36,11 +36,11 @@ export interface OptionRowModel {
 }
 
 export interface QuestionScreenModel {
-	mode: "preview" | "standard";
-	previewLayout?: "custom" | "stacked" | "wide";
+	context?: string;
+	contextLayout?: "custom" | "stacked" | "wide";
+	mode: "context" | "standard";
 	questionNote?: QuestionNoteModel;
 	rows: OptionRowModel[];
-	selectedOption?: AskDisplayOption;
 	selectedOptionDetail?: OptionDetailModel;
 }
 
@@ -51,7 +51,7 @@ export function buildQuestionScreenModel(
 		buildOptionRowModel(context, option, index)
 	);
 	const questionNote = buildQuestionNoteModel(context);
-	if (context.question.type !== "preview") {
+	if (!context.question.context) {
 		return {
 			mode: "standard",
 			questionNote,
@@ -61,12 +61,14 @@ export function buildQuestionScreenModel(
 
 	const selectedOption = context.options[context.state.activeOptionIndex];
 	return {
-		mode: "preview",
-		previewLayout: getPreviewLayout(context, selectedOption),
+		context: context.question.context,
+		contextLayout: getContextLayout(context, selectedOption),
+		mode: "context",
 		questionNote,
 		rows,
-		selectedOption,
-		selectedOptionDetail: buildOptionDetailModel(context, selectedOption, true),
+		selectedOptionDetail: editorOnly(
+			buildOptionDetailModel(context, selectedOption, true)
+		),
 	};
 }
 
@@ -99,10 +101,9 @@ function buildOptionRowModel(
 	return {
 		color: getOptionColor(answered, selected),
 		description: option.description,
-		detail:
-			context.question.type === "preview"
-				? undefined
-				: buildOptionDetailModel(context, option, selected),
+		detail: context.question.context
+			? savedOnly(buildOptionDetailModel(context, option, selected))
+			: buildOptionDetailModel(context, option, selected),
 		index,
 		isCustom: !!option.isCustomOption,
 		label: option.label,
@@ -169,7 +170,20 @@ function buildOptionDetailModel(
 	return;
 }
 
-function getPreviewLayout(
+/** With context, open editors render below the list; saved text stays on its row. */
+function editorOnly(
+	detail: OptionDetailModel | undefined
+): OptionDetailModel | undefined {
+	return detail?.kind === "editor" ? detail : undefined;
+}
+
+function savedOnly(
+	detail: OptionDetailModel | undefined
+): OptionDetailModel | undefined {
+	return detail?.kind === "editor" ? undefined : detail;
+}
+
+function getContextLayout(
 	context: QuestionRenderContext,
 	selectedOption: AskDisplayOption | undefined
 ): "custom" | "stacked" | "wide" {

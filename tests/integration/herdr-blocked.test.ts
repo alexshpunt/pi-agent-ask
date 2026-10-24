@@ -180,6 +180,8 @@ test("real Herdr tracks blocked queued and recovered questions", {
 					"second-form",
 					"first",
 					"second",
+					"hide",
+					"reopen",
 					"idle",
 					"stats",
 				]);
@@ -188,6 +190,8 @@ test("real Herdr tracks blocked queued and recovered questions", {
 					{ phase: "working-first", status: "blocked", question: "first" },
 					{ phase: "handoff-second", status: "blocked", question: "second" },
 					{ phase: "working-second", status: "blocked", question: "second" },
+					{ phase: "hidden", status: "working", question: "second" },
+					{ phase: "reopened", status: "blocked", question: "second" },
 					{ phase: "idle", status: "blocked", question: "second" },
 				]);
 				assert.equal(stats.activeForms, 0);

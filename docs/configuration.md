@@ -19,6 +19,7 @@ Supported older schema versions migrate in memory. Keep `schemaVersion` at `5` w
   "schemaVersion": 5,
   "behaviour": {
     "backgroundOnly": false,
+    "historyTools": false,
     "autoSubmitWhenAnsweredWithoutNotes": false,
     "confirmDismissWhenDirty": true,
     "doublePressReviewShortcuts": true,
@@ -79,7 +80,7 @@ Supported older schema versions migrate in memory. Keep `schemaVersion` at `5` w
 
 Open `/ask-settings` or press `?` inside a form to toggle behaviour or notification enablement. Changes save immediately when possible; save failures revert the setting and show the path for manual editing. Reset-to-defaults requires a quick second press. Use it only when the user asks to reset.
 
-Saved runtime changes affect an open form, except `presentSingleAsMulti`, which applies when a form is created. For a live question-type change, use `main.changeQuestionType` (`t` by default). It toggles `single <-> multi`, or `preview <-> multi`. A multi-to-single change that would discard multiple choices requires another press, without a timeout.
+Saved runtime changes affect an open form, except `presentSingleAsMulti`, which applies when a form is created. For a live question-type change, use `main.changeQuestionType` (`t` by default). It toggles `single <-> multi`. A multi-to-single change that would discard multiple choices requires another press, without a timeout.
 
 ## Question mode
 
@@ -93,7 +94,7 @@ Normal mode is the default. Run `/ask-mode` to choose a scope and mode, or use:
 /ask-mode project inherit
 ```
 
-Background-only mode removes the `background` parameter from `ask_user` and makes every valid call queue a form. It also hides and disables `wait_for_answers`. The agent continues independent work, then ends its turn; an answer wakes it asynchronously. A queued receipt is not an answer or approval. Without a TUI queue, calls keep the cancelled non-interactive result and never open a synchronous external form.
+Background-only mode removes the `background` parameter from `ask_user` and makes every valid call queue a form. It also hides and disables `wait_for_answers`. An answer arrives asynchronously and wakes an idle agent. A queued receipt is not an answer or approval. Without a TUI queue, calls keep the cancelled non-interactive result and never open a synchronous external form.
 
 The global file stores `behaviour.backgroundOnly` (default `false`). A trusted project's `.pi/extensions/pi-agent-ask.json` can override just this setting:
 
@@ -108,6 +109,12 @@ A project value of `false` overrides a global `true`. Omit the field, or use `pr
 Before the first model request in the current running session, a mode change needs no cache warning. After that request, any change to the effective mode asks for confirmation: changing tool definitions can invalidate prompt-cache reuse. Declining keeps both the saved setting and the tool interface unchanged. Updating a global default hidden by a project override does not change tools or require this confirmation. Mode changes preserve queued forms and answers; enabling background-only also interrupts an existing explicit wait without cancelling its questions.
 
 `/ask-settings` and its reset action manage form settings, not the question mode. Use `/ask-mode` to change the mode. Manual config edits take effect after reload or restart.
+
+## History tools
+
+Set `behaviour.historyTools` to `true` in the global config file, then run `/reload` or restart Pi to expose `list_ask_history`, `read_ask_history`, and `export_ask_history`. The default is `false`. Set it back to `false` and reload to remove these tools.
+
+Question and answer recording stays enabled in either case. This setting has no project override and is not a live `/ask-settings` toggle.
 
 ## Keymaps
 

@@ -154,6 +154,28 @@ test("config store preserves the background-only opt-in across saves and reloads
 		await rm(dirname(path), { force: true, recursive: true });
 	}
 });
+test("config store preserves the history-tool opt-in through unrelated settings changes and reloads", async () => {
+	const path = await makeTempPath("pi-ask-config-history-tools-");
+	try {
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({ schemaVersion: 5, behaviour: { historyTools: true } })
+		);
+		const store = new AskConfigStore(path);
+		const config = await store.getConfig();
+		assert.equal(config.behaviour.historyTools, true);
+		await store.save({
+			...config,
+			notifications: { ...config.notifications, enabled: false },
+		});
+		const reloaded = await new AskConfigStore(path).getConfig();
+		assert.equal(reloaded.behaviour.historyTools, true);
+		assert.equal(reloaded.notifications.enabled, false);
+	} finally {
+		await rm(dirname(path), { force: true, recursive: true });
+	}
+});
 test("config store reports friendly save failures", async () => {
 	const path = await makeTempPath("pi-ask-config-save-failure-");
 	await mkdir(path, { recursive: true });

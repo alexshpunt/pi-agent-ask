@@ -22,13 +22,12 @@ const state = createInitialState({
 		{
 			id: "scope",
 			prompt: "Which **scope**?",
-			type: "preview",
+			context: "Original context\nSecond line",
 			options: [
 				{
 					value: "small",
 					label: "Small",
 					description: "Keep it small",
-					preview: "Original preview\nSecond line",
 				},
 			],
 		},
@@ -36,9 +35,8 @@ const state = createInitialState({
 });
 const answer: AskResult = {
 	cancelled: false,
-	mode: "submit",
 	questions: [
-		{ id: "scope", label: "Q1", prompt: "Which **scope**?", type: "preview" },
+		{ id: "scope", label: "Q1", prompt: "Which **scope**?", type: "single" },
 	],
 	answers: {
 		scope: {
@@ -81,10 +79,7 @@ test("request keys do not collide when question and tool call IDs are repeated",
 		]
 	);
 	assert.deepEqual(records[0].answer, answer.answers.scope);
-	assert.equal(
-		records[0].question.options[0].preview,
-		"Original preview\nSecond line"
-	);
+	assert.equal(records[0].question.context, "Original context\nSecond line");
 	assert.equal(records[1].background, true);
 	assert.equal(records[0].question.label, "Q1");
 });
@@ -125,7 +120,7 @@ test("compaction and branch switches preserve only the selected history", () => 
 	assert.deepEqual(readAskHistory(SessionManager.inMemory().getBranch()), []);
 });
 
-test("notes, skipped questions, cancellation, clarification and errors are distinct", () => {
+test("notes, skipped questions, cancellation and errors are distinct", () => {
 	const { manager, pi } = journal();
 	const add = (result?: AskResult, error?: string) => {
 		const requestId = appendAskHistoryRequest(pi, "call", state, false);
@@ -140,36 +135,15 @@ test("notes, skipped questions, cancellation, clarification and errors are disti
 		},
 	});
 	add({ ...answer, cancelled: true, answers: {} });
-	add({
-		...answer,
-		mode: "elaborate",
-		elaboration: {
-			instruction: "Explain",
-			nextAction: "clarify",
-			items: [
-				{
-					target: { kind: "question" },
-					question: {
-						...answer.questions[0],
-						options: state.questions[0].options,
-					},
-					answered: true,
-					answer: answer.answers.scope,
-					note: "Why?",
-				},
-			],
-		},
-	});
 	add(undefined, "UI disconnected");
 	add();
 	const records = readAskHistory(manager.getBranch());
 	assert.deepEqual(
 		records.map((record) => record.status),
-		["skipped", "cancelled", "clarification", "error", "waiting"]
+		["skipped", "cancelled", "error", "waiting"]
 	);
 	assert.equal(records[0].answer?.note, "Not a decision");
-	assert.equal(records[2].elaboration?.[0].note, "Why?");
-	assert.equal(records[3].error, "UI disconnected");
+	assert.equal(records[2].error, "UI disconnected");
 	assert.throws(() => selectAskHistory(records, []), EMPTY_SELECTION_RE);
 });
 
@@ -252,7 +226,7 @@ test("selected Markdown export keeps exact text, fails closed and never overwrit
 			first,
 			"Which **scope**?",
 			"Keep it small",
-			"Original preview\nSecond line",
+			"Original context\nSecond line",
 			"Custom text",
 			"Keep this note",
 			"Option note",

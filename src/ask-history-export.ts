@@ -48,28 +48,16 @@ function renderRecord(record: HistoryRecord, index: number): string {
 	const { question } = record;
 	return [
 		`## Question ${index + 1}`,
-		`Status: ${record.status}\n\nMode: ${record.mode ?? "pending"}\n\nCreated: ${record.createdAt}\n\nBackground: ${record.background}`,
+		`Status: ${record.status}\n\nCreated: ${record.createdAt}\n\nBackground: ${record.background}`,
 		field("Request key", record.requestId),
 		field("Question key", record.questionId),
 		field("Form title", record.title),
 		field("Label", question.label),
 		field("Question", question.prompt),
+		field("Context", question.context),
 		`Type: ${question.type}\n\nPresented type: ${question.presentedType ?? question.type}`,
 		...question.options.map(renderOption),
 		...(record.answer ? renderAnswer(record.answer) : ["No committed answer."]),
-		...(record.elaboration ?? []).map((item) =>
-			[
-				`### Clarification (${item.target.kind})`,
-				...("selected" in item
-					? [
-							field("Noted option value", item.target.optionValue),
-							`Selected: ${item.selected}`,
-						]
-					: []),
-				field("Clarification note", item.note),
-				...renderImages("Clarification note", item.images),
-			].join("\n\n")
-		),
 		field("Error", record.error),
 	]
 		.filter(Boolean)
@@ -81,7 +69,6 @@ function renderOption(option: AskOption, index: number): string {
 		field("Value", option.value),
 		field("Label", option.label),
 		field("Description", option.description),
-		field("Preview", option.preview),
 		...(option.recommended === undefined
 			? []
 			: [`Recommended: ${option.recommended}`]),

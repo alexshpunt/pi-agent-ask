@@ -9,11 +9,17 @@ import {
 	enterOptionNoteMode,
 	enterQuestionNoteMode,
 	moveOption,
-	moveTab,
 	saveNote,
 	submitCustomAnswer,
 	toggleCurrentMultiOption,
 } from "../src/state/transitions.ts";
+
+/** The note must be on one line that also names its option. */
+function assertNoteLine(text: string, optionValue: string, note: string) {
+	const line = text.split("\n").find((candidate) => candidate.includes(note));
+	assert.ok(line, `missing note "${note}" in:\n${text}`);
+	assert.ok(line.includes(optionValue), `note is not attributed: ${line}`);
+}
 
 test("summarizeResult formats selected answers", () => {
 	let state = createInitialState({
@@ -75,7 +81,6 @@ test("submitted results surface unanswered questions without serializing answers
 test("submitted results surface every question when all are unanswered", () => {
 	const result = {
 		cancelled: false,
-		mode: "submit" as const,
 		questions: [
 			{
 				id: "scope",
@@ -147,7 +152,6 @@ test("single questions presented as multi preserve requested type in results", (
 test("presentation override summary uses one compact note", () => {
 	const result = {
 		cancelled: false,
-		mode: "submit" as const,
 		questions: [
 			{
 				id: "apiStyle",
@@ -164,9 +168,9 @@ test("presentation override summary uses one compact note", () => {
 			},
 			{
 				id: "layout",
-				label: "Preview",
-				prompt: "Choose a layout with preview content.",
-				type: "preview" as const,
+				label: "Layout",
+				prompt: "Choose a layout.",
+				type: "single" as const,
 				presentedType: "multi" as const,
 			},
 		],
@@ -194,7 +198,7 @@ test("presentation override summary uses one compact note", () => {
 		[
 			"Single Select: REST, GraphQL",
 			"Multi Select: README, Contract, Architecture",
-			"Preview: Compact, Detailed",
+			"Layout: Compact, Detailed",
 			"Note: Some questions were presented as multi-select by user preference.",
 		].join("\n")
 	);
@@ -296,7 +300,7 @@ test("summaries and result text include question and selected option notes", () 
 	);
 });
 
-test("unselected option notes are omitted from the submitted result", () => {
+test("submitted results keep notes on options the user did not select", () => {
 	let state = createInitialState({
 		questions: [
 			{
@@ -316,15 +320,19 @@ test("unselected option notes are omitted from the submitted result", () => {
 	state = applyNumberShortcut(state, 2);
 	const result = toAskResult(state);
 
-	assert.equal(result.answers.framework.optionNotes, undefined);
-	assert.equal(renderResultText(result), "✓ Framework: Vue");
+	assert.deepEqual(result.answers.framework.values, ["vue"]);
+	assert.deepEqual(result.answers.framework.optionNotes, {
+		react: "Only for legacy projects",
+	});
+	for (const text of [summarizeResult(result), renderResultText(result)]) {
+		assertNoteLine(text, "react", "Only for legacy projects");
+	}
 });
 
 test("question-note-only results still render note content", () => {
 	const result = {
 		title: "Interview",
 		cancelled: false,
-		mode: "submit" as const,
 		questions: [
 			{
 				id: "scope",
@@ -353,7 +361,7 @@ test("question-note-only results still render note content", () => {
 	);
 });
 
-test("elaborate results include unselected notes in summary and render output", () => {
+test("notes submitted without an answer still reach the agent", () => {
 	let state = createInitialState({
 		questions: [
 			{
@@ -372,303 +380,26 @@ test("elaborate results include unselected notes in summary and render output", 
 	state = saveNote(state, "Need SSR support");
 	state = enterOptionNoteMode(state, "framework", "react");
 	state = saveNote(state, "Legacy codebase");
-	state = { ...state, mode: "elaborate" };
 	const result = toAskResult(state);
 
-	assert.equal(result.mode, "elaborate");
-	assert.deepEqual(result.answers, {});
-	assert.deepEqual(result.continuation, {
-		affectedQuestionIds: ["framework"],
-		preservedAnswers: {},
-		questionStates: {
-			framework: { status: "needs_clarification" },
-		},
-		strategy: "refine_only",
-	});
-	assert.deepEqual(result.elaboration, {
-		instruction:
-			"First answer the user's noted clarification directly and concisely using the provided question and option context. Do not treat these notes as final answers. Then re-ask only the affected questions if a choice is still needed afterward. Do not jump straight to a follow-up question unless the note is already resolved.",
-		nextAction: "clarify_then_reask",
-		items: [
-			{
-				target: { kind: "question" },
-				question: {
-					id: "framework",
-					label: "Framework",
-					prompt: "Pick a framework",
-					type: "single",
-					options: [
-						{ value: "react", label: "React" },
-						{ value: "vue", label: "Vue" },
-					],
-				},
-				answered: false,
-				answer: undefined,
-				note: "Need SSR support",
-			},
-			{
-				target: {
-					kind: "option",
-					optionValue: "react",
-				},
-				question: {
-					id: "framework",
-					label: "Framework",
-					prompt: "Pick a framework",
-					type: "single",
-					options: [
-						{ value: "react", label: "React" },
-						{ value: "vue", label: "Vue" },
-					],
-				},
-				option: { value: "react", label: "React" },
-				selected: false,
-				answered: false,
-				answer: undefined,
-				note: "Legacy codebase",
-			},
-		],
-	});
-	assert.equal(
-		summarizeResult(result),
-		[
-			'User asked to elaborate on question "Pick a framework" with note "Need SSR support"',
-			'User asked to elaborate on question "Pick a framework" option "React" with note "Legacy codebase"',
-		].join("\n")
-	);
-	assert.equal(
-		renderResultText(result),
-		[
-			'User asked to elaborate on question "Pick a framework" with note "Need SSR support"',
-			'User asked to elaborate on question "Pick a framework" option "React" with note "Legacy codebase"',
-		].join("\n")
-	);
-});
-
-test("elaborate results keep committed answers alongside elaboration context", () => {
-	let state = createInitialState({
-		questions: [
-			{
-				id: "framework",
-				label: "Framework",
-				prompt: "Pick a framework",
-				options: [
-					{ value: "react", label: "React" },
-					{ value: "vue", label: "Vue" },
-				],
-			},
-		],
-	});
-
-	state = applyNumberShortcut(state, 2);
-	state = enterQuestionNoteMode(state, "framework");
-	state = saveNote(state, "Compare tradeoffs");
-	state = { ...state, mode: "elaborate" };
-	const result = toAskResult(state);
-
-	assert.deepEqual(result.continuation, {
-		affectedQuestionIds: ["framework"],
-		preservedAnswers: {},
-		questionStates: {
-			framework: { status: "needs_clarification" },
-		},
-		strategy: "refine_only",
-	});
-	assert.deepEqual(result.answers, {
-		framework: {
-			values: ["vue"],
-			labels: ["Vue"],
-			indices: [2],
-			customText: undefined,
-			note: "Compare tradeoffs",
-			optionNotes: undefined,
-		},
-	});
-	assert.deepEqual(result.elaboration?.items[0], {
-		target: { kind: "question" },
-		question: {
-			id: "framework",
-			label: "Framework",
-			prompt: "Pick a framework",
-			type: "single",
-			options: [
-				{ value: "react", label: "React" },
-				{ value: "vue", label: "Vue" },
-			],
-		},
-		answered: true,
-		answer: {
-			values: ["vue"],
-			labels: ["Vue"],
-			indices: [2],
-			customText: undefined,
-			note: "Compare tradeoffs",
-			optionNotes: undefined,
-		},
-		note: "Compare tradeoffs",
-	});
-	assert.equal(
-		summarizeResult(result),
-		'User asked to elaborate on question "Pick a framework" after current answer "Vue" with note "Compare tradeoffs"'
-	);
-	assert.equal(
-		renderResultText(result),
-		'User asked to elaborate on question "Pick a framework" after current answer "Vue" with note "Compare tradeoffs"'
-	);
-});
-
-test("elaboration summary includes custom answers in note context", () => {
-	let state = createInitialState({
-		questions: [
-			{
-				id: "framework",
-				label: "Framework",
-				prompt: "Pick a framework",
-				options: [
-					{ value: "react", label: "React" },
-					{ value: "vue", label: "Vue" },
-				],
-			},
-		],
-	});
-
-	state = applyNumberShortcut(state, 3);
-	state = submitCustomAnswer(state, "SolidStart");
-	state = enterQuestionNoteMode(state, "framework");
-	state = saveNote(state, "Compare tradeoffs");
-	state = { ...state, mode: "elaborate" };
-	const result = toAskResult(state);
-
-	assert.equal(
-		summarizeResult(result),
-		'User asked to elaborate on question "Pick a framework" after current answer "SolidStart" with note "Compare tradeoffs"'
-	);
-	assert.equal(
-		renderResultText(result),
-		'User asked to elaborate on question "Pick a framework" after current answer "SolidStart" with note "Compare tradeoffs"'
-	);
-	assert.deepEqual(result.elaboration?.items[0]?.answer, {
-		values: ["SolidStart"],
-		labels: ["SolidStart"],
+	assert.deepEqual(result.answers.framework, {
+		values: [],
+		labels: [],
 		indices: [],
-		customText: "SolidStart",
-		note: "Compare tradeoffs",
-		optionNotes: undefined,
+		customText: undefined,
+		note: "Need SSR support",
+		optionNotes: { react: "Legacy codebase" },
 	});
-});
-
-test("elaboration summary includes answered custom text even without notes", () => {
-	let state = createInitialState({
-		questions: [
-			{
-				id: "demo_goal",
-				label: "Goal",
-				prompt: "What kind of ask_user showcase would you like?",
-				options: [
-					{ value: "simple-demo", label: "Simple demo" },
-					{ value: "code-example", label: "Code example" },
-				],
-			},
-		],
-	});
-
-	state = applyNumberShortcut(state, 3);
-	state = submitCustomAnswer(state, "teeeel meee whyyyyy");
-	state = { ...state, mode: "elaborate" };
-	const result = toAskResult(state);
-
-	assert.equal(
-		summarizeResult(result),
-		'User asked to elaborate on question "What kind of ask_user showcase would you like?" after current answer "teeeel meee whyyyyy"'
-	);
-	assert.equal(
-		renderResultText(result),
-		'User asked to elaborate on question "What kind of ask_user showcase would you like?" after current answer "teeeel meee whyyyyy"'
-	);
-	assert.deepEqual(result.elaboration?.items, []);
-});
-
-test("elaborate continuation preserves unrelated committed answers", () => {
-	let state = createInitialState({
-		questions: [
-			{
-				id: "goal",
-				label: "Goal",
-				prompt: "Pick goal",
-				options: [
-					{ value: "fast", label: "Fast" },
-					{ value: "safe", label: "Safe" },
-				],
-			},
-			{
-				id: "constraints",
-				label: "Constraints",
-				prompt: "Pick constraints",
-				type: "multi",
-				options: [
-					{ value: "small", label: "Small diff" },
-					{ value: "tests", label: "Add tests" },
-				],
-			},
-		],
-	});
-
-	state = enterQuestionNoteMode(state, "goal");
-	state = saveNote(state, "Explain tradeoff");
-	state = moveTab(state, 1);
-	state = applyNumberShortcut(state, 1);
-	state = applyNumberShortcut(state, 2);
-	state = { ...state, mode: "elaborate" };
-	const result = toAskResult(state);
-
-	assert.deepEqual(result.continuation, {
-		affectedQuestionIds: ["goal"],
-		preservedAnswers: {
-			constraints: {
-				values: ["small", "tests"],
-				labels: ["Small diff", "Add tests"],
-				indices: [1, 2],
-				customText: undefined,
-				note: undefined,
-				optionNotes: undefined,
-			},
-		},
-		questionStates: {
-			goal: { status: "needs_clarification" },
-			constraints: { status: "answered" },
-		},
-		strategy: "refine_only",
-	});
-});
-
-test("elaboration preserves recommendation metadata", () => {
-	let state = createInitialState({
-		questions: [
-			{
-				id: "framework",
-				label: "Framework",
-				prompt: "Pick a framework",
-				options: [{ value: "react", label: "React", recommended: true }],
-			},
-		],
-	});
-	state = enterOptionNoteMode(state, "framework", "react");
-	state = saveNote(state, "Explain this preference");
-	state = { ...state, mode: "elaborate" };
-
-	const item = toAskResult(state).elaboration?.items[0];
-	assert.equal(item?.question.options[0]?.recommended, true);
-	assert.equal(
-		item && "option" in item ? item.option.recommended : undefined,
-		true
-	);
+	for (const text of [summarizeResult(result), renderResultText(result)]) {
+		assert(text.includes("Need SSR support"));
+		assertNoteLine(text, "react", "Legacy codebase");
+	}
 });
 
 test("invalid tool payload result is attributed to the tool call", () => {
 	const result = {
 		title: "Interview",
 		cancelled: true,
-		mode: "submit" as const,
 		questions: [],
 		answers: {},
 		error: {
@@ -684,7 +415,6 @@ test("cancelled result hides unanswered questions", () => {
 	const result = {
 		title: "Interview",
 		cancelled: true,
-		mode: "submit" as const,
 		questions: [
 			{
 				id: "scope",

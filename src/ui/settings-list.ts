@@ -74,7 +74,7 @@ const SETTINGS = [
 	},
 	{
 		description:
-			"Require pressing 1, 2, or 3 twice on the review tab before triggering Submit, Elaborate, or Cancel.",
+			"Require pressing 1 or 2 twice on the review tab before triggering Submit or Cancel.",
 		key: "doublePressReviewShortcuts",
 		section: "Live settings",
 		label: "Double-press review shortcuts",

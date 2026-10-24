@@ -42,7 +42,6 @@ export function buildReviewScreenModel(
 	state: AskState,
 	width: number
 ): ReviewScreenModel {
-	const showAllNotes = state.activeSubmitActionIndex === 1;
 	const actionColumnWidth = getSubmitActionColumnWidth();
 	return {
 		actionColumnWidth,
@@ -56,7 +55,7 @@ export function buildReviewScreenModel(
 		questions: getResultQuestions(state).map((question) => ({
 			...toReviewQuestionModel(
 				question.label,
-				toReviewAnswer(question, state.answers[question.id], showAllNotes)
+				toReviewAnswer(question, state.answers[question.id])
 			),
 			skipped: state.skippedQuestions?.some(
 				(entry) => entry.question.id === question.id
@@ -95,7 +94,7 @@ export function toReviewQuestionModel(
 		answerText: shouldRenderAnswersIndividually(answer)
 			? undefined
 			: answerDisplayText(answer),
-		extraOptionNotes: answer.extraOptionNotes,
+		extraOptionNotes: answer.extraOptionNotes ?? unselectedOptionNotes(answer),
 		isCustomOnly: isCustomOnlyAnswer(answer),
 		label,
 		note: withImageMarker(answer.note, answer.noteImages) || answer.note,
@@ -104,6 +103,29 @@ export function toReviewQuestionModel(
 			: undefined,
 		unanswered: false,
 	};
+}
+
+/** Notes on options the user did not select, keyed by value when labels are unavailable. */
+function unselectedOptionNotes(
+	answer: ReviewAnswer
+): ReviewQuestionModel["extraOptionNotes"] {
+	const selected = new Set(answer.values);
+	const notes = [
+		...new Set([
+			...Object.keys(answer.optionNotes ?? {}),
+			...Object.keys(answer.optionNoteImages ?? {}),
+		]),
+	]
+		.filter((value) => !selected.has(value))
+		.map((value) => ({
+			label: value,
+			note: withImageMarker(
+				answer.optionNotes?.[value],
+				answer.optionNoteImages?.[value]
+			),
+		}))
+		.filter((entry) => entry.note);
+	return notes.length ? notes : undefined;
 }
 
 function getSubmitActionColumnWidth(): number {

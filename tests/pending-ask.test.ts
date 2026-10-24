@@ -167,7 +167,7 @@ test("pending ask scan prefers its valid persisted payload", () => {
 		])
 	);
 
-	assert.equal(pending?.params, persistedParams);
+	assert.deepEqual(pending?.params, persistedParams);
 });
 
 test("pending ask scan validates recorded arguments as payload fallback", () => {

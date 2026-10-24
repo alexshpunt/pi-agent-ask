@@ -1,3 +1,4 @@
+import { SUBMIT_CHOICES } from "../constants/text.ts";
 import type { AskAction, AskState } from "../types.ts";
 import {
 	emptyAnswer,
@@ -34,7 +35,7 @@ import {
 	submitView,
 } from "./view.ts";
 
-const SUBMIT_ACTION_COUNT = 3;
+const SUBMIT_ACTION_COUNT = SUBMIT_CHOICES.length;
 
 export function createInitialState(params: {
 	title?: string;
@@ -170,13 +171,10 @@ export function saveNote(state: AskState, rawValue: string): AskState {
 }
 
 function completeSubmitAction(state: AskState): AskState {
-	if (state.activeSubmitActionIndex === 2) {
+	if (state.activeSubmitActionIndex === 1) {
 		return { ...state, cancelled: true, completed: true };
 	}
-	if (state.activeSubmitActionIndex === 1) {
-		return { ...state, mode: "elaborate", completed: true };
-	}
-	return { ...state, mode: "submit", completed: true };
+	return { ...state, completed: true };
 }
 
 function activateCurrentOption(

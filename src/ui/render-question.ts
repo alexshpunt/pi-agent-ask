@@ -12,14 +12,10 @@ import {
 	mergeColumns,
 	pushSavedNote,
 	pushWrappedText,
+	renderContextPane,
 	renderEditorBlock,
-	renderPreviewPaneContent,
 } from "./render-helpers.ts";
-import type {
-	AskMouseTarget,
-	QuestionRenderContext,
-	Theme,
-} from "./render-types.ts";
+import type { QuestionRenderContext, Theme } from "./render-types.ts";
 import {
 	buildQuestionScreenModel,
 	type OptionDetailModel,
@@ -33,8 +29,8 @@ export function renderQuestionScreen(context: QuestionRenderContext) {
 	pushWrappedText(lines, question.prompt, width, theme, "text", " ", " ");
 	renderQuestionNote(lines, model.questionNote, context);
 
-	if (model.mode === "preview") {
-		renderPreviewQuestion(context, model);
+	if (model.mode === "context") {
+		renderContextQuestion(context, model);
 		return;
 	}
 
@@ -109,21 +105,24 @@ function renderStandardOption(
 	renderOptionDetail(lines, row.detail, context);
 }
 
-function renderPreviewQuestion(
+function renderContextQuestion(
 	context: QuestionRenderContext,
 	model: ReturnType<typeof buildQuestionScreenModel>
 ) {
-	if (model.mode !== "preview") {
+	if (!(model.mode === "context" && model.context)) {
 		return;
 	}
 	const { lines, width, theme } = context;
-	const wide = model.previewLayout === "wide";
-	const leftWidth = wide ? measurePreviewLeftWidth(model.rows, width) : width;
-	const optionLines = renderPreviewOptionList(
+	const wide = model.contextLayout === "wide";
+	const leftWidth = wide
+		? measurePreviewLeftWidth(
+				model.rows.map((row) => ({ ...row, label: row.prefix + row.label })),
+				width
+			)
+		: width;
+	const optionLines = renderContextOptionList(
 		model.rows,
-		theme,
-		leftWidth,
-		context.targets,
+		{ ...context, width: leftWidth },
 		lines.length
 	);
 	if (wide) {
@@ -134,36 +133,33 @@ function renderPreviewQuestion(
 		lines.push(
 			...mergeColumns(
 				optionLines,
-				renderPreviewPaneContent(model.selectedOption, theme, rightWidth),
+				renderContextPane(model.context, theme, rightWidth),
 				leftWidth,
 				width
 			)
 		);
 	} else {
 		lines.push(...optionLines);
-		if (model.previewLayout !== "custom") {
-			lines.push(
-				"",
-				...renderPreviewPaneContent(model.selectedOption, theme, width)
-			);
+		if (model.contextLayout !== "custom") {
+			lines.push("", ...renderContextPane(model.context, theme, width));
 		}
 	}
 	renderOptionDetail(lines, model.selectedOptionDetail, context);
 }
 
-function renderPreviewOptionList(
+/** Render options in the context layout, with saved notes and custom text under their rows. */
+function renderContextOptionList(
 	rows: OptionRowModel[],
-	theme: Theme,
-	width: number,
-	targets?: AskMouseTarget[],
-	rowOffset = 0
+	context: QuestionRenderContext,
+	rowOffset: number
 ): string[] {
+	const { theme, width, targets } = context;
 	const lines: string[] = [];
 	for (const row of rows) {
 		const y = lines.length;
 		pushWrappedText(
 			lines,
-			`${row.index + 1}. ${row.label}`,
+			formatOptionLabel(row),
 			width,
 			theme,
 			row.color,
@@ -179,6 +175,7 @@ function renderPreviewOptionList(
 			width,
 			height: lines.length - y,
 		});
+		renderOptionDetail(lines, row.detail, context);
 	}
 	return lines;
 }

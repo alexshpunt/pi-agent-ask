@@ -1,3 +1,21 @@
+# [2.0.0](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.11...v2.0.0) (2026-10-24)
+
+### Breaking changes
+
+- Replace option `preview`, option `previewFile` and the `preview` question type with one optional question `context`: text, or the absolute path of a UTF-8 text file whose contents are shown. Older calls and saved forms convert to `context` on load.
+- Remove the Elaborate action and the `mode`, `elaboration` and `continuation` result fields. Review offers Submit and Cancel; external UIs no longer send `mode`.
+- Return compact answers as `structuredContent`: values, labels, custom text, notes and images per question, plus cancellation, skipped questions and errors. Full results stay in `details`.
+- Remove the bundled `ask-user` skill and all system-prompt guidance. Tool descriptions say when each tool applies; calling details live in schema fields; situational guidance appears in results.
+- Disable the history tools by default. Enable them with `behaviour.historyTools`; recording stays on.
+- Remove the question `required` flag, which had no effect. Older payloads with it still validate.
+
+### Changes
+
+- Deliver notes and images on unselected options with submitted answers.
+- Show saved option notes and custom text on every row of a question with context.
+- Mark the session blocked in Herdr while a background question panel is visible, and clear the mark when the panel is hidden.
+- Explain in the README why to use the extension.
+
 # [1.2.11](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.10...v1.2.11) (2026-10-23)
 
 - Focus each newly shown question panel automatically, including queued and recovered forms, while preserving the ordinary input draft.

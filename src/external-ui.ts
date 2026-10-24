@@ -16,7 +16,7 @@ import type { AskQuestion, AskResult, AskState } from "./types.ts";
 /** Synchronous, per-call negotiation with a trusted extension in this Pi process. */
 export const PI_ASK_EXTERNAL_UI_EVENT = "pi-agent-ask:external-ui";
 
-/** A normalized foreground form. File previews have been loaded; paths are omitted. */
+/** A normalized foreground form. File contexts have been loaded as text. */
 export interface ExternalAskRequest {
 	flowId: string;
 	questions: AskQuestion[];
@@ -99,9 +99,7 @@ function externalRequest(
 		title: input.state.title,
 		questions: input.state.questions.map((question) => ({
 			...question,
-			options: question.options.map(
-				({ previewFile: _path, ...option }) => option
-			),
+			options: question.options.map((option) => ({ ...option })),
 		})),
 		signal,
 	};

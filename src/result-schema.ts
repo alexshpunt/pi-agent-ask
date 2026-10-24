@@ -1,6 +1,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
-import { Type } from "typebox";
-import { AskOptionSchema, AskQuestionSchema } from "./schema.ts";
+import { type Static, Type } from "typebox";
+import { AskQuestionSchema } from "./schema.ts";
+import type { AskResult } from "./types.ts";
 
 export const AskImageSchema = Type.Object({
 	id: Type.String(),
@@ -30,29 +31,15 @@ const QuestionSummarySchema = Type.Object({
 	id: Type.String(),
 	label: Type.String(),
 	prompt: Type.String(),
-	type: StringEnum(["single", "multi", "preview"] as const),
+	type: StringEnum(["single", "multi"] as const),
 	presentedType: AskQuestionSchema.properties.type,
 });
 
-const ElaborationQuestionSchema = Type.Object({
-	...QuestionSummarySchema.properties,
-	options: Type.Array(AskOptionSchema),
-});
-
-const ElaborationContext = {
-	images: Type.Optional(Type.Array(AskImageSchema)),
-	question: ElaborationQuestionSchema,
-	answered: Type.Boolean(),
-	answer: Type.Optional(AnswerSchema),
-	note: Type.String(),
-};
-
-/** Structured ask result returned to Codemode; matches the tool's result details. */
+/** Full ask result kept in tool details, history, and background answers. */
 export const AskResultSchema = Type.Object({
 	requestId: Type.Optional(Type.String()),
 	title: Type.Optional(Type.String()),
 	cancelled: Type.Boolean(),
-	mode: StringEnum(["submit", "elaborate"] as const),
 	questions: Type.Array(QuestionSummarySchema),
 	skippedQuestionIds: Type.Optional(Type.Array(Type.String())),
 	answers: Type.Record(Type.String(), AnswerSchema),
@@ -64,45 +51,67 @@ export const AskResultSchema = Type.Object({
 			),
 		})
 	),
-	continuation: Type.Optional(
-		Type.Object({
-			strategy: StringEnum(["refine_only", "resume"] as const),
-			affectedQuestionIds: Type.Array(Type.String()),
-			preservedAnswers: Type.Record(Type.String(), AnswerSchema),
-			questionStates: Type.Record(
-				Type.String(),
-				Type.Object({
-					status: StringEnum([
-						"answered",
-						"needs_clarification",
-						"unanswered",
-						"skipped",
-					] as const),
-				})
-			),
-		})
+});
+
+const OutputAnswerSchema = Type.Object({
+	values: Type.Array(Type.String()),
+	labels: Type.Array(Type.String()),
+	customText: Type.Optional(Type.String()),
+	note: Type.Optional(Type.String()),
+	optionNotes: Type.Optional(Type.Record(Type.String(), Type.String())),
+	images: Type.Optional(
+		Type.Array(Type.Object({ mimeType: Type.String(), data: Type.String() }))
 	),
-	elaboration: Type.Optional(
+});
+
+/** Compact answers returned to programmatic callers such as Codemode scripts. */
+export const AskOutputSchema = Type.Object({
+	requestId: Type.Optional(Type.String()),
+	cancelled: Type.Boolean(),
+	answers: Type.Record(Type.String(), OutputAnswerSchema),
+	skippedQuestionIds: Type.Optional(Type.Array(Type.String())),
+	error: Type.Optional(
 		Type.Object({
-			instruction: Type.String(),
-			nextAction: StringEnum(["clarify", "clarify_then_reask"] as const),
-			items: Type.Array(
-				Type.Union([
-					Type.Object({
-						...ElaborationContext,
-						target: Type.Object({ kind: Type.Literal("question") }),
-					}),
-					Type.Object({
-						...ElaborationContext,
-						target: Type.Object({
-							kind: Type.Literal("option"),
-							optionValue: Type.String(),
-						}),
-						option: AskOptionSchema,
-						selected: Type.Boolean(),
-					}),
-				])
+			issues: Type.Array(
+				Type.Object({ path: Type.String(), message: Type.String() })
 			),
 		})
 	),
 });
+
+export type AskOutput = Static<typeof AskOutputSchema>;
+
+/** Project a full result onto the compact output contract. */
+export function toAskOutput(result: AskResult): AskOutput {
+	const answers = Object.fromEntries(
+		Object.entries(result.answers).map(([questionId, answer]) => {
+			const images = [
+				...(answer.customImages ?? []),
+				...(answer.noteImages ?? []),
+				...Object.values(answer.optionNoteImages ?? {}).flat(),
+			].map(({ mimeType, data }) => ({ mimeType, data }));
+			return [
+				questionId,
+				{
+					values: answer.values,
+					labels: answer.labels,
+					...(answer.customText === undefined
+						? {}
+						: { customText: answer.customText }),
+					...(answer.note === undefined ? {} : { note: answer.note }),
+					...(answer.optionNotes ? { optionNotes: answer.optionNotes } : {}),
+					...(images.length ? { images } : {}),
+				},
+			];
+		})
+	);
+	return {
+		...(result.requestId ? { requestId: result.requestId } : {}),
+		cancelled: result.cancelled,
+		answers,
+		...(result.skippedQuestionIds?.length
+			? { skippedQuestionIds: result.skippedQuestionIds }
+			: {}),
+		...(result.error ? { error: { issues: result.error.issues } } : {}),
+	};
+}

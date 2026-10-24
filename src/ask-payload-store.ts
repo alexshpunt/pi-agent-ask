@@ -5,6 +5,7 @@ import type {
 import { Value } from "typebox/value";
 import { validateParams } from "./ask-tool-helpers.ts";
 import { AskParamsSchema } from "./schema.ts";
+import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams } from "./types.ts";
 
 export const ASK_PAYLOAD_ENTRY_TYPE = "ask:payload";
@@ -44,8 +45,9 @@ export function findPayloadForSourceEntry(
 		if (data?.source !== source || data.sourceEntryId !== sourceEntryId) {
 			continue;
 		}
-		if (isValidAskPayloadData(data)) {
-			return data;
+		const migrated = { ...data, params: prepareAskParams(data.params) };
+		if (isValidAskPayloadData(migrated)) {
+			return migrated;
 		}
 	}
 	return;

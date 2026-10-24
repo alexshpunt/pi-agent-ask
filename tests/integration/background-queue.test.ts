@@ -3,7 +3,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
 	assistantMessage,
-	getProviderSystemPrompt,
 	getToolExecution,
 	getToolExecutionDetails,
 	getToolResultText,
@@ -57,14 +56,16 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 		assert.equal(getToolExecution(result, id).isError, false);
 	}
 	assert(getToolResultText(result, "first-form").includes("Queued ask_user"));
-	assert.deepEqual(
-		getToolExecutionDetails(getToolExecution(result, "research")),
-		{
-			activeForms: 1,
-			blocked: [],
-			readSucceeded: true,
-		}
-	);
+	const research = getToolExecutionDetails(
+		getToolExecution(result, "research")
+	) as {
+		activeForms: number;
+		blocked: Array<{ active: boolean }>;
+		readSucceeded: boolean;
+	};
+	assert.equal(research.activeForms, 1);
+	assert.equal(research.readSucceeded, true);
+	assert.equal(research.blocked.at(-1)?.active, true);
 	const wait = getToolExecutionDetails(getToolExecution(result, "wait")) as {
 		results: Array<{ requestId: string }>;
 	};
@@ -89,8 +90,6 @@ test("real Pi keeps researching, delivers the first answer, and waits for the se
 		stats.blocked.map((event) => event.active),
 		[true, false]
 	);
-	assert(getProviderSystemPrompt(result).includes("background: true"));
-	assert(getProviderSystemPrompt(result).includes("Never guess answers"));
 	assert(JSON.stringify(result.providerRequests).includes("Q1 [first]: Yes"));
 	assert(
 		JSON.stringify(result.providerRequests).includes(

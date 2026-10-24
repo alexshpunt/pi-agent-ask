@@ -9,9 +9,13 @@ export default function toolSurfaceDriver(pi: ExtensionAPI): void {
 		description: "Read the real registered ask commands and tools.",
 		parameters: Type.Object({}),
 		execute() {
+			const tools = pi.getAllTools();
 			const details = {
 				commands: pi.getCommands().map((command) => command.name),
-				tools: pi.getAllTools().map((tool) => tool.name),
+				tools: tools.map((tool) => tool.name),
+				toolGuidelines: Object.fromEntries(
+					tools.map((tool) => [tool.name, tool.promptGuidelines ?? []])
+				),
 			};
 			return Promise.resolve({
 				content: [{ type: "text", text: JSON.stringify(details) }],

@@ -5,8 +5,6 @@ import { cycleCurrentQuestionType } from "../src/state/question-type.ts";
 
 const DUPLICATE_QUESTION_ID_RE = /duplicate question id "scope"/;
 const DUPLICATE_OPTION_VALUE_RE = /duplicate option value "small"/;
-const PREVIEW_REQUIRED_RE =
-	/preview questions require preview text for every option/;
 
 import { toAskResult } from "../src/state/result.ts";
 import { getRenderableOptions } from "../src/state/selectors.ts";
@@ -66,7 +64,6 @@ test("normalize defaults via initial state", () => {
 
 	assert.equal(state.questions[0].label, "Q1");
 	assert.equal(state.questions[0].type, "single");
-	assert.equal(state.questions[0].required, false);
 	assert.equal(
 		getRenderableOptions(state.questions[0]).at(-1)?.label,
 		"Type your own"
@@ -77,21 +74,21 @@ test("normalize defaults via initial state", () => {
 	);
 });
 
-test("preview questions keep their type and option previews", () => {
+test("questions keep their context and still offer a custom answer", () => {
 	const state = createInitialState({
 		questions: [
 			{
-				id: "preview",
-				label: "Preview",
+				id: "layout",
+				label: "Layout",
 				prompt: "What layout?",
-				type: "preview",
-				options: [{ value: "a", label: "Option A", preview: "Example" }],
+				context: "Example layout",
+				options: [{ value: "a", label: "Option A" }],
 			},
 		],
 	});
 
-	assert.equal(state.questions[0].type, "preview");
-	assert.equal(state.questions[0].options[0].preview, "Example");
+	assert.equal(state.questions[0].type, "single");
+	assert.equal(state.questions[0].context, "Example layout");
 	assert.equal(
 		getRenderableOptions(state.questions[0]).at(-1)?.isCustomOption,
 		true
@@ -143,23 +140,6 @@ test("createInitialState rejects duplicate option values within one question", (
 	);
 });
 
-test("preview questions require preview text for every option", () => {
-	assert.throws(
-		() =>
-			createInitialState({
-				questions: [
-					{
-						id: "layout",
-						prompt: "Pick layout",
-						type: "preview",
-						options: [{ value: "compact", label: "Compact" }],
-					},
-				],
-			}),
-		PREVIEW_REQUIRED_RE
-	);
-});
-
 test("normalize trims ids, prompts, and option text", () => {
 	const state = createInitialState({
 		questions: [
@@ -185,7 +165,6 @@ test("normalize trims ids, prompts, and option text", () => {
 		value: "small",
 		label: "Small",
 		description: "Lowest risk",
-		preview: undefined,
 	});
 });
 
@@ -202,20 +181,20 @@ test("normalize treats blank optional presentation text as absent", () => {
 						value: "small",
 						label: "Small",
 						description: " ",
-						preview: "\t",
 					},
 				],
+				context: "\t",
 			},
 		],
 	});
 
 	assert.equal(state.title, undefined);
 	assert.equal(state.questions[0].label, "Q1");
+	assert.equal(state.questions[0].context, undefined);
 	assert.deepEqual(state.questions[0].options[0], {
 		value: "small",
 		label: "Small",
 		description: undefined,
-		preview: undefined,
 	});
 });
 
@@ -313,8 +292,8 @@ test("question type hotkey toggles single and multi while preserving requested t
 				id: "q1",
 				prompt: "Pick one",
 				options: [
-					{ value: "a", label: "A", preview: "Preview A" },
-					{ value: "b", label: "B", preview: "Preview B" },
+					{ value: "a", label: "A" },
+					{ value: "b", label: "B" },
 				],
 			},
 		],
@@ -330,35 +309,6 @@ test("question type hotkey toggles single and multi while preserving requested t
 	result = cycleCurrentQuestionType(state);
 	state = result.state;
 	assert.equal(state.questions[0].type, "single");
-	assert.equal(state.questions[0].presentedType, undefined);
-});
-
-test("question type hotkey toggles preview questions with multi only", () => {
-	let state = createInitialState({
-		questions: [
-			{
-				id: "q1",
-				prompt: "Pick one",
-				type: "preview",
-				options: [{ value: "a", label: "A", preview: "Preview A" }],
-			},
-		],
-	});
-
-	let result = cycleCurrentQuestionType(state);
-	state = result.state;
-
-	assert.equal(result.needsConfirmation, false);
-	assert.equal(state.questions[0].type, "multi");
-	assert.equal(state.questions[0].requestedType, "preview");
-	assert.equal(state.questions[0].presentedType, "multi");
-
-	result = cycleCurrentQuestionType(state);
-	state = result.state;
-
-	assert.equal(result.needsConfirmation, false);
-	assert.equal(state.questions[0].type, "preview");
-	assert.equal(state.questions[0].requestedType, "preview");
 	assert.equal(state.questions[0].presentedType, undefined);
 });
 
@@ -428,19 +378,18 @@ test("submit can complete even when some questions are unanswered", () => {
 
 	assert.equal(state.completed, true);
 	assert.equal(state.cancelled, false);
-	assert.equal(state.mode, "submit");
 });
 
-test("submit tab can complete in elaborate mode", () => {
+test("the second review action cancels and the cursor stops there", () => {
 	let state = createInitialState(sampleParams());
 	state = moveTab(state, -1);
+	state = moveOption(state, 1);
 	state = moveOption(state, 1);
 	assert.equal(state.activeSubmitActionIndex, 1);
 	state = confirmCurrentSelection(state);
 
 	assert.equal(state.completed, true);
-	assert.equal(state.cancelled, false);
-	assert.equal(state.mode, "elaborate");
+	assert.equal(state.cancelled, true);
 });
 
 test("selecting other enters input mode and custom submit stores typed answer", () => {
@@ -591,7 +540,7 @@ test("question note can be saved without selecting an answer and is submitted", 
 	});
 });
 
-test("option notes can exist before selection but only selected option notes are submitted", () => {
+test("option notes can exist before selection and are submitted either way", () => {
 	let state = createInitialState({
 		questions: [
 			{
@@ -609,7 +558,14 @@ test("option notes can exist before selection but only selected option notes are
 	state = enterOptionNoteMode(state, "q1", "vue");
 	state = saveNote(state, "maybe later");
 	assert.equal(state.answers.q1.optionNotes?.vue, "maybe later");
-	assert.equal(toAskResult(state).answers.q1, undefined);
+	assert.deepEqual(toAskResult(state).answers.q1, {
+		values: [],
+		labels: [],
+		indices: [],
+		customText: undefined,
+		note: undefined,
+		optionNotes: { vue: "maybe later" },
+	});
 
 	state = toggleCurrentMultiOption(state);
 	assert.deepEqual(
@@ -627,7 +583,7 @@ test("option notes can exist before selection but only selected option notes are
 	});
 });
 
-test("deselecting an option keeps its note in state but omits it from submission", () => {
+test("deselecting an option keeps its note in state and in the submission", () => {
 	let state = createInitialState({
 		questions: [
 			{
@@ -649,7 +605,14 @@ test("deselecting an option keeps its note in state but omits it from submission
 	state = toggleCurrentMultiOption(state);
 
 	assert.equal(state.answers.q1.optionNotes?.vue, "migration risk");
-	assert.equal(toAskResult(state).answers.q1, undefined);
+	assert.deepEqual(toAskResult(state).answers.q1, {
+		values: [],
+		labels: [],
+		indices: [],
+		customText: undefined,
+		note: undefined,
+		optionNotes: { vue: "migration risk" },
+	});
 
 	state = toggleCurrentMultiOption(state);
 	assert.deepEqual(toAskResult(state).answers.q1, {
@@ -727,16 +690,16 @@ test("multi-select keeps custom text when toggling additional options", () => {
 	);
 });
 
-test("preview questions can store selected option notes for submission", () => {
+test("questions with context can store selected option notes for submission", () => {
 	let state = createInitialState({
 		questions: [
 			{
 				id: "preview",
 				prompt: "Pick layout",
-				type: "preview",
+				context: "Compact fits more rows; spacious is easier to scan.",
 				options: [
-					{ value: "compact", label: "Compact", preview: "A" },
-					{ value: "spacious", label: "Spacious", preview: "B" },
+					{ value: "compact", label: "Compact" },
+					{ value: "spacious", label: "Spacious" },
 				],
 			},
 		],
@@ -758,14 +721,14 @@ test("preview questions can store selected option notes for submission", () => {
 	});
 });
 
-test("preview questions support custom answers", () => {
+test("questions with context support custom answers", () => {
 	let state = createInitialState({
 		questions: [
 			{
 				id: "preview",
 				prompt: "Pick layout",
-				type: "preview",
-				options: [{ value: "compact", label: "Compact", preview: "A" }],
+				context: "Compact fits more rows.",
+				options: [{ value: "compact", label: "Compact" }],
 			},
 		],
 	});
@@ -818,19 +781,12 @@ test("submit tab number shortcuts trigger matching review actions", () => {
 	const submitted = applyNumberShortcut(state, 1);
 	assert.equal(submitted.completed, true);
 	assert.equal(submitted.cancelled, false);
-	assert.equal(submitted.mode, "submit");
 
-	const elaborated = applyNumberShortcut(state, 2);
-	assert.equal(elaborated.completed, true);
-	assert.equal(elaborated.cancelled, false);
-	assert.equal(elaborated.mode, "elaborate");
-
-	const cancelled = applyNumberShortcut(state, 3);
+	const cancelled = applyNumberShortcut(state, 2);
 	assert.equal(cancelled.completed, true);
 	assert.equal(cancelled.cancelled, true);
-	assert.equal(cancelled.mode, "submit");
 
-	const ignored = applyNumberShortcut(state, 4);
+	const ignored = applyNumberShortcut(state, 3);
 	assert.equal(ignored.completed, false);
 	assert.equal(ignored.cancelled, false);
 	assert.equal(ignored.activeSubmitActionIndex, 0);

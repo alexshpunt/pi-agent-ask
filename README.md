@@ -35,35 +35,40 @@ pi install git:github.com/alexshpunt/pi-agent-ask
 
 Remove any other pi-ask installation so only one extension provides `ask_user`, then reload Pi.
 
+## Why this one
+
+- The agent asks in the background and keeps working. You answer when you get to it.
+- The question panel isn't modal. It sits above your input, your message draft stays, and `Esc` puts the questions aside for later.
+- Answers arrive as you give them: between turns, or by waking an idle agent. When the agent has nothing else to do, it can call `wait_for_answers`. In Background-only mode it never waits at all.
+- It's lean on context: two short tool descriptions, a small schema and compact answers. The whole `ask_user` declaration is about 2,000 characters. The package adds no system-prompt rules or bundled skill, so when and how often to ask stays with your own instructions.
+- You answer with more than a click: pick options, write your own answer, leave notes on any option, paste screenshots.
+- A question can carry its context, as text or as the absolute path of a file. The form shows it beside the options, so you don't have to dig through the chat.
+
 ## Ask. Keep working. Get the answer.
 
-The agent calls `ask_user`. You get a form with choices, previews, your own answer, and notes. Not another wall of text to untangle.
+The agent calls `ask_user`. You get a form with choices, the context you need to answer, your own answer, and notes. Not another wall of text to untangle.
 
-With `background: true`, questions appear above your normal input and take keyboard focus when shown, including the next queued form or a recovered visible form. Your message draft stays intact, and the agent continues independent work. In fullscreen mode, clicking anywhere in an unfocused question panel only restores focus. Once focused, click a choice to answer or toggle it; click tabs and Review to navigate. A newly shown form is already focused, so its first click can select an answer. Review actions need two action clicks by default; a focus-only click does not count. Click your normal input to return to writing. `Alt+Q` also switches between answering and writing a message. Your answer arrives between turns, or wakes an idle agent.
+With `background: true`, the form appears above your normal input and takes keyboard focus. `Alt+Q` or a click switches between answering and writing a message. Your answer arrives between turns, or wakes an idle agent. Forms queue one at a time, in order.
 
-Press `Esc` in the question panel or run `/ask-defer` to put all questions aside. The queue and drafts stay saved; `/ask-queue` reopens them. New questions do not reopen a panel you've hidden. Press `D` on a question to skip just that question, not the whole form. In text editors, `D` is ordinary text.
+Press `Esc` in the question panel or run `/ask-defer` to put all questions aside. The queue and drafts stay saved; `/ask-queue` reopens them. Press `D` on a question to skip just that question. Cancelling a background form cancels that question, not the agent.
 
-If there's nothing else the agent can do, it calls `wait_for_answers`. Hiding the panel or sending a normal message releases that wait without cancelling the questions.
+The agent can call `wait_for_answers` to wait for your answers. Hiding the panel or sending a normal message releases that wait without cancelling the questions.
 
-Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into **Background-only**, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after its first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
+Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into Background-only, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after the first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
 
-Pending background questions alone do not mark a responsive agent as blocked in Herdr. Foreground questions and active `wait_for_answers` calls do. Cancelling a background form cancels that question, not the agent.
-
-It still has to wait before doing work that depends on your answer. “Keep working” doesn't mean “guess anyway.”
-
-The bundled [skill](skills/ask-user/SKILL.md) guides the agent to ask when a decision matters. It doesn't force every agent to behave.
+An open question panel marks the session as blocked in [Herdr](https://herdr.dev), so pending questions are visible outside the terminal. Hiding the panel clears that mark while keeping the queue.
 
 ## Paste a screenshot into your answer
 
 In **Type your own**, a question note, or an option note, use Pi's image-paste shortcut shown in the form. It is usually `Ctrl+V` on Linux/macOS and `Alt+V` on Windows/WSL. Paste several images if needed; `Ctrl+Alt+D` removes the last image in that editor.
 
-The form shows `[1 image]`, not a graphical preview. Text is optional. The agent receives the image itself, including in background answers and clarification requests. Images stay in session history; Markdown exports embed them as data URIs, which not every viewer can display.
+The form shows `[1 image]`, not a graphical preview. Text is optional. The agent receives the image itself, including in background answers. Images stay in session history; Markdown exports embed them as data URIs, which not every viewer can display.
 
 Linux needs a working native clipboard, `wl-paste`, or `xclip`. WSL can read screenshots from the Windows clipboard through PowerShell. File-path attachments and remote-client image uploads are not included.
 
 ## Your answers aren't disposable
 
-The agent can look up earlier questions and answers, then export them as a Markdown artifact for your task:
+Questions and answers are recorded automatically. To let the agent look them up and export them as Markdown, enable the opt-in [history tools](docs/configuration.md#history-tools):
 
 - `list_ask_history` finds past questions.
 - `read_ask_history` reads the question, choices, answer, and notes.
@@ -75,8 +80,8 @@ The journal survives **compaction, reload, and resume**. It follows the current 
 
 Use `/ask-settings`, or press `?` in a form. See [configuration](docs/configuration.md), [tool behavior](docs/contract.md), and [integration events](docs/remote-events.md).
 
-This fork of [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask) adds background questions, waiting, durable history/export, external UI support, and Herdr status. It drops chat question extraction and manual answer/replay commands. The agent asks directly; the form needs no extra model call.
+This fork of [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask) adds background questions, waiting, question context, durable history/export, external UI support, and Herdr status. It drops chat question extraction, manual answer/replay commands, and the Elaborate action. The agent asks directly; the form needs no extra model call.
 
-Herdr support includes [maudelv's work](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state); the skill was inspired by [edlsh/pi-ask-user](https://github.com/edlsh/pi-ask-user).
+Herdr support includes [maudelv's work](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state).
 
 Found a weird case? [Open an issue](https://github.com/alexshpunt/pi-agent-ask/issues). Got an idea? [Start a discussion](https://github.com/alexshpunt/pi-agent-ask/discussions). [Contributions](CONTRIBUTING.md) welcome. [MIT](LICENSE).

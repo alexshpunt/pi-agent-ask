@@ -3,66 +3,51 @@ import { Type } from "typebox";
 
 export const AskOptionSchema = Type.Object({
 	value: Type.String({
-		description:
-			"Required machine-readable value returned for this option in the result",
+		description: "Machine-readable value returned when this option is chosen",
 	}),
 	label: Type.String({
-		description: "Required short visible option label shown in the list",
+		description: "Option text, a few words",
 	}),
 	description: Type.Optional(
 		Type.String({
-			description: "Optional one-line explanation to help the user choose",
-		})
-	),
-	preview: Type.Optional(
-		Type.String({
-			description:
-				"Optional preview content shown in the dedicated preview pane for preview questions",
-		})
-	),
-	previewFile: Type.Optional(
-		Type.String({
-			description:
-				"Local UTF-8 text file to show in the preview pane instead of preview text. Absolute path or relative to Pi's working directory. Do not combine with preview.",
+			description: "One-line explanation of this option",
 		})
 	),
 	recommended: Type.Optional(
 		Type.Boolean({
-			description:
-				"Optional presentation marker for a grounded preference; use the description to explain the reason",
+			description: "Marks this option as your recommendation",
 		})
 	),
 });
 
 export const AskQuestionSchema = Type.Object({
 	id: Type.String({
-		description:
-			"Required stable question identifier used as the key in returned answers",
+		description: "Stable key for this question's answer in the result",
 	}),
 	label: Type.Optional(
 		Type.String({
-			description: "Short tab label, e.g. Goal, Audience, Tone, Scope",
+			description:
+				"Short name for the question, one or two words. Default: Q1, Q2, ...",
 		})
 	),
 	prompt: Type.String({
-		description:
-			"Required direct question shown to the user; ask about one decision at a time",
+		description: "The question to the user",
 	}),
-	type: Type.Optional(
-		StringEnum(["single", "multi", "preview"] as const, {
+	context: Type.Optional(
+		Type.String({
 			description:
-				"Question type: `single` means one answer is expected, `multi` means multiple answers could reasonably be selected, and `preview` means options need preview-pane detail. Use `preview` only when every option includes `preview` text or a local UTF-8 `previewFile` path; descriptions alone are not enough.",
+				"Material the user needs to answer: text, or the absolute path of a UTF-8 text file whose contents are shown instead.",
 		})
 	),
-	required: Type.Optional(
-		Type.Boolean({
+	type: Type.Optional(
+		StringEnum(["single", "multi"] as const, {
 			description:
-				"Advisory only; marks the question as important but never blocks submission",
+				"`single` (default) accepts one option. `multi` accepts several.",
 		})
 	),
 	options: Type.Array(AskOptionSchema, {
 		description:
-			"Answer options; provide clear, distinct choices and do not add filler options",
+			"Choices for this question. The user can always type their own answer instead.",
 	}),
 });
 
@@ -70,17 +55,16 @@ export const AskParamsSchema = Type.Object({
 	background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Queue this form and return a request ID immediately. Continue only independent work; receive the completed form between turns or call wait_for_answers when blocked on answers.",
+				"Set true when the answer is not urgent and you have other work to do meanwhile. The form is queued and a request ID returns immediately; answers arrive later as a background-answer message or from wait_for_answers. Omit it only when the question is important and needs the user's answer right away; the call then waits for the answer.",
 		})
 	),
 	title: Type.Optional(
 		Type.String({
-			description:
-				"Optional short title shown above the clarification flow, e.g. README direction",
+			description: "Short title for the whole set of questions",
 		})
 	),
 	questions: Type.Array(AskQuestionSchema, {
-		description: "Questions to ask in the interactive clarification flow",
+		description: "Questions to ask together",
 	}),
 });
 

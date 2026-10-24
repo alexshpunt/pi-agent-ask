@@ -48,23 +48,9 @@ export function cycleCurrentQuestionType(
 }
 
 function getNextQuestionType(question: {
-	requestedType?: AskQuestionType;
 	type: AskQuestionType;
 }): AskQuestionType {
-	const requestedType = question.requestedType ?? question.type;
-	if (requestedType === "preview") {
-		return question.type === "preview" ? "multi" : "preview";
-	}
-	switch (question.type) {
-		case "single":
-			return "multi";
-		case "multi":
-			return "single";
-		case "preview":
-			return "multi";
-		default:
-			return "multi";
-	}
+	return question.type === "multi" ? "single" : "multi";
 }
 
 function countCommittedAnswers(answer: AskStateAnswer | undefined): number {

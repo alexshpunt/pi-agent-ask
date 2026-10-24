@@ -9,9 +9,8 @@ import {
 } from "./ask-history.ts";
 import { appendAskPayload } from "./ask-payload-store.ts";
 import {
-	ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES,
+	ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION,
 	ASK_TOOL_DESCRIPTION,
-	ASK_TOOL_PROMPT_GUIDELINES,
 	invalidPayloadResponse,
 	nonInteractiveResponse,
 	renderAskToolCall,
@@ -22,10 +21,10 @@ import {
 import type { BackgroundAskRuntime } from "./background-ask.ts";
 import { AskQueuedSchema } from "./background-ask-state.ts";
 import { getAskConfigStore } from "./config/store.ts";
+import { resolveContextFiles } from "./context-files.ts";
 import { connectExternalAskUi, runExternalAskFlow } from "./external-ui.ts";
-import { resolvePreviewFiles } from "./preview-files.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
-import { AskResultSchema } from "./result-schema.ts";
+import { AskOutputSchema, toAskOutput } from "./result-schema.ts";
 import { AskBackgroundOnlyParamsSchema, AskParamsSchema } from "./schema.ts";
 import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams, AskState } from "./types.ts";
@@ -42,19 +41,14 @@ export function registerAskTool(
 		name: "ask_user",
 		label: "Ask User",
 		description: backgroundOnly
-			? "Use ask_user to queue a short structured interview for user decisions. The call returns a pending request receipt, not an answer. Continue independent work and receive the completed form asynchronously."
+			? ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION
 			: ASK_TOOL_DESCRIPTION,
 		promptSnippet:
-			"Clarify ambiguous or preference-sensitive decisions with a short interactive interview before proceeding",
-		promptGuidelines: [
-			...(backgroundOnly
-				? ASK_BACKGROUND_ONLY_PROMPT_GUIDELINES
-				: ASK_TOOL_PROMPT_GUIDELINES),
-		],
+			"Ask the user for what you cannot find yourself: missing facts, preferences, decisions",
 		parameters: backgroundOnly
 			? AskBackgroundOnlyParamsSchema
 			: AskParamsSchema,
-		outputSchema: Type.Union([AskResultSchema, AskQueuedSchema]),
+		outputSchema: Type.Union([AskOutputSchema, AskQueuedSchema]),
 		prepareArguments: (args) => prepareAskParams(args) as AskParams,
 		execute: (toolCallId, params, signal, onUpdate, ctx) =>
 			executeAskTool(
@@ -112,7 +106,7 @@ async function executeAskTool(
 	backgroundAsk?: BackgroundAskRuntime,
 	isBackgroundOnly: () => boolean = () => false
 ) {
-	const resolved = await resolvePreviewFiles(input, ctx.cwd);
+	const resolved = await resolveContextFiles(input);
 	if (!resolved.ok) {
 		return invalidPayloadResponse(input, resolved.issues);
 	}
@@ -201,7 +195,7 @@ async function executeRecordedAsk(
 			content: [
 				{
 					type: "text" as const,
-					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. Continue independent work; ${backgroundOnly ? "end your turn when it is exhausted and receive the answer asynchronously" : "call wait_for_answers when answers are needed"}.`,
+					text: `Queued ask_user [${receipt.requestId}]. ${receipt.pendingRequests} form(s) pending. This is not an answer. The answer arrives later as a background-answer message${backgroundOnly ? "" : " or from wait_for_answers"}.`,
 				},
 			],
 			details: receipt,
@@ -244,6 +238,6 @@ function recordResponse(
 				: item
 		),
 		details: result,
-		structuredContent: result,
+		structuredContent: toAskOutput(result),
 	};
 }

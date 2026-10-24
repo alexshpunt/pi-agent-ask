@@ -1,5 +1,3 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerAskHistoryTools } from "./ask-history-tools.ts";
 import { AskModeController } from "./ask-mode.ts";
@@ -13,19 +11,8 @@ import { createRemoteAskRuntime } from "./remote-ask.ts";
 import { registerPendingAskResume } from "./resume-pending-ask.ts";
 import { registerWaitForAnswersTool } from "./wait-for-answers-tool.ts";
 
-const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CONFIGURATION_DOC_PATH = resolve(
-	PACKAGE_ROOT,
-	"docs",
-	"configuration.md"
-);
-const PI_ASK_CONFIG_PROMPT = `When the user asks to configure, customize, debug, or explain pi-agent-ask settings or keymaps, first read ${CONFIGURATION_DOC_PATH} and follow it as the source of truth before editing config files.`;
-
 export default function askExtension(pi: ExtensionAPI) {
 	resetAskConfigStore();
-	pi.on("before_agent_start", async (event) => ({
-		systemPrompt: `${event.systemPrompt}\n\n${PI_ASK_CONFIG_PROMPT}`,
-	}));
 	const remoteAsk = createRemoteAskRuntime(pi.events);
 	pi.on("session_shutdown", () => {
 		remoteAsk.disposeAll();
@@ -47,11 +34,15 @@ export default function askExtension(pi: ExtensionAPI) {
 		registerWaitForAnswersTool(pi, backgroundAsk, () => mode.backgroundOnly);
 	};
 	registerQuestionTools();
-	pi.on("session_start", (_event, ctx) => mode.initialize(ctx));
+	pi.on("session_start", async (_event, ctx) => {
+		await mode.initialize(ctx);
+		if ((await getAskConfigStore().getConfig()).behaviour.historyTools) {
+			registerAskHistoryTools(pi);
+		}
+	});
 	pi.on("context", () => mode.markModelRequest());
 	pi.on("session_shutdown", () => mode.endSession());
 	registerAskModeCommand(pi, mode);
-	registerAskHistoryTools(pi);
 	registerAskSettingsCommand(pi);
 	registerPendingAskResume(pi, remoteAsk);
 }

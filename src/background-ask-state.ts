@@ -5,6 +5,7 @@ import { type AskDraft, restoreAskDraft } from "./ask-draft.ts";
 import { validateParams } from "./ask-tool-helpers.ts";
 import { AskResultSchema } from "./result-schema.ts";
 import { AskParamsSchema } from "./schema.ts";
+import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams } from "./types.ts";
 
 export const ASK_QUEUED_ENTRY = "ask:queued";
@@ -27,7 +28,7 @@ export const AskQueuedSchema = Type.Object({
 	pendingRequests: Type.Integer({ minimum: 0 }),
 });
 
-/** One terminal form, including explicit cancellation, elaboration, or a UI failure. */
+/** One terminal form, including explicit cancellation or a UI failure. */
 export const QueuedAnswerSchema = Type.Object({
 	requestId: Type.String(),
 	parentToolCallId: Type.Optional(Type.String()),
@@ -136,17 +137,22 @@ export function restoreQueueHidden(branch: readonly SessionEntry[]): boolean {
 	return hidden;
 }
 function queuedRequest(entry: SessionEntry): QueuedRequest | undefined {
+	if (entry.type !== "custom" || entry.customType !== ASK_QUEUED_ENTRY) {
+		return;
+	}
+	const data =
+		entry.data && typeof entry.data === "object"
+			? {
+					...entry.data,
+					params: prepareAskParams((entry.data as { params?: unknown }).params),
+				}
+			: entry.data;
 	if (
-		entry.type !== "custom" ||
-		entry.customType !== ASK_QUEUED_ENTRY ||
-		!Value.Check(QueuedEntrySchema, entry.data)
+		!(Value.Check(QueuedEntrySchema, data) && validateParams(data.params).ok)
 	) {
 		return;
 	}
-	if (!validateParams(entry.data.params).ok) {
-		return;
-	}
-	return { ...entry.data, delivered: false };
+	return { ...data, delivered: false };
 }
 
 function completedAnswer(entry: SessionEntry): QueuedAnswer | undefined {

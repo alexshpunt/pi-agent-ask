@@ -1,7 +1,7 @@
 import { SUBMIT_CHOICES } from "../constants/text.ts";
 
 const REVIEW_SHORTCUT_DIGIT_MIN = 1;
-const REVIEW_SHORTCUT_DIGIT_MAX = 3;
+const REVIEW_SHORTCUT_DIGIT_MAX = SUBMIT_CHOICES.length;
 
 export interface ReviewShortcutResolution {
 	actionIndex?: number;
@@ -30,13 +30,14 @@ export function resolveReviewShortcutDoublePress(
 }
 
 export function getReviewShortcutHint(pendingActionIndex?: number): string {
+	const generalHint = "Press 1 or 2 twice to confirm a review action.";
 	if (pendingActionIndex === undefined) {
-		return "Press 1, 2, or 3 twice to confirm a review action.";
+		return generalHint;
 	}
 
 	const actionLabel = SUBMIT_CHOICES[pendingActionIndex];
 	if (!actionLabel) {
-		return "Press 1, 2, or 3 twice to confirm a review action.";
+		return generalHint;
 	}
 
 	return `Press ${pendingActionIndex + 1} again to ${actionLabel}.`;
