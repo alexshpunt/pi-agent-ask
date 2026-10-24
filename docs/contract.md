@@ -39,7 +39,7 @@ The package adds no system-prompt rules, configuration paragraph, or skill. Each
 - `recommended` is optional presentation metadata; zero, one, or multiple options may set it to `true`
 - recommended options render warning-colored `(recommended)` followed by muted ` | <description>`, or only `(recommended)` when no description exists, but are not preselected
 - `type` defaults to `single`
-- `context` is shown beside the options, or below them on narrow screens, where it is hidden while the custom answer is selected; it is the same for every option
+- `context` is shown beside the options, or below them on narrow screens, where it is hidden while the custom answer is selected; it is the same for every option; saved option notes and custom text stay visible under their rows, whether or not the option is focused or selected
 - a single-line absolute path in `context` is read as a regular, non-empty UTF-8 text file and shown instead of the path; any other value is shown as text
 - file read, decoding, binary-data, and empty-file errors return structured `invalid_input` issues at the question's `context` field before UI opens or the payload is saved
 - valid tool calls save the loaded file text as `context`, so recovery uses the original snapshot rather than reading the file again
