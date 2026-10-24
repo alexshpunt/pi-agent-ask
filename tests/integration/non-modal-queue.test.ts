@@ -93,7 +93,7 @@ test("queued questions preserve native typing and D skips only the current quest
 	const before = snapshot(result, "before-skip");
 	assert.equal(before.normalInput, "ordinary-editor-draft");
 	assert(before.panel.includes("Choose q1?"));
-	assert.deepEqual(before.blocked, []);
+	assert.equal((before.blocked.at(-1) as { active: boolean }).active, true);
 	assert.equal(before.pendingRequestIds.length, 2);
 	const after = snapshot(result, "skip");
 	assert.equal(after.normalInput, "ordinary-editor-draft-still-typing");
@@ -114,7 +114,7 @@ test("queued questions preserve native typing and D skips only the current quest
 		answer.questions.map((question) => question.id),
 		["q1", "q2"]
 	);
-	assert.deepEqual(after.blocked, []);
+	assert(after.blocked.every((event) => (event as { active: boolean }).active));
 	const later = snapshot(result, "after-empty");
 	assert.equal(
 		later.normalInput,
@@ -160,18 +160,17 @@ test("Escape releases a wait while drafts and newly queued requests stay deferre
 	assert.equal(hidden.draftText, "saved-answer-draft");
 	assert.equal(hidden.pendingRequestIds.length, 2);
 	assert.deepEqual(hidden.completed, []);
-	assert.deepEqual(hidden.blocked, [
-		{ active: true, label: "Waiting for user answers" },
-		{ active: false },
-	]);
+	assert.equal((hidden.blocked.at(-1) as { active: boolean }).active, false);
 	const reopened = snapshot(result, "reopened");
 	assert.equal(reopened.hidden, false);
+	assert.equal((reopened.blocked.at(-1) as { active: boolean }).active, true);
 	assert(reopened.panel.includes("saved-answer-draft"));
 	const after = snapshot(result, "after-answer");
 	assert.equal(after.pendingRequestIds.length, 1);
 	assert.equal(after.completed.length, 1);
 	assert.equal(after.completed[0].result.cancelled, false);
 	assert.equal(after.answerMessages, 1);
+	assert.equal((after.blocked.at(-1) as { active: boolean }).active, true);
 	assert(result.tuiRenderedOutput.includes("Questions deferred"));
 	assert(
 		result.tuiRenderedOutput.includes("Non-modal defer verification complete")
@@ -249,12 +248,10 @@ test("a foreground completion keeps Herdr blocked until the separate answer wait
 	assert.equal(getToolExecution(result, "overlap-wait").isError, false);
 	assert.equal(getToolExecution(result, "overlap-foreground").isError, false);
 	const after = snapshot(result, "after-overlap");
-	assert.deepEqual(after.blocked, [
-		{ active: true, label: "Waiting for user answers" },
-		{ active: true, label: "Waiting for user response" },
-		{ active: true, label: "Waiting for user answers" },
-		{ active: false },
-	]);
+	assert.deepEqual(
+		after.blocked.map((event) => (event as { active: boolean }).active),
+		[true, false]
+	);
 });
 
 test("a real terminal resize keeps a tall questionnaire bounded and ordinary input usable", {

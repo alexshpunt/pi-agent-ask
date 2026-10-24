@@ -59,10 +59,10 @@ test("real Pi records both ask paths and silently reads and exports exact histor
 			isolateUserResources: true,
 			rawMode: false,
 			extensions: [
-				fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
 				fileURLToPath(
 					new URL("../fixtures/history-driver.ts", import.meta.url)
 				),
+				fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
 			],
 			tools: [
 				"ask_user",

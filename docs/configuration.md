@@ -19,6 +19,7 @@ Supported older schema versions migrate in memory. Keep `schemaVersion` at `5` w
   "schemaVersion": 5,
   "behaviour": {
     "backgroundOnly": false,
+    "historyTools": false,
     "autoSubmitWhenAnsweredWithoutNotes": false,
     "confirmDismissWhenDirty": true,
     "doublePressReviewShortcuts": true,
@@ -108,6 +109,12 @@ A project value of `false` overrides a global `true`. Omit the field, or use `pr
 Before the first model request in the current running session, a mode change needs no cache warning. After that request, any change to the effective mode asks for confirmation: changing tool definitions can invalidate prompt-cache reuse. Declining keeps both the saved setting and the tool interface unchanged. Updating a global default hidden by a project override does not change tools or require this confirmation. Mode changes preserve queued forms and answers; enabling background-only also interrupts an existing explicit wait without cancelling its questions.
 
 `/ask-settings` and its reset action manage form settings, not the question mode. Use `/ask-mode` to change the mode. Manual config edits take effect after reload or restart.
+
+## History tools
+
+Set `behaviour.historyTools` to `true` in the global config file, then run `/reload` or restart Pi to expose `list_ask_history`, `read_ask_history`, and `export_ask_history`. The default is `false`. Set it back to `false` and reload to remove these tools.
+
+Question and answer recording stays enabled in either case. This setting has no project override and is not a live `/ask-settings` toggle.
 
 ## Keymaps
 

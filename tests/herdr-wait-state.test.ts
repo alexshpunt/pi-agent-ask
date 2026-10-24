@@ -17,9 +17,19 @@ test("ending a foreground form cannot clear a separate active answer wait", () =
 		label: "Waiting for user answers",
 	});
 	assert(!updates.some((update) => !update.active));
+	assert.equal(
+		updates.length,
+		1,
+		"Herdr counts every active event as a new owner"
+	);
 	endWait();
 	assert.deepEqual(updates.at(-1), { active: false });
 	const count = updates.length;
+	assert.equal(
+		count,
+		2,
+		"Every acquired Herdr block needs exactly one release"
+	);
 	endForm();
 	endWait();
 	assert.equal(updates.length, count);

@@ -102,6 +102,7 @@ export const AskConfigFileV5Schema = Type.Object({
 	behaviour: Type.Optional(
 		Type.Object({
 			backgroundOnly: Type.Optional(Type.Boolean()),
+			historyTools: Type.Optional(Type.Boolean()),
 			autoSubmitWhenAnsweredWithoutNotes: Type.Optional(Type.Boolean()),
 			confirmDismissWhenDirty: Type.Optional(Type.Boolean()),
 			doublePressReviewShortcuts: Type.Optional(Type.Boolean()),
@@ -230,6 +231,7 @@ export interface AskConfigKeymaps {
 export interface AskConfig {
 	behaviour: {
 		backgroundOnly?: boolean;
+		historyTools?: boolean;
 		autoSubmitWhenAnsweredWithoutNotes: boolean;
 		confirmDismissWhenDirty: boolean;
 		doublePressReviewShortcuts: boolean;

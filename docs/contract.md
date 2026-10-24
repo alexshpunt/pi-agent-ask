@@ -2,7 +2,7 @@
 
 `ask_user` is a pi-native clarification tool for cases where implementation depends on user preference or missing requirements.
 
-This document defines the stable external behavior. It does not explain internal helper-by-helper implementation.
+The package's default prompt guidance covers tool inputs and answer delivery. It does not decide when or how often to ask; that policy belongs to the user's instructions and skills. Configuration documentation is available on disk without an injected system-prompt paragraph.
 
 ## Input
 
@@ -282,7 +282,7 @@ Queue state is rebuilt from the active branch on startup, reload, resume, fork, 
 
 Recovered panels wait for the native editor without replacing it. Drafts, skipped questions, and panel visibility follow the active branch across reload and resume. Other input dialogs retain their own input surface.
 
-A pending or visible background panel does not emit `herdr:blocked`. An active `wait_for_answers` emits `{ active: true, label: "Waiting for user answers" }` and releases its waiting status when it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked. Tool guidelines and the bundled skill distinguish these states and forbid dependent work before answers.
+A visible background question panel holds a `herdr:blocked` indication. Hiding or deferring the panel releases this indication while preserving queued questions; reopening the panel restores it. Completion, cancellation, errors, disposal, and session changes release the panel's ownership. An active `wait_for_answers` holds its own waiting status until it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked when the panel is hidden or finishes. Tool guidelines and the bundled skill forbid dependent work before answers.
 
 ## Session question history
 
@@ -290,7 +290,7 @@ Every valid `ask_user` tool call gets an extension-generated UUID `requestId`. F
 
 Normalized questions and loaded previews are saved before waiting for input. Outcomes are saved before answer delivery, even for nested calls that do not have a separate tool-result entry. The journal is stored only in the session file, outside normal model context. It survives compaction, reload, and resume without relying on summaries. Reads follow `getBranch()` including its ancestors; sibling branches and other sessions are not available.
 
-Three agent-callable tools have empty native TUI call/result rows, including errors and resumed history. This does not hide data from the session file or prevent the agent from quoting it.
+The three history tools are disabled by default. Enable them with the global `behaviour.historyTools` setting and reload Pi. Recording does not depend on this setting. When enabled, the tools have empty native TUI call/result rows, including errors and resumed history. This does not hide data from the session file or prevent the agent from quoting it.
 
 ### Tools
 

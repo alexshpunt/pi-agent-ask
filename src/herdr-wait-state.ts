@@ -3,7 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 const activeWaits = new WeakMap<AskEvents, Map<symbol, string>>();
 
-/** Keep status blocked until every actual foreground or explicit answer wait ends. */
+/** Keep status blocked until every visible question surface and explicit wait ends. */
 export function beginUserWait(
 	events: AskEvents | undefined,
 	label: string
@@ -18,15 +18,17 @@ export function beginUserWait(
 	}
 	const owner = Symbol("ask wait");
 	owners.set(owner, label);
-	publish(events, owners);
+	if (owners.size === 1) {
+		publish(events, owners);
+	}
 	return () => {
 		if (!owners.delete(owner)) {
 			return;
 		}
 		if (!owners.size) {
 			activeWaits.delete(events);
+			publish(events, owners);
 		}
-		publish(events, owners);
 	};
 }
 
