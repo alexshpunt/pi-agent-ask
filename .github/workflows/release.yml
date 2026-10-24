@@ -12,7 +12,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 concurrency:
@@ -66,7 +66,29 @@ jobs:
           pnpm test
           npm pack --dry-run
 
+      - name: Prepare release notes
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/release-notes.ts "${RELEASE_TAG#v}" > "$RUNNER_TEMP/release-notes.md"
+
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --provenance --registry=https://registry.npmjs.org
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if npm view "pi-agent-ask@${RELEASE_TAG#v}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "pi-agent-ask ${RELEASE_TAG#v} is already on npm; skipping publish."
+          else
+            npm publish --access public --provenance --registry=https://registry.npmjs.org
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --title "pi-agent-ask $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --title "pi-agent-ask $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          fi
