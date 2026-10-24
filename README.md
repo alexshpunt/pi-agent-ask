@@ -49,7 +49,7 @@ Want the agent to stay available instead of waiting? Run `/ask-mode` and opt int
 
 An open question panel marks the session as blocked in Herdr so pending questions are visible outside the terminal. Hiding the panel clears that indication while keeping the queue. Foreground questions and active `wait_for_answers` calls keep their own blocked status. Cancelling a background form cancels that question, not the agent.
 
-The package adds tools, not rules about when to ask. The tools describe themselves through their descriptions and input fields; when and how often to ask stays with your own instructions.
+Each tool's description says when it applies: `ask_user` for what the agent cannot find itself, `wait_for_answers` when nothing else is left to do. The package adds no system-prompt rules, skill, or interview protocol; how often to ask stays with your own instructions.
 
 ## Paste a screenshot into your answer
 

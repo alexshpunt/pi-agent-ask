@@ -18,10 +18,10 @@ import type {
 } from "./types.ts";
 
 export const ASK_TOOL_DESCRIPTION =
-	"Use ask_user to show the user an interactive form of structured questions and return their answers.";
+	"Use ask_user when you need something only the user can provide: information you could not find through search or other tools, their opinion or preference, or a choice between options. The call returns the user's answers.";
 
 export const ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION =
-	"Use ask_user to queue an interactive form of structured questions for the user. It returns a request ID; the answers arrive later as a background-answer message.";
+	"Use ask_user when you need something only the user can provide: information you could not find through search or other tools, their opinion or preference, or a choice between options. The call returns a request ID; the answers arrive later as a background-answer message.";
 
 interface ValidateParamsOptions {
 	presentSingleAsMulti?: boolean;

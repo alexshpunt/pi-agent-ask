@@ -2,7 +2,7 @@
 
 `ask_user` is a pi-native tool that shows the user a form of structured questions and returns their answers.
 
-The package adds no system-prompt rules, configuration paragraph, or skill. Each tool presents itself through a one-line index entry, its description, and its input schema fields. Situational guidance appears in tool results: queued receipts, deferred waits, and validation errors. When and how often to ask is left to the user's instructions.
+The package adds no system-prompt rules, configuration paragraph, or skill. Each tool presents itself through a one-line index entry, a description of when to use it, and its input schema fields. `ask_user` applies when the agent needs something only the user can provide: information it could not find, an opinion or preference, or a choice between options. `wait_for_answers` applies when no other work is left and pending background answers are needed. Situational guidance appears in tool results: queued receipts, deferred waits, and validation errors. How often to ask and how to run an interview are left to the user's instructions.
 
 ## Input
 

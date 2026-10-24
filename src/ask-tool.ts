@@ -43,7 +43,8 @@ export function registerAskTool(
 		description: backgroundOnly
 			? ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION
 			: ASK_TOOL_DESCRIPTION,
-		promptSnippet: "Collect user answers through an interactive form",
+		promptSnippet:
+			"Ask the user for what you cannot find yourself: missing facts, preferences, decisions",
 		parameters: backgroundOnly
 			? AskBackgroundOnlyParamsSchema
 			: AskParamsSchema,
