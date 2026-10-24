@@ -20,7 +20,7 @@ export function registerWaitForAnswersTool(
 		exposure: isBackgroundOnly() ? "hidden" : "model-only",
 		label: "Wait for Answers",
 		description:
-			"Use wait_for_answers to wait for answers to pending background forms. It returns them when all are answered, or returns early as deferred when the user hides the questions or sends a message.",
+			"Use wait_for_answers when background questions are still unanswered and you cannot continue the task without their answers. It returns the answers once all are submitted, or returns early as deferred when the user hides the questions or sends a message.",
 		promptSnippet: "Wait for pending background answers",
 		parameters: Type.Object({}),
 		outputSchema: WaitForAnswersSchema,

@@ -15,7 +15,6 @@ The package adds no system-prompt rules, configuration paragraph, or skill. Each
     label?: string;
     prompt: string;
     type?: "single" | "multi" | "preview";
-    required?: boolean;
     options: Array<{
       value: string;
       label: string;
@@ -41,8 +40,6 @@ The package adds no system-prompt rules, configuration paragraph, or skill. Each
 - `recommended` is optional presentation metadata; zero, one, or multiple options may set it to `true`
 - recommended options render warning-colored `(recommended)` followed by muted ` | <description>`, or only `(recommended)` when no description exists, but are not preselected
 - `type` defaults to `single`
-- `required` defaults to `false`
-- `required` is metadata only; it never blocks submission
 - preview questions require preview text or a preview file for every declared option; option descriptions do not satisfy this requirement, and invalid preview payloads report a fix hint to add preview text or switch to `type: "single"`
 - options may use `previewFile?: string` instead of `preview`: a regular, non-empty UTF-8 text file, with an absolute path or a path relative to `ctx.cwd`
 - non-blank `preview` and `previewFile` on the same option are invalid; blank paths are treated as omitted

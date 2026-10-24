@@ -245,12 +245,6 @@ const invalidStates: [string, (value: AskDraft) => void][] = [
 		},
 	],
 	[
-		"changed required flag",
-		(value) => {
-			value.state.questions[0].required = true;
-		},
-	],
-	[
 		"changed option identity",
 		(value) => {
 			value.state.questions[0].options[0].value = "other";

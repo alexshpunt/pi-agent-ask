@@ -22,7 +22,6 @@ const QuestionTypeSchema = StringEnum(["single", "multi", "preview"] as const);
 const DraftQuestionSchema = Type.Object({
 	...AskQuestionSchema.properties,
 	label: Type.String(),
-	required: Type.Boolean(),
 	type: QuestionTypeSchema,
 	requestedType: Type.Optional(QuestionTypeSchema),
 	presentedType: Type.Optional(QuestionTypeSchema),
@@ -147,7 +146,6 @@ function matchesQuestion(
 		question.id === original.id &&
 		question.label === original.label &&
 		question.prompt === original.prompt &&
-		question.required === original.required &&
 		allowedTypes.includes(question.type) &&
 		(question.requestedType ?? question.type) === original.type &&
 		question.presentedType ===

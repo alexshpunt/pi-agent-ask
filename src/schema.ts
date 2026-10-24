@@ -50,12 +50,6 @@ export const AskQuestionSchema = Type.Object({
 				"`single` (default) accepts one option. `multi` accepts several. `preview` accepts one and shows the focused option's `preview` or `previewFile` beside the list; every option needs one of them.",
 		})
 	),
-	required: Type.Optional(
-		Type.Boolean({
-			description:
-				"Marks the question as important. The form can still be submitted without an answer.",
-		})
-	),
 	options: Type.Array(AskOptionSchema, {
 		description:
 			"Choices for this question. The form always adds a free-text `Type your own` option.",
@@ -66,7 +60,7 @@ export const AskParamsSchema = Type.Object({
 	background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Queue the form and return a request ID immediately instead of waiting. Answers arrive later as a background-answer message or from wait_for_answers.",
+				"Set true when the answer is not urgent and you have other work to do meanwhile. The form is queued and a request ID returns immediately; answers arrive later as a background-answer message or from wait_for_answers. Omit it only when the question is important and needs the user's answer right away; the call then waits for the answer.",
 		})
 	),
 	title: Type.Optional(

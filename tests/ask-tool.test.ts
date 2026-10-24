@@ -190,6 +190,22 @@ test("ask option schema supports recommendations", () => {
 	);
 });
 
+test("ask params schema still accepts the removed question required flag", () => {
+	assert.equal(
+		Value.Check(AskParamsSchema, {
+			questions: [
+				{
+					id: "scope",
+					prompt: "Choose a scope",
+					required: true,
+					options: [{ value: "small", label: "Small" }],
+				},
+			],
+		}),
+		true
+	);
+});
+
 test("ask params schema constrains question types", () => {
 	assert.equal(
 		Value.Check(AskParamsSchema, {
