@@ -5,6 +5,9 @@ import {
 	resolveReviewShortcutDoublePress,
 } from "../src/ui/review-shortcuts.ts";
 
+const DIGIT_THREE = /3/;
+const CANCEL = /Cancel/;
+
 test("review shortcut double press requires the same digit twice", () => {
 	const first = resolveReviewShortcutDoublePress(2);
 	assert.equal(first.confirmed, false);
@@ -19,17 +22,22 @@ test("review shortcut double press requires the same digit twice", () => {
 
 test("review shortcut double press switches pending action when digit changes", () => {
 	const first = resolveReviewShortcutDoublePress(1);
-	const second = resolveReviewShortcutDoublePress(3, first.pendingActionIndex);
+	const second = resolveReviewShortcutDoublePress(2, first.pendingActionIndex);
 
 	assert.equal(second.confirmed, false);
-	assert.equal(second.actionIndex, 2);
-	assert.equal(second.pendingActionIndex, 2);
+	assert.equal(second.actionIndex, 1);
+	assert.equal(second.pendingActionIndex, 1);
 });
 
-test("review shortcut hint reflects pending confirmation state", () => {
-	assert.equal(
-		getReviewShortcutHint(),
-		"Press 1, 2, or 3 twice to confirm a review action."
-	);
-	assert.equal(getReviewShortcutHint(1), "Press 2 again to Elaborate.");
+test("review shortcut ignores digits beyond Submit and Cancel", () => {
+	for (const pending of [undefined, 2]) {
+		assert.deepEqual(resolveReviewShortcutDoublePress(3, pending), {
+			confirmed: false,
+		});
+	}
+});
+
+test("review shortcut hint offers only the existing actions", () => {
+	assert.doesNotMatch(getReviewShortcutHint(), DIGIT_THREE);
+	assert.match(getReviewShortcutHint(1), CANCEL);
 });

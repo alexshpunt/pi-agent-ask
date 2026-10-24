@@ -5,7 +5,6 @@ import {
 	type FooterKeymapContext,
 	renderFooterKeymaps,
 } from "../constants/keymaps.ts";
-import { NO_PREVIEW_TEXT } from "../constants/text.ts";
 import { UI_DIMENSIONS, UI_TEXT } from "../constants/ui.ts";
 import { clamp } from "../math.ts";
 import { wrapText } from "../text.ts";
@@ -259,38 +258,17 @@ export function renderBox(
 	return lines;
 }
 
-export function renderPreviewPaneContent(
-	selectedOption:
-		| {
-				label: string;
-				description?: string;
-				preview?: string;
-		  }
-		| undefined,
+/** Render question context as a bordered block of plain text. */
+export function renderContextPane(
+	context: string,
 	theme: Theme,
 	width: number
 ): string[] {
-	if (!selectedOption) {
-		return renderBox([{ text: NO_PREVIEW_TEXT, color: "dim" }], width, theme);
-	}
-
-	const content: Array<{ text: string; color: ThemeColor }> = [
-		{ text: selectedOption.label, color: "accent" },
-	];
-	if (selectedOption.description) {
-		content.push({ text: selectedOption.description, color: "muted" });
-	}
-	content.push({ text: "", color: "dim" });
-
-	for (const previewLine of (selectedOption.preview ?? NO_PREVIEW_TEXT).split(
-		"\n"
-	)) {
-		content.push({
-			text: previewLine,
-			color: selectedOption.preview ? "text" : "dim",
-		});
-	}
-	return renderBox(content, width, theme);
+	return renderBox(
+		context.split("\n").map((text) => ({ text, color: "text" as ThemeColor })),
+		width,
+		theme
+	);
 }
 
 export function mergeColumns(

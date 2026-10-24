@@ -13,12 +13,12 @@ import type { AskEvents } from "../blocked-status.ts";
 import { readClipboardImage } from "../clipboard-image.ts";
 import type { AskConfig } from "../config/schema.ts";
 import { getAskConfigStore } from "../config/store.ts";
+import { resolveContextFiles } from "../context-files.ts";
 import { beginUserWait } from "../herdr-wait-state.ts";
 import {
 	createQuestionWaitingNotification,
 	notifyQuestionWaiting,
 } from "../notifications.ts";
-import { resolvePreviewFiles } from "../preview-files.ts";
 import {
 	applyRemoteAskResponse,
 	type RemoteAskFlowHandle,
@@ -142,7 +142,7 @@ export async function runAskFlow(
 	input: AskParams,
 	options: AskFlowOptions = {}
 ): Promise<AskResult> {
-	const resolved = await resolvePreviewFiles(input, ctx.cwd);
+	const resolved = await resolveContextFiles(input);
 	if (!resolved.ok) {
 		return invalidPayloadResponse(input, resolved.issues).details;
 	}

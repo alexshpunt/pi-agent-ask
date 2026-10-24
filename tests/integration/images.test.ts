@@ -47,12 +47,13 @@ const clipboardEnvironment = Object.fromEntries([
 	["WSL_DISTRO_NAME", ""],
 	["WSL_INTEROP", ""],
 ]);
+// The driver loads first so it enables opt-in history tools before the extension reads its config.
 const imageExtensions = [
-	fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
 	fileURLToPath(new URL("../fixtures/image-driver.ts", import.meta.url)),
+	fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
 ];
 // Runs the real editor, clipboard command, result schema, queue and history tools.
-test("real Pi delivers pasted images from all editors, background paths and clarification", {
+test("real Pi delivers pasted images from all editors, background paths and unselected option notes", {
 	timeout: 90_000,
 }, async () => {
 	const tmp = fileURLToPath(new URL("../../.tmp/", import.meta.url));
@@ -85,7 +86,7 @@ test("real Pi delivers pasted images from all editors, background paths and clar
 				call("answer-async", "image_probe", {}),
 				call("waited", "ask_user", form("waited", true)),
 				call("wait", "wait_for_answers", {}),
-				call("clarify", "ask_user", form("clarify")),
+				call("unselected", "ask_user", form("unselected")),
 				call("export", "export_ask_history", { path: "images.md" }),
 				assistantMessage([text("Image verification complete.")]),
 			],
@@ -97,7 +98,7 @@ test("real Pi delivers pasted images from all editors, background paths and clar
 			"answer-async",
 			"waited",
 			"wait",
-			"clarify",
+			"unselected",
 			"export",
 		]) {
 			assert.equal(getToolExecution(result, id).isError, false, id);
@@ -110,7 +111,7 @@ test("real Pi delivers pasted images from all editors, background paths and clar
 		assert.equal(answer.answers.q.customImages?.length, 1);
 		assert.equal(answer.answers.q.note, "Question text");
 		assert.equal(answer.answers.q.optionNotes?.yes, "Option text");
-		for (const id of ["foreground", "read", "wait", "clarify"]) {
+		for (const id of ["foreground", "read", "wait", "unselected"]) {
 			const content = (
 				getToolExecutionResult(result, id) as {
 					content: Array<{ type: string; data?: string }>;
@@ -128,15 +129,12 @@ test("real Pi delivers pasted images from all editors, background paths and clar
 				id
 			);
 		}
-		const clarification = getToolExecutionDetails(
-			getToolExecution(result, "clarify")
+		const unselected = getToolExecutionDetails(
+			getToolExecution(result, "unselected")
 		) as AskResult;
-		const item = clarification.elaboration?.items.find(
-			(item) => item.target.kind === "option"
-		);
-		assert(item && "selected" in item);
-		assert.equal(item.selected, false);
-		assert.equal(item.images?.length, 1);
+		assert.equal(unselected.answers.q.values.includes("yes"), false);
+		assert.equal(unselected.answers.q.optionNotes?.yes, "Option text");
+		assert.equal(unselected.answers.q.optionNoteImages?.yes?.length, 1);
 		const snapshot = result.traceEvents
 			.filter((event) => event.type === "session_snapshot")
 			.at(-1);

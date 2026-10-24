@@ -20,7 +20,7 @@ const call = (id: string, name: string, args: Record<string, unknown>) =>
 	assistantMessage([toolCall({ id, name, arguments: args })], {
 		stopReason: "toolUse",
 	});
-const form = (background: boolean) => ({
+const form = (background: boolean, contextFile: string) => ({
 	title: background ? "Background form" : "Foreground form",
 	background,
 	questions: [
@@ -34,11 +34,9 @@ const form = (background: boolean) => ({
 		},
 		{
 			id: "preview",
-			prompt: "Choose preview",
-			type: "preview",
-			options: [
-				{ value: "doc", label: "Document", previewFile: "preview.txt" },
-			],
+			prompt: "Accept the document?",
+			context: contextFile,
+			options: [{ value: "doc", label: "Document" }],
 		},
 	],
 });
@@ -51,7 +49,8 @@ test("real Pi records both ask paths and silently reads and exports exact histor
 	await mkdir(tmp, { recursive: true });
 	const cwd = await mkdtemp(join(tmp, "history-integration-"));
 	try {
-		await writeFile(join(cwd, "preview.txt"), "Saved preview\nSecond line");
+		const contextFile = join(cwd, "context.txt");
+		await writeFile(contextFile, "Saved context\nSecond line");
 		const result = await new PiIntegrationTest({
 			testName: "ask-history-native",
 			artifactsDir: testArtifactsDir(import.meta.filename),
@@ -72,8 +71,8 @@ test("real Pi records both ask paths and silently reads and exports exact histor
 				"export_ask_history",
 			],
 			conversation: [
-				call("foreground", "ask_user", form(false)),
-				call("background", "ask_user", form(true)),
+				call("foreground", "ask_user", form(false, contextFile)),
+				call("background", "ask_user", form(true, contextFile)),
 				call("waiting", "list_ask_history", {}),
 				call("page", "list_ask_history", { limit: 1 }),
 				call("read", "read_ask_history", {
@@ -162,7 +161,7 @@ test("real Pi records both ask paths and silently reads and exports exact histor
 			"Custom choice",
 			"Question note",
 			"Option note",
-			"Saved preview\nSecond line",
+			"Saved context\nSecond line",
 		]) {
 			assert(content.includes(value), value);
 		}

@@ -62,18 +62,6 @@ export function cloneAnswer(answer: AskStateAnswer): AskStateAnswer {
 	};
 }
 
-export function cloneResultAnswer(answer: AskResultAnswer): AskResultAnswer {
-	return {
-		...cloneAnswerImages(answer),
-		values: [...answer.values],
-		labels: [...answer.labels],
-		indices: [...answer.indices],
-		customText: answer.customText,
-		note: answer.note,
-		optionNotes: answer.optionNotes ? { ...answer.optionNotes } : undefined,
-	};
-}
-
 export function toggleSelection(
 	answer: AskStateAnswer,
 	option: AskDisplayOption,
@@ -259,38 +247,22 @@ export function serializeAnswer(answer: AskStateAnswer): AskResultAnswer {
 		...(selectedCustomText ? [selectedCustomText] : []),
 	];
 	const indices = answer.selected.map((selection) => selection.index);
-	const selectedNotes = answer.optionNotes
-		? Object.fromEntries(
-				answer.selected
-					.map((selection) => [
-						selection.value,
-						answer.optionNotes?.[selection.value],
-					])
-					.filter((entry): entry is [string, string] => !!entry[1])
-			)
-		: undefined;
+	const optionNotes = Object.fromEntries(
+		Object.entries(answer.optionNotes ?? {}).filter(([, note]) => !!note)
+	);
 
 	return {
 		...cloneAnswerImages({
 			customImages: answer.customSelected ? answer.customImages : undefined,
 			noteImages: answer.noteImages,
-			optionNoteImages: Object.fromEntries(
-				answer.selected.flatMap(({ value }) =>
-					answer.optionNoteImages?.[value]?.length
-						? [[value, answer.optionNoteImages[value]]]
-						: []
-				)
-			),
+			optionNoteImages: answer.optionNoteImages,
 		}),
 		values,
 		labels,
 		indices,
 		customText: selectedCustomText,
 		note: answer.note,
-		optionNotes:
-			selectedNotes && Object.keys(selectedNotes).length > 0
-				? selectedNotes
-				: undefined,
+		optionNotes: Object.keys(optionNotes).length > 0 ? optionNotes : undefined,
 	};
 }
 

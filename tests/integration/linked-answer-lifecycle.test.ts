@@ -83,7 +83,6 @@ function appendAnsweredBranch(session: SessionManager, prefix: string) {
 	});
 	const result = {
 		cancelled: false,
-		mode: "submit",
 		questions: [
 			{
 				id: "q",

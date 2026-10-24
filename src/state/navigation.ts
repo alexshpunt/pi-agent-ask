@@ -1,3 +1,4 @@
+import { SUBMIT_CHOICES } from "../constants/text.ts";
 import { clamp } from "../math.ts";
 import type { AskState } from "../types.ts";
 import {
@@ -7,7 +8,7 @@ import {
 } from "./selectors.ts";
 import { isEditingView, navigateView, submitView } from "./view.ts";
 
-const SUBMIT_ACTION_COUNT = 3;
+const SUBMIT_ACTION_COUNT = SUBMIT_CHOICES.length;
 
 export function createInitialState(params: {
 	title?: string;
@@ -23,7 +24,6 @@ export function createInitialState(params: {
 		answers: {},
 		completed: false,
 		cancelled: false,
-		mode: "submit",
 	};
 }
 

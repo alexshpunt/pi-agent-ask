@@ -12,7 +12,6 @@ const answer: QueuedAnswer = {
 	result: {
 		title: "Browser test",
 		cancelled: false,
-		mode: "submit",
 		questions: [
 			{
 				id: "source",
@@ -90,20 +89,11 @@ test("background card shows question-answer pairs without internal identifiers",
 	}
 });
 
-test("unanswered questions stay visible and clarification keeps the committed answer", () => {
+test("unanswered questions stay visible in the card and agent text", () => {
 	assert(answer.result);
 	const empty = { ...answer, result: { ...answer.result, answers: {} } };
 	assert(rendered(empty).join("\n").includes("→ unanswered"));
 	assert(formatQueuedAnswer(empty).includes("Choice [limit]: (no answer)"));
-	const elaborate = {
-		...answer,
-		result: { ...answer.result, mode: "elaborate" as const },
-	};
-	const text = rendered(elaborate).join("\n");
-	assert(text.includes("Clarification requested"));
-	assert(text.includes("Agent browser"));
-	assert(text.includes("Where should the test run?"));
-	assert(!text.includes("Answers received"));
 });
 
 test("review style keeps multi-select option notes and unanswered question notes", () => {

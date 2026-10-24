@@ -1,4 +1,3 @@
-import { ELABORATED_SUMMARY } from "./constants/text.ts";
 import { answerDisplayText, withImageMarker } from "./images.ts";
 import { isCustomOnlyAnswer } from "./state/answers.ts";
 import type { AskResult } from "./types.ts";
@@ -113,69 +112,21 @@ function formatQuestionNoteLine(
 		: `  note: ${note}`;
 }
 
-export function formatElaborationLines(
-	result: AskResult,
-	options: { mode: "summary" | "render" }
-): string[] {
-	const skipped = new Set(result.skippedQuestionIds);
-	const skippedLines = result.questions
-		.filter((question) => skipped.has(question.id))
-		.map((question) => formatSkippedLine(question.label, options.mode));
-	const items = result.elaboration?.items ?? [];
-	const lines = items.map((item) => {
-		const answerContext = formatElaborationAnswerContext(item.answer);
-		const note = withImageMarker(item.note, item.images);
-		if (item.target.kind === "question") {
-			return `User asked to elaborate on question ${quote(item.question.prompt)}${answerContext} with note ${quote(note)}`;
-		}
-		if (!("option" in item)) {
-			return `User asked to elaborate on question ${quote(item.question.prompt)}${answerContext} with note ${quote(note)}`;
-		}
-		return `User asked to elaborate on question ${quote(item.question.prompt)} option ${quote(item.option.label)}${answerContext} with note ${quote(note)}`;
-	});
-
-	if (lines.length > 0) {
-		return [...skippedLines, ...lines];
-	}
-
-	const answerLines = result.questions
-		.map((question) => {
-			const answer = result.answers[question.id];
-			return answer && answerDisplayText(answer)
-				? `User asked to elaborate on question ${quote(question.prompt)} after current answer ${quote(answerDisplayText(answer))}`
-				: undefined;
-		})
-		.filter((line): line is string => Boolean(line));
-
-	if (skippedLines.length || answerLines.length) {
-		return [...skippedLines, ...answerLines];
-	}
-	return [ELABORATED_SUMMARY];
-}
-
-function formatElaborationAnswerContext(
-	answer: AskResult["answers"][string] | undefined
-): string {
-	const text = answer ? answerDisplayText(answer) : "";
-	if (!text) {
-		return "";
-	}
-	return ` after current answer ${quote(text)}`;
-}
-
-function quote(value: string): string {
-	return JSON.stringify(value);
-}
-
 function formatOptionNoteLines(
 	questionLabel: string,
 	answer: AskResult["answers"][string],
 	mode: "summary" | "render"
 ): string[] {
 	const lines: string[] = [];
-	for (let index = 0; index < answer.values.length; index++) {
-		const value = answer.values[index];
-		const label = answer.labels[index] ?? value;
+	const notedValues = new Set([
+		...answer.values,
+		...Object.keys(answer.optionNotes ?? {}),
+		...Object.keys(answer.optionNoteImages ?? {}),
+	]);
+	for (const value of notedValues) {
+		const index = answer.values.indexOf(value);
+		const label =
+			index >= 0 ? (answer.labels[index] ?? value) : `${value} (not selected)`;
 		const note = withImageMarker(
 			answer.optionNotes?.[value],
 			answer.optionNoteImages?.[value]

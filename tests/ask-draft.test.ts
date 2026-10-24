@@ -34,8 +34,8 @@ const params: AskParams = {
 		{
 			id: "third",
 			prompt: "Third decision?",
-			type: "preview",
-			options: [{ value: "layout", label: "Layout", preview: "Preview body" }],
+			context: "Context body",
+			options: [{ value: "layout", label: "Layout" }],
 		},
 	],
 };
@@ -251,9 +251,9 @@ const invalidStates: [string, (value: AskDraft) => void][] = [
 		},
 	],
 	[
-		"changed option preview",
+		"changed context",
 		(value) => {
-			value.state.questions[2].options[0].preview = "Other preview";
+			value.state.questions[2].context = "Other context";
 		},
 	],
 	[
@@ -265,7 +265,7 @@ const invalidStates: [string, (value: AskDraft) => void][] = [
 	[
 		"invalid presentation",
 		(value) => {
-			value.state.questions[0].type = "preview";
+			value.state.questions[0].type = "grid" as never;
 		},
 	],
 	[

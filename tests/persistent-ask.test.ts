@@ -8,7 +8,6 @@ import {
 
 const answer: AskResult = {
 	cancelled: false,
-	mode: "submit",
 	questions: [],
 	answers: {},
 };

@@ -1,16 +1,15 @@
-export type AskQuestionType = "single" | "multi" | "preview";
+export type AskQuestionType = "single" | "multi";
 
 export interface AskOption {
 	description?: string;
 	label: string;
-	preview?: string;
-	/** Local UTF-8 text file used instead of inline preview, resolved from Pi's cwd. */
-	previewFile?: string;
 	recommended?: boolean;
 	value: string;
 }
 
 export interface AskQuestionInput {
+	/** Text shown with the question; a single-line absolute path is loaded as a UTF-8 file. */
+	context?: string;
 	id: string;
 	label?: string;
 	options: AskOption[];
@@ -87,63 +86,10 @@ export interface AskQuestionSummary {
 	type: AskQuestionType;
 }
 
-export interface AskElaborationQuestionContext extends AskQuestionSummary {
-	options: AskOption[];
-}
-
-export interface AskElaborationQuestionItem {
-	answer?: AskResultAnswer;
-	answered: boolean;
-	images?: AskImage[];
-	note: string;
-	question: AskElaborationQuestionContext;
-	target: {
-		kind: "question";
-	};
-}
-
-export interface AskElaborationOptionItem {
-	answer?: AskResultAnswer;
-	answered: boolean;
-	images?: AskImage[];
-	note: string;
-	option: AskOption;
-	question: AskElaborationQuestionContext;
-	selected: boolean;
-	target: {
-		kind: "option";
-		optionValue: string;
-	};
-}
-
-export type AskElaborationItem =
-	| AskElaborationQuestionItem
-	| AskElaborationOptionItem;
-
-export interface AskElaborationPayload {
-	instruction: string;
-	items: AskElaborationItem[];
-	nextAction: "clarify" | "clarify_then_reask";
-}
-
-export interface AskContinuationQuestionState {
-	status: "answered" | "needs_clarification" | "unanswered" | "skipped";
-}
-
-export interface AskContinuationPayload {
-	affectedQuestionIds: string[];
-	preservedAnswers: Record<string, AskResultAnswer>;
-	questionStates: Record<string, AskContinuationQuestionState>;
-	strategy: "refine_only" | "resume";
-}
-
 export interface AskResult {
 	answers: Record<string, AskResultAnswer>;
 	cancelled: boolean;
-	continuation?: AskContinuationPayload;
-	elaboration?: AskElaborationPayload;
 	error?: AskValidationError;
-	mode: "submit" | "elaborate";
 	questions: AskQuestionSummary[];
 	/** Stable journal request key for an ask_user tool call. */
 	requestId?: string;
@@ -171,7 +117,6 @@ export interface AskState {
 	answers: Record<string, AskStateAnswer>;
 	cancelled: boolean;
 	completed: boolean;
-	mode: "submit" | "elaborate";
 	questions: AskQuestion[];
 	/** Removed from active navigation but retained for ordered result metadata. */
 	skippedQuestions?: SkippedQuestion[];

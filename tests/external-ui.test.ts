@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { resolveContextFiles } from "../src/context-files.ts";
 import {
 	connectExternalAskUi,
 	type ExternalAskConnection,
@@ -10,7 +11,6 @@ import {
 	PI_ASK_EXTERNAL_UI_EVENT,
 	runExternalAskFlow,
 } from "../src/external-ui.ts";
-import { resolvePreviewFiles } from "../src/preview-files.ts";
 import {
 	createRemoteAskRuntime,
 	PI_ASK_COMPLETED_EVENT,
@@ -249,8 +249,6 @@ for (const cause of ["cancel", "abort"] as const) {
 }
 
 for (const response of [
-	{ kind: "answer", mode: false, answers: {} },
-	{ kind: "answer", mode: "", answers: {} },
 	undefined,
 	{ kind: "answer", answers: { wrong: { values: ["blue"] } } },
 	{ kind: "answer", answers: { color: { values: ["wrong"] } } },
@@ -295,26 +293,19 @@ test("UI failure is propagated and releases the surface for another call", async
 	runtime.disposeAll();
 });
 
-test("external request preserves preview text and presentation but cannot mutate canonical options", async () => {
-	const resolved = await resolvePreviewFiles(
-		{
-			questions: [
-				{
-					id: "color",
-					type: "preview",
-					prompt: "Choose?",
-					options: [
-						{
-							value: "blue",
-							label: "Blue",
-							previewFile: "fixtures/preview.txt",
-						},
-					],
-				},
-			],
-		},
-		fileURLToPath(new URL("./", import.meta.url))
-	);
+test("external request receives loaded context text but cannot mutate canonical options", async () => {
+	const resolved = await resolveContextFiles({
+		questions: [
+			{
+				id: "color",
+				prompt: "Choose?",
+				context: fileURLToPath(
+					new URL("fixtures/context.txt", import.meta.url)
+				),
+				options: [{ value: "blue", label: "Blue" }],
+			},
+		],
+	});
 	assert(resolved.ok);
 	const initial = createInitialState(resolved.params);
 	const bus = eventBus();
@@ -323,13 +314,16 @@ test("external request preserves preview text and presentation but cannot mutate
 		provider: {
 			...provider,
 			open(request) {
-				assert.equal(request.questions[0].type, "preview");
+				assert.equal(request.questions[0].type, "single");
 				assert.equal(
-					request.questions[0].options[0].preview,
-					initial.questions[0].options[0].preview
+					request.questions[0].context,
+					initial.questions[0].context
 				);
-				assert(request.questions[0].options[0].preview);
-				assert.equal("previewFile" in request.questions[0].options[0], false);
+				assert(
+					request.questions[0].context?.includes(
+						"Context loaded from a local file"
+					)
+				);
 				request.questions[0].options[0].label = "Fake label";
 				return Promise.resolve(answer);
 			},

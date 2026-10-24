@@ -37,7 +37,7 @@ Remove any other pi-ask installation so only one extension provides `ask_user`, 
 
 ## Ask. Keep working. Get the answer.
 
-The agent calls `ask_user`. You get a form with choices, previews, your own answer, and notes. Not another wall of text to untangle.
+The agent calls `ask_user`. You get a form with choices, the context you need to answer, your own answer, and notes. Not another wall of text to untangle.
 
 With `background: true`, questions appear above your normal input and take keyboard focus when shown, including the next queued form or a recovered visible form. Your message draft stays intact, and the agent keeps running. In fullscreen mode, clicking anywhere in an unfocused question panel only restores focus. Once focused, click a choice to answer or toggle it; click tabs and Review to navigate. A newly shown form is already focused, so its first click can select an answer. Review actions need two action clicks by default; a focus-only click does not count. Click your normal input to return to writing. `Alt+Q` also switches between answering and writing a message. Your answer arrives between turns, or wakes an idle agent.
 
@@ -55,7 +55,7 @@ Each tool's description says when it applies: `ask_user` for what the agent cann
 
 In **Type your own**, a question note, or an option note, use Pi's image-paste shortcut shown in the form. It is usually `Ctrl+V` on Linux/macOS and `Alt+V` on Windows/WSL. Paste several images if needed; `Ctrl+Alt+D` removes the last image in that editor.
 
-The form shows `[1 image]`, not a graphical preview. Text is optional. The agent receives the image itself, including in background answers and clarification requests. Images stay in session history; Markdown exports embed them as data URIs, which not every viewer can display.
+The form shows `[1 image]`, not a graphical preview. Text is optional. The agent receives the image itself, including in background answers. Images stay in session history; Markdown exports embed them as data URIs, which not every viewer can display.
 
 Linux needs a working native clipboard, `wl-paste`, or `xclip`. WSL can read screenshots from the Windows clipboard through PowerShell. File-path attachments and remote-client image uploads are not included.
 

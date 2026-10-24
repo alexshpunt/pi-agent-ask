@@ -1,6 +1,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
+import { SUBMIT_CHOICES } from "./constants/text.ts";
 import { AnswerSchema } from "./result-schema.ts";
 import { AskParamsSchema, AskQuestionSchema } from "./schema.ts";
 import { hasCustomAnswer } from "./state/answers.ts";
@@ -18,7 +19,7 @@ export interface AskDraft {
 	state: AskState;
 }
 
-const QuestionTypeSchema = StringEnum(["single", "multi", "preview"] as const);
+const QuestionTypeSchema = StringEnum(["single", "multi"] as const);
 const DraftQuestionSchema = Type.Object({
 	...AskQuestionSchema.properties,
 	label: Type.String(),
@@ -49,12 +50,14 @@ export const AskDraftSchema = Type.Object({
 	editorText: Type.String(),
 	state: Type.Object({
 		activeOptionIndex: Type.Integer({ minimum: 0 }),
-		activeSubmitActionIndex: Type.Integer({ minimum: 0, maximum: 2 }),
+		activeSubmitActionIndex: Type.Integer({
+			minimum: 0,
+			maximum: SUBMIT_CHOICES.length - 1,
+		}),
 		activeTabIndex: Type.Integer({ minimum: 0 }),
 		answers: Type.Record(Type.String(), DraftAnswerSchema),
 		cancelled: Type.Literal(false),
 		completed: Type.Literal(false),
-		mode: StringEnum(["submit", "elaborate"] as const),
 		questions: Type.Array(DraftQuestionSchema),
 		skippedQuestions: Type.Optional(
 			Type.Array(
@@ -140,13 +143,11 @@ function matchesQuestion(
 	question: AskQuestion,
 	original: AskQuestion
 ): boolean {
-	const allowedTypes =
-		original.type === "preview" ? ["preview", "multi"] : ["single", "multi"];
 	return (
 		question.id === original.id &&
 		question.label === original.label &&
 		question.prompt === original.prompt &&
-		allowedTypes.includes(question.type) &&
+		question.context === original.context &&
 		(question.requestedType ?? question.type) === original.type &&
 		question.presentedType ===
 			(question.type === original.type ? undefined : question.type) &&
@@ -157,8 +158,6 @@ function matchesQuestion(
 				option.value === expected.value &&
 				option.label === expected.label &&
 				option.description === expected.description &&
-				option.preview === expected.preview &&
-				option.previewFile === expected.previewFile &&
 				option.recommended === expected.recommended
 			);
 		})

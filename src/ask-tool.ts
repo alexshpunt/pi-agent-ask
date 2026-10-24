@@ -21,10 +21,10 @@ import {
 import type { BackgroundAskRuntime } from "./background-ask.ts";
 import { AskQueuedSchema } from "./background-ask-state.ts";
 import { getAskConfigStore } from "./config/store.ts";
+import { resolveContextFiles } from "./context-files.ts";
 import { connectExternalAskUi, runExternalAskFlow } from "./external-ui.ts";
-import { resolvePreviewFiles } from "./preview-files.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
-import { AskResultSchema } from "./result-schema.ts";
+import { AskOutputSchema, toAskOutput } from "./result-schema.ts";
 import { AskBackgroundOnlyParamsSchema, AskParamsSchema } from "./schema.ts";
 import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams, AskState } from "./types.ts";
@@ -48,7 +48,7 @@ export function registerAskTool(
 		parameters: backgroundOnly
 			? AskBackgroundOnlyParamsSchema
 			: AskParamsSchema,
-		outputSchema: Type.Union([AskResultSchema, AskQueuedSchema]),
+		outputSchema: Type.Union([AskOutputSchema, AskQueuedSchema]),
 		prepareArguments: (args) => prepareAskParams(args) as AskParams,
 		execute: (toolCallId, params, signal, onUpdate, ctx) =>
 			executeAskTool(
@@ -106,7 +106,7 @@ async function executeAskTool(
 	backgroundAsk?: BackgroundAskRuntime,
 	isBackgroundOnly: () => boolean = () => false
 ) {
-	const resolved = await resolvePreviewFiles(input, ctx.cwd);
+	const resolved = await resolveContextFiles(input);
 	if (!resolved.ok) {
 		return invalidPayloadResponse(input, resolved.issues);
 	}
@@ -238,6 +238,6 @@ function recordResponse(
 				: item
 		),
 		details: result,
-		structuredContent: result,
+		structuredContent: toAskOutput(result),
 	};
 }

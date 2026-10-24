@@ -45,13 +45,6 @@ export function getCurrentOption(
 	];
 }
 
-export function getQuestionOptionByValue(
-	question: AskQuestion,
-	optionValue: string
-) {
-	return question.options.find((option) => option.value === optionValue);
-}
-
 export function getAnswer(
 	state: AskState,
 	questionId: string

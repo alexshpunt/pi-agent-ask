@@ -1,10 +1,10 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { type Static, Type } from "typebox";
 import { QueuedAnswerSchema } from "./background-ask-state.ts";
-import { AnswerSchema, AskResultSchema } from "./result-schema.ts";
+import { AnswerSchema } from "./result-schema.ts";
 import { AskQuestionSchema } from "./schema.ts";
 
-const QuestionType = StringEnum(["single", "multi", "preview"] as const);
+const QuestionType = StringEnum(["single", "multi"] as const);
 export const HistoryQuestionSchema = Type.Object({
 	...AskQuestionSchema.properties,
 	label: Type.String(),
@@ -42,14 +42,9 @@ export const HistoryRecordSchema = Type.Object({
 		"answered",
 		"skipped",
 		"cancelled",
-		"clarification",
 		"error",
 	] as const),
-	mode: Type.Optional(AskResultSchema.properties.mode),
 	answer: Type.Optional(AnswerSchema),
-	elaboration: Type.Optional(
-		AskResultSchema.properties.elaboration.properties.items
-	),
 	error: Type.Optional(Type.String()),
 });
 export type HistoryKey = Static<typeof HistoryKeySchema>;

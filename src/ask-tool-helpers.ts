@@ -6,7 +6,7 @@ import type { AskQueuedSchema } from "./background-ask-state.ts";
 import { UI_DIMENSIONS } from "./constants/ui.ts";
 import { imageContent } from "./images.ts";
 import { renderResultText } from "./result.ts";
-import type { AskResultSchema } from "./result-schema.ts";
+import { toAskOutput } from "./result-schema.ts";
 import { createInitialState } from "./state/create.ts";
 import { collectValidationIssues } from "./state/normalize.ts";
 import { summarizeResult, toAskResult } from "./state/result.ts";
@@ -48,21 +48,18 @@ export function invalidPayloadResponse(
 	params: AskParams,
 	issues: AskValidationIssue[]
 ) {
-	const result: Static<typeof AskResultSchema> = errorResultDetails(
-		params,
-		issues
-	);
+	const result = errorResultDetails(params, issues);
 	return {
 		content: [{ type: "text" as const, text: formatValidationError(issues) }],
 		details: result,
-		structuredContent: result,
+		structuredContent: toAskOutput(result),
 	};
 }
 
 export function nonInteractiveResponse(
 	state: ReturnType<typeof createInitialState>
 ) {
-	const result: Static<typeof AskResultSchema> = {
+	const result: AskResult = {
 		...toAskResult(state),
 		cancelled: true,
 	};
@@ -71,20 +68,19 @@ export function nonInteractiveResponse(
 			{ type: "text" as const, text: formatNonInteractiveMessage(state) },
 		],
 		details: result,
-		structuredContent: result,
+		structuredContent: toAskOutput(result),
 	};
 }
 
 export function successfulResponse(result: AskResult) {
-	const structuredContent: Static<typeof AskResultSchema> = result;
 	const content: [TextContent, ...(TextContent | ImageContent)[]] = [
 		{ type: "text", text: summarizeResult(result) },
 		...imageContent(result),
 	];
 	return {
 		content,
-		details: structuredContent,
-		structuredContent,
+		details: result,
+		structuredContent: toAskOutput(result),
 	};
 }
 
@@ -146,7 +142,6 @@ function errorResultDetails(
 	return {
 		title: params.title,
 		cancelled: true,
-		mode: "submit",
 		questions: [],
 		answers: {},
 		error: {

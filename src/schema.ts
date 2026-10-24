@@ -6,28 +6,16 @@ export const AskOptionSchema = Type.Object({
 		description: "Machine-readable value returned when this option is chosen",
 	}),
 	label: Type.String({
-		description: "Short option text shown in the list",
+		description: "Option text, a few words",
 	}),
 	description: Type.Optional(
 		Type.String({
-			description: "One-line explanation shown with the option",
-		})
-	),
-	preview: Type.Optional(
-		Type.String({
-			description:
-				'Text shown in the preview pane while this option is focused. Used by `type: "preview"` questions.',
-		})
-	),
-	previewFile: Type.Optional(
-		Type.String({
-			description:
-				"Local UTF-8 text file shown in the preview pane instead of `preview`. Absolute or relative to Pi's working directory. Do not combine with `preview`.",
+			description: "One-line explanation of this option",
 		})
 	),
 	recommended: Type.Optional(
 		Type.Boolean({
-			description: "Marks the option as recommended in the form",
+			description: "Marks this option as your recommendation",
 		})
 	),
 });
@@ -38,21 +26,28 @@ export const AskQuestionSchema = Type.Object({
 	}),
 	label: Type.Optional(
 		Type.String({
-			description: "Short tab label. Default: Q1, Q2, ...",
+			description:
+				"Short name for the question, one or two words. Default: Q1, Q2, ...",
 		})
 	),
 	prompt: Type.String({
-		description: "Question text shown to the user",
+		description: "The question to the user",
 	}),
-	type: Type.Optional(
-		StringEnum(["single", "multi", "preview"] as const, {
+	context: Type.Optional(
+		Type.String({
 			description:
-				"`single` (default) accepts one option. `multi` accepts several. `preview` accepts one and shows the focused option's `preview` or `previewFile` beside the list; every option needs one of them.",
+				"Material the user needs to answer: text, or the absolute path of a UTF-8 text file whose contents are shown instead.",
+		})
+	),
+	type: Type.Optional(
+		StringEnum(["single", "multi"] as const, {
+			description:
+				"`single` (default) accepts one option. `multi` accepts several.",
 		})
 	),
 	options: Type.Array(AskOptionSchema, {
 		description:
-			"Choices for this question. The form always adds a free-text `Type your own` option.",
+			"Choices for this question. The user can always type their own answer instead.",
 	}),
 });
 
@@ -65,11 +60,11 @@ export const AskParamsSchema = Type.Object({
 	),
 	title: Type.Optional(
 		Type.String({
-			description: "Short title shown above the form",
+			description: "Short title for the whole set of questions",
 		})
 	),
 	questions: Type.Array(AskQuestionSchema, {
-		description: "Questions shown as tabs in one form",
+		description: "Questions to ask together",
 	}),
 });
 

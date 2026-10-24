@@ -23,17 +23,15 @@ const custom = (data: unknown) => ({
 const ctx = (branch: unknown[]) =>
 	({ sessionManager: { getBranch: () => branch } }) as never;
 
-test("stored tool payloads keep the original preview snapshot for recovery", () => {
+test("stored tool payloads keep the loaded context snapshot for recovery", () => {
 	const entries: unknown[] = [];
-	const previewParams = {
+	const previewParams: AskParams = {
 		questions: [
 			{
 				id: "preview",
 				prompt: "Choose",
-				type: "preview" as const,
-				options: [
-					{ value: "doc", label: "Document", preview: "Saved file text" },
-				],
+				context: "Saved file text",
+				options: [{ value: "doc", label: "Document" }],
 			},
 		],
 	};
@@ -55,6 +53,39 @@ test("stored tool payloads keep the original preview snapshot for recovery", () 
 	);
 });
 
+test("payloads saved with option previews recover as question context", () => {
+	const legacy = {
+		version: 1,
+		source: "tool",
+		sourceEntryId: "call-1",
+		timestamp: 1,
+		params: {
+			questions: [
+				{
+					id: "doc",
+					prompt: "Accept this task?",
+					type: "preview",
+					options: [{ value: "accept", label: "Accept", preview: "Task body" }],
+				},
+			],
+		},
+	};
+	assert.deepEqual(
+		findPayloadForSourceEntry(ctx([custom(legacy)]), "call-1", "tool")?.params,
+		{
+			questions: [
+				{
+					id: "doc",
+					prompt: "Accept this task?",
+					type: "single",
+					context: "Task body",
+					options: [{ value: "accept", label: "Accept" }],
+				},
+			],
+		}
+	);
+});
+
 test("recovery ignores invalid payloads and unrelated source entries", () => {
 	const valid = {
 		version: 1,
@@ -69,7 +100,10 @@ test("recovery ignores invalid payloads and unrelated source entries", () => {
 		custom({ ...valid, params: {} }),
 		custom({ ...valid, sourceEntryId: "other" }),
 	];
-	assert.equal(findPayloadForSourceEntry(ctx(branch), "call-1", "tool"), valid);
+	assert.deepEqual(
+		findPayloadForSourceEntry(ctx(branch), "call-1", "tool"),
+		valid
+	);
 	assert.equal(
 		findPayloadForSourceEntry(ctx(branch), "missing", "tool"),
 		undefined

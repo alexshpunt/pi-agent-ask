@@ -9,6 +9,7 @@ import { findPayloadForSourceEntry } from "./ask-payload-store.ts";
 import { validateParams } from "./ask-tool-helpers.ts";
 import { ASK_QUEUED_ENTRY } from "./background-ask-state.ts";
 import { AskParamsSchema } from "./schema.ts";
+import { prepareAskParams } from "./state/normalize.ts";
 import type { AskParams } from "./types.ts";
 
 export const ASK_PENDING_DISMISSED_ENTRY_TYPE = "ask:pending-dismissed";
@@ -123,7 +124,7 @@ function resolvePendingAskParams(
 		return persistedPayload.params;
 	}
 
-	const argumentsFallback = toolCall.arguments;
+	const argumentsFallback = prepareAskParams(toolCall.arguments);
 	if (
 		Value.Check(AskParamsSchema, argumentsFallback) &&
 		validateParams(argumentsFallback).ok

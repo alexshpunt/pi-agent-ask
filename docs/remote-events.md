@@ -6,7 +6,7 @@ All integration channels use the `pi-agent-ask` prefix. Old `@eko24ive/pi-ask:*`
 
 ## External UI negotiation
 
-Foreground `ask_user` outside TUI mode emits `pi-agent-ask:external-ui` once per call, after validation and preview loading. This synchronous event lets a connected bridge offer a UI:
+Foreground `ask_user` outside TUI mode emits `pi-agent-ask:external-ui` once per call, after validation and context-file loading. This synchronous event lets a connected bridge offer a UI:
 
 ```ts
 type ExternalAskConnection = {
@@ -36,7 +36,7 @@ The bridge must check its host's connection and capabilities before calling `con
 
 TUI and non-TUI background calls do not emit this event. Background questions and settings remain TUI-only. No browser UI is bundled.
 
-`open` receives cloned, normalized questions. Preview files have become text; types reflect `presentSingleAsMulti`. Keep `flowId` and `toolCallId` for correlation. Resolve with an explicit `RemoteAskResponse` as defined below. The original tool call waits; labels, indices, and result semantics are computed locally.
+`open` receives cloned, normalized questions. Context files have become text; types reflect `presentSingleAsMulti`. Keep `flowId` and `toolCallId` for correlation. Resolve with an explicit `RemoteAskResponse` as defined below. The original tool call waits; labels, indices, and result semantics are computed locally.
 
 Listen to `signal` and close the UI/transport when it aborts. It aborts after an answer, cancellation, operation abort, or failure, including completion by another local submitter. Reject on disconnection or UI failure rather than inventing a cancellation. An invalid response or no response is a tool error. Late responses are ignored; late submit-channel requests receive `flow_not_found`. Terminal paths dispose the active flow and provider resources.
 
@@ -90,7 +90,6 @@ Submit to `pi-agent-ask:submit`; receive the acknowledgement on `pi-agent-ask:su
 type RemoteAskResponse =
   | {
       kind: "answer";
-      mode?: "submit" | "elaborate";
       answers: Record<string, {
         values?: string[];
         customText?: string;
@@ -106,13 +105,12 @@ pi.events.emit("pi-agent-ask:submit", {
   flowId,
   response: {
     kind: "answer",
-    mode: "submit",
     answers: { questionId: { values: ["option-value"] } },
   },
 });
 ```
 
-Question keys and selected values must exist in the started form. An answer replaces the current answer set rather than merging stale UI state. `mode` defaults to `submit`; `elaborate` requests clarification. Labels and indices are recomputed locally. Notes and custom text follow the normal tool contract.
+Question keys and selected values must exist in the started form. An answer replaces the current answer set rather than merging stale UI state. An answer submits the form. Labels and indices are recomputed locally. Notes and custom text follow the normal tool contract.
 
 Cancel explicitly with `response: { kind: "cancel" }`. The extension never infers cancellation or approval from labels or button names.
 

@@ -97,9 +97,6 @@ function historyRecord(
 		result && Object.hasOwn(result.answers, question.id)
 			? result.answers[question.id]
 			: undefined;
-	const elaboration = result?.elaboration?.items.filter(
-		(item) => item.question.id === question.id
-	);
 	const finalQuestion = result?.questions.find(
 		(item) => item.id === question.id
 	);
@@ -118,17 +115,14 @@ function historyRecord(
 					}
 				: {}),
 		},
-		status: outcomeStatus(completion, question.id, answer),
-		mode: result?.mode,
+		status: outcomeStatus(completion, answer),
 		answer,
-		elaboration,
 		error: completion?.error,
 	};
 }
 
 function outcomeStatus(
 	completion: HistoryCompletion | undefined,
-	questionId: string,
 	answer?: AskResultAnswer
 ): HistoryRecord["status"] {
 	if (completion?.error) {
@@ -141,20 +135,10 @@ function outcomeStatus(
 	if (result.cancelled) {
 		return "cancelled";
 	}
-	if (
-		result.mode === "elaborate" &&
-		(result.continuation?.affectedQuestionIds.includes(questionId) ||
-			result.elaboration?.items.some(
-				(item) => item.question.id === questionId
-			) ||
-			!result.elaboration?.items.length)
-	) {
-		return "clarification";
-	}
 	return hasCommittedAnswer(answer) ? "answered" : "skipped";
 }
 
-/** Notes alone are not a committed answer. Clarification can still carry a prior answer. */
+/** Notes alone are not a committed answer. */
 export function hasCommittedAnswer(answer?: AskResultAnswer): boolean {
 	return Boolean(
 		answer &&

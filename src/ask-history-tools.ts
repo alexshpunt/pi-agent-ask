@@ -75,13 +75,7 @@ function records(ctx: ExtensionContext) {
 	return readAskHistory(ctx.sessionManager.getBranch());
 }
 function summary(record: HistoryRecord) {
-	const {
-		question,
-		answer,
-		elaboration: _elaboration,
-		error: _error,
-		...rest
-	} = record;
+	const { question, answer, error: _error, ...rest } = record;
 	return {
 		...rest,
 		label: question.label,
@@ -98,18 +92,8 @@ function historyResponse(record: HistoryRecord) {
 			...result.content,
 			...imageContent({
 				cancelled: record.status === "cancelled",
-				mode: record.mode ?? "submit",
 				questions: [record.question],
 				answers: record.answer ? { [record.questionId]: record.answer } : {},
-				...(record.elaboration?.length
-					? {
-							elaboration: {
-								items: record.elaboration,
-								instruction: "",
-								nextAction: "clarify" as const,
-							},
-						}
-					: {}),
 			}),
 		],
 	};
@@ -159,7 +143,7 @@ export function registerAskHistoryTools(pi: ExtensionAPI): void {
 		name: "read_ask_history",
 		label: "Read Ask History",
 		description:
-			"Read one recorded ask_user question by requestId + questionId from list_ask_history or ask_user. Returns the full saved prompt, options and previews, answer, notes, and outcome. Missing or out-of-branch keys fail explicitly. Waiting, skipped, cancelled, or clarification outcomes are not approval.",
+			"Read one recorded ask_user question by requestId + questionId from list_ask_history or ask_user. Returns the full saved prompt, context, options, answer, notes, and outcome. Missing or out-of-branch keys fail explicitly. Waiting, skipped, or cancelled outcomes are not approval.",
 		parameters: HistoryKeySchema,
 		outputSchema: Type.Object({ record: HistoryRecordSchema }),
 		annotations: { readOnlyHint: true, openWorldHint: false },
