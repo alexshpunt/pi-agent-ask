@@ -52,13 +52,17 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 	pi.events.on(PI_ASK_COMPLETED_EVENT, (payload) => {
 		active.delete((payload as { flowId: string }).flowId);
 	});
-	const observe = async (phase: string, question: string) => {
+	const observe = async (
+		phase: string,
+		question: string,
+		expectedStatus = "blocked"
+	) => {
 		const deadline = Date.now() + 3000;
 		let status = "unknown";
 		do {
 			status = await readStatus();
 			const flow = active.values().next().value;
-			if (flow?.questions[0]?.id === question && status === "blocked") {
+			if (flow?.questions[0]?.id === question && status === expectedStatus) {
 				break;
 			}
 			await tick();
@@ -124,13 +128,15 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 			action: Type.Union([
 				Type.Literal("first"),
 				Type.Literal("second"),
+				Type.Literal("hide"),
+				Type.Literal("reopen"),
 				Type.Literal("idle"),
 				Type.Literal("stats"),
 				Type.Literal("checkpoint"),
 				Type.Literal("recovered"),
 			]),
 		}),
-		async execute(_id, params) {
+		async execute(_id, params, _signal, _update, ctx) {
 			switch (params.action) {
 				case "first":
 					await observe("working-first", "first");
@@ -139,6 +145,15 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 					break;
 				case "second":
 					await observe("working-second", "second");
+					break;
+				case "hide":
+					process.stdin.emit("data", "\u001b[27u");
+					await observe("hidden", "second", "working");
+					break;
+				case "reopen":
+					ctx.ui.setEditorText("/ask-queue");
+					process.stdin.emit("data", "\r");
+					await observe("reopened", "second");
 					break;
 				case "idle":
 					answerOnIdle = true;

@@ -83,7 +83,7 @@ function harness() {
 		sessionManager: { getBranch: () => branch },
 		ui: {
 			onTerminalInput: () => () => undefined,
-			custom(factory: any) {
+			custom(factory: any, options: any) {
 				return new Promise<AskResult>((resolve) => {
 					let component: any;
 					const done = (result: AskResult) => {
@@ -102,6 +102,16 @@ function harness() {
 						done
 					);
 					forms.push(done);
+					options?.onHandle?.({
+						setHidden: () => undefined,
+						focus: () => {
+							focused = component;
+						},
+						unfocus: () => {
+							focused = { getText: () => "", setText: () => undefined };
+						},
+						isFocused: () => focused === component,
+					});
 					focused = component;
 				});
 			},
@@ -198,7 +208,7 @@ test("background receipts return before answers and forms run in FIFO order", as
 	assert.notEqual(first.requestId, second.requestId);
 	await tick();
 	assert.equal(h.forms.length, 1);
-	assert.deepEqual(h.events, []);
+	assert.equal(h.events.at(-1)?.data.active, true);
 	h.forms[0](answer);
 	await tick();
 	assert.equal(h.forms.length, 2);
@@ -215,7 +225,7 @@ test("background receipts return before answers and forms run in FIFO order", as
 	h.runtime.dispose();
 });
 
-test("pending questionnaires do not block the agent while their forms close", async (t) => {
+test("an open queue stays blocked across form handoff and releases after its last answer", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
 	const active = () => h.events.map((event) => event.data.active);
@@ -223,13 +233,71 @@ test("pending questionnaires do not block the agent while their forms close", as
 	h.runtime.enqueue("second", params, h.ctx as never, false);
 	assert.deepEqual(active(), []);
 	await tick();
+	assert.deepEqual(active(), [true]);
 	h.forms[0](answer);
 	await tick();
-	assert.deepEqual(active(), []);
+	assert.deepEqual(active(), [true]);
 	assert.equal(h.runtime.pendingCount(), 1);
 	h.forms[1](answer);
 	await tick();
-	assert.deepEqual(active(), []);
+	assert.deepEqual(active(), [true, false]);
+});
+
+test("hiding and reopening a queue changes Herdr status without completing its questions", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	const active = () => h.events.at(-1)?.data.active;
+	h.runtime.enqueue("first", params, h.ctx as never, false);
+	await tick();
+	assert.equal(active(), true);
+	h.runtime.defer("hidden");
+	assert.equal(active(), false);
+	assert.equal(h.runtime.pendingCount(), 1);
+	h.runtime.enqueue("second", params, h.ctx as never, false);
+	await tick();
+	assert.equal(active(), false);
+	h.runtime.open(h.ctx as never);
+	assert.equal(active(), true);
+	h.forms[0](answer);
+	await tick();
+	assert.equal(active(), true);
+	h.forms[1]({ ...answer, cancelled: true });
+	await tick();
+	assert.equal(active(), false);
+	assert.equal(h.runtime.pendingCount(), 0);
+});
+
+test("restoring a deferred queue keeps Herdr unblocked until the panel is reopened", async (t) => {
+	const h = harness();
+	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("pending", params, h.ctx as never, false);
+	await tick();
+	h.runtime.defer("hidden");
+	h.runtime.restore(h.ctx as never);
+	await tick();
+	assert.equal(h.forms.length, 2);
+	assert.equal(h.events.at(-1)?.data.active, false);
+	assert.equal(h.runtime.pendingCount(), 1);
+	h.runtime.open(h.ctx as never);
+	assert.equal(h.events.at(-1)?.data.active, true);
+});
+test("disposing or switching away from a visible queue releases its Herdr block", async () => {
+	const h = harness();
+	h.runtime.enqueue("pending", params, h.ctx as never, false);
+	await tick();
+	assert.equal(h.events.at(-1)?.data.active, true);
+	h.runtime.dispose();
+	assert.equal(h.events.at(-1)?.data.active, false);
+	const count = h.events.length;
+	h.runtime.dispose();
+	assert.equal(h.events.length, count);
+	h.runtime.restore(h.ctx as never);
+	await tick();
+	assert.equal(h.events.at(-1)?.data.active, true);
+	h.branch.length = 0;
+	h.runtime.restore(h.ctx as never);
+	assert.equal(h.events.at(-1)?.data.active, false);
+	h.runtime.dispose();
 });
 
 test("recovering an unanswered queue does not block while the editor is unavailable", async (t) => {
@@ -246,28 +314,22 @@ test("recovering an unanswered queue does not block while the editor is unavaila
 	assert.deepEqual(h.events, []);
 });
 
-test("closing a foreground surface releases its wait despite a pending background queue", async (t) => {
+test("hiding a queue cannot clear an overlapping foreground block", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
+	h.runtime.enqueue("background", params, h.ctx as never, false);
+	await tick();
 	const foreground = runAskFlow(h.ctx as never, params, {
 		herdrEvents: h.pi.events as never,
 	});
 	await tick();
-	h.runtime.enqueue("background", params, h.ctx as never, false);
-	h.forms[0](answer);
-	await foreground;
-	await tick();
 	assert.equal(h.forms.length, 2);
-	assert.deepEqual(
-		h.events.map((event) => event.data.active),
-		[true, false]
-	);
+	h.runtime.defer("hidden");
+	assert.equal(h.events.at(-1)?.data.active, true);
 	h.forms[1](answer);
-	await tick();
-	assert.deepEqual(
-		h.events.map((event) => event.data.active),
-		[true, false]
-	);
+	await foreground;
+	assert.equal(h.events.at(-1)?.data.active, false);
+	assert.equal(h.runtime.pendingCount(), 1);
 });
 
 test("cancelling a background form records cancellation without aborting agent work", async (t) => {
@@ -585,7 +647,7 @@ test("a persisted direct wait result prevents delivery after recovery", async ()
 	h.runtime.dispose();
 });
 
-test("aborting the wait clears blocked status without closing the question panel", async () => {
+test("aborting an explicit wait keeps the visible question panel blocked", async () => {
 	const h = harness();
 	registerWaitForAnswersTool(h.pi as never, h.runtime);
 	const tool = h.tools.get("wait_for_answers");
@@ -599,17 +661,11 @@ test("aborting the wait clears blocked status without closing the question panel
 	const waiting = tool.execute("wait", {}, abort.signal, undefined, h.ctx);
 	abort.abort();
 	await assert.rejects(waiting, { name: "AbortError" });
-	assert.deepEqual(
-		h.events.map((event) => event.data.active),
-		[true, false]
-	);
+	assert(h.events.every((event) => event.data.active));
 	assert.equal(h.runtime.pendingCount(), 1);
 	h.forms[0](answer);
 	await tick();
-	assert.deepEqual(
-		h.events.map((event) => event.data.active),
-		[true, false]
-	);
+	assert.equal(h.events.at(-1)?.data.active, false);
 	h.runtime.dispose();
 });
 

@@ -18,6 +18,8 @@ export const herdrBlockedConversation = [
 	call("second-form", "ask_user", form("second")),
 	call("first", "herdr_queue_probe", { action: "first" }),
 	call("second", "herdr_queue_probe", { action: "second" }),
+	call("hide", "herdr_queue_probe", { action: "hide" }),
+	call("reopen", "herdr_queue_probe", { action: "reopen" }),
 	call("idle", "herdr_queue_probe", { action: "idle" }),
 	assistantMessage([
 		text("Keep the second form open while the agent settles."),

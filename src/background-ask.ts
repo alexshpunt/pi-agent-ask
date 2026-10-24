@@ -51,6 +51,7 @@ export class BackgroundAskRuntime {
 	private readonly executionOwners = new Map<string, string | undefined>();
 	private waiter?: Waiter;
 	private endWaitingStatus?: () => void;
+	private endQueueStatus?: () => void;
 	private stopWaitingForEditor?: () => void;
 
 	constructor(pi: ExtensionAPI, remoteAsk?: RemoteAskRuntime) {
@@ -315,6 +316,8 @@ export class BackgroundAskRuntime {
 		this.stopWaitingForEditor?.();
 		this.stopWaitingForEditor = undefined;
 		this.generation.abort();
+		this.endQueueStatus?.();
+		this.endQueueStatus = undefined;
 		this.pendingIdleDelivery.clear();
 		this.executionOwners.clear();
 		this.draftSignatures.clear();
@@ -392,6 +395,16 @@ export class BackgroundAskRuntime {
 
 	private updateStatus(): void {
 		const pending = this.pendingCount();
+		// Acquire only after mounting; keep the owner through FIFO panel handoffs.
+		if (pending && !this.hidden && (this.panel || this.endQueueStatus)) {
+			this.endQueueStatus ??= beginUserWait(
+				this.pi.events,
+				"Questions awaiting your response"
+			);
+		} else {
+			this.endQueueStatus?.();
+			this.endQueueStatus = undefined;
+		}
 		this.context?.ui.setStatus(
 			"ask:queue",
 			pending
@@ -443,6 +456,7 @@ export class BackgroundAskRuntime {
 							return;
 						}
 						this.panel = handle;
+						this.updateStatus();
 					},
 					onHiddenChange: (hidden) => {
 						if (!signal.aborted) {
@@ -548,7 +562,8 @@ export function createBackgroundAskRuntime(
 	pi.on("tool_execution_end", (event) =>
 		runtime.forgetExecution(event.toolCallId)
 	);
-	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
+	// Wait for all session_start handlers, including Herdr's status consumer.
+	pi.on("resources_discover", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", () => runtime.dispose());
 	pi.on("input", (event) => {

@@ -282,7 +282,7 @@ Queue state is rebuilt from the active branch on startup, reload, resume, fork, 
 
 Recovered panels wait for the native editor without replacing it. Drafts, skipped questions, and panel visibility follow the active branch across reload and resume. Other input dialogs retain their own input surface.
 
-A pending or visible background panel does not emit `herdr:blocked`. An active `wait_for_answers` emits `{ active: true, label: "Waiting for user answers" }` and releases its waiting status when it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked. Tool guidelines and the bundled skill distinguish these states and forbid dependent work before answers.
+A visible background question panel holds a `herdr:blocked` indication. Hiding or deferring the panel releases this indication while preserving queued questions; reopening the panel restores it. Completion, cancellation, errors, disposal, and session changes release the panel's ownership. An active `wait_for_answers` holds its own waiting status until it completes, is deferred, is aborted, or is disposed. Other active waits keep Herdr blocked when the panel is hidden or finishes. Tool guidelines and the bundled skill forbid dependent work before answers.
 
 ## Session question history
 

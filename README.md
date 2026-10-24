@@ -47,7 +47,7 @@ If there's nothing else the agent can do, it calls `wait_for_answers`. Hiding th
 
 Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into **Background-only**, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after its first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
 
-Pending background questions alone do not mark a responsive agent as blocked in Herdr. Foreground questions and active `wait_for_answers` calls do. Cancelling a background form cancels that question, not the agent.
+An open question panel marks the session as blocked in Herdr so pending questions are visible outside the terminal. Hiding the panel clears that indication while keeping the queue. Foreground questions and active `wait_for_answers` calls keep their own blocked status. Cancelling a background form cancels that question, not the agent.
 
 It still has to wait before doing work that depends on your answer. “Keep working” doesn't mean “guess anyway.”
 

@@ -14,7 +14,7 @@ import {
 	toolCall,
 } from "pi-coding-agent-test";
 
-// Protects the default tool and prompt surface through the real extension loader.
+// Protects default tool exposure through the real extension loader.
 test("real Pi exposes question tools without default history tools", {
 	timeout: 60_000,
 }, async () => {
