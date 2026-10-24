@@ -15,11 +15,7 @@ import {
 	renderContextPane,
 	renderEditorBlock,
 } from "./render-helpers.ts";
-import type {
-	AskMouseTarget,
-	QuestionRenderContext,
-	Theme,
-} from "./render-types.ts";
+import type { QuestionRenderContext, Theme } from "./render-types.ts";
 import {
 	buildQuestionScreenModel,
 	type OptionDetailModel,
@@ -124,11 +120,9 @@ function renderContextQuestion(
 				width
 			)
 		: width;
-	const optionLines = renderPreviewOptionList(
+	const optionLines = renderContextOptionList(
 		model.rows,
-		theme,
-		leftWidth,
-		context.targets,
+		{ ...context, width: leftWidth },
 		lines.length
 	);
 	if (wide) {
@@ -153,13 +147,13 @@ function renderContextQuestion(
 	renderOptionDetail(lines, model.selectedOptionDetail, context);
 }
 
-function renderPreviewOptionList(
+/** Render options in the context layout, with saved notes and custom text under their rows. */
+function renderContextOptionList(
 	rows: OptionRowModel[],
-	theme: Theme,
-	width: number,
-	targets?: AskMouseTarget[],
-	rowOffset = 0
+	context: QuestionRenderContext,
+	rowOffset: number
 ): string[] {
+	const { theme, width, targets } = context;
 	const lines: string[] = [];
 	for (const row of rows) {
 		const y = lines.length;
@@ -181,6 +175,7 @@ function renderPreviewOptionList(
 			width,
 			height: lines.length - y,
 		});
+		renderOptionDetail(lines, row.detail, context);
 	}
 	return lines;
 }

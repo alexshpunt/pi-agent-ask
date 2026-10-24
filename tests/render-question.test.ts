@@ -311,6 +311,48 @@ test("multi-select questions with context keep their checkboxes beside the conte
 	assert(contextLine?.includes("2. [ ] B"));
 });
 
+test("questions with context show saved notes on every option, not only the focused one", () => {
+	for (const width of [60, 120]) {
+		let state = createInitialState({
+			questions: [
+				{
+					id: "q1",
+					prompt: "Pick any",
+					type: "multi",
+					context: "Shared context",
+					options: [
+						{ value: "a", label: "A" },
+						{ value: "b", label: "B" },
+					],
+				},
+			],
+		});
+		state = enterOptionNoteMode(state, "q1", "b");
+		state = {
+			...state,
+			activeOptionIndex: 0,
+			view: { kind: "navigate" },
+			answers: { q1: { selected: [], optionNotes: { b: "note on B" } } },
+		};
+
+		const lines: string[] = [];
+		renderQuestionScreen({
+			editor: mockEditor(),
+			lines,
+			options: getRenderableOptions(state.questions[0]),
+			question: state.questions[0],
+			state,
+			theme: mockTheme(() => undefined),
+			width,
+		});
+
+		assert(
+			lines.some((line) => line.includes("note on B")),
+			`width ${width}`
+		);
+	}
+});
+
 test("custom option with context reuses the normal inline editor", () => {
 	let state = createInitialState({
 		questions: [

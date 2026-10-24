@@ -66,7 +66,9 @@ export function buildQuestionScreenModel(
 		mode: "context",
 		questionNote,
 		rows,
-		selectedOptionDetail: buildOptionDetailModel(context, selectedOption, true),
+		selectedOptionDetail: editorOnly(
+			buildOptionDetailModel(context, selectedOption, true)
+		),
 	};
 }
 
@@ -100,7 +102,7 @@ function buildOptionRowModel(
 		color: getOptionColor(answered, selected),
 		description: option.description,
 		detail: context.question.context
-			? undefined
+			? savedOnly(buildOptionDetailModel(context, option, selected))
 			: buildOptionDetailModel(context, option, selected),
 		index,
 		isCustom: !!option.isCustomOption,
@@ -166,6 +168,19 @@ function buildOptionDetailModel(
 		return { kind: "saved-note", text: note };
 	}
 	return;
+}
+
+/** With context, open editors render below the list; saved text stays on its row. */
+function editorOnly(
+	detail: OptionDetailModel | undefined
+): OptionDetailModel | undefined {
+	return detail?.kind === "editor" ? detail : undefined;
+}
+
+function savedOnly(
+	detail: OptionDetailModel | undefined
+): OptionDetailModel | undefined {
+	return detail?.kind === "editor" ? undefined : detail;
 }
 
 function getContextLayout(
