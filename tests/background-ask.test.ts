@@ -856,6 +856,44 @@ test("unknown ancestry stays unowned instead of guessing a root from an ID", asy
 	assert.equal(h.messages[0].details.parentToolCallId, undefined);
 });
 
+test("recorded answers stay delivered across turns without queue records", async (t) => {
+	for (const waited of [false, true]) {
+		const h = harness();
+		t.after(() => h.runtime.dispose());
+		h.runtime.enqueue("retained", params, h.ctx as never, false);
+		await tick();
+		const waiting = waited ? h.runtime.wait(undefined) : undefined;
+		h.forms[0](answer);
+		await tick();
+		if (waiting) {
+			h.branch.push({
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "wait_for_answers",
+					isError: false,
+					details: await waiting,
+				},
+			});
+		} else {
+			h.boundary();
+		}
+		const retained = h.branch.filter((entry) => entry.type !== "custom");
+		h.branch.splice(0, h.branch.length, ...retained);
+		assert.equal(h.branch.length, 1);
+		for (let turn = 0; turn < 3; turn += 1) {
+			h.handlers.get("turn_start")?.({}, h.ctx);
+			assert.equal(h.boundary(), undefined);
+			assert.equal(
+				h.handlers.get("agent_before_settle")?.({ entries: [] }, h.ctx),
+				undefined
+			);
+			assert.deepEqual((await h.runtime.wait(undefined)).results, []);
+		}
+		assert.equal(h.messages.length, waited ? 0 : 1);
+	}
+});
+
 test("a rejected delivery boundary can retry without duplicating the visible card", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
