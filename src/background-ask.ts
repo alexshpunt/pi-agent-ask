@@ -13,6 +13,7 @@ import {
 	ASK_DRAFT_ENTRY,
 	ASK_QUEUE_UI_ENTRY,
 	ASK_QUEUED_ENTRY,
+	getDeliveredRequestIds,
 	type QueuedAnswer,
 	type QueuedRequest,
 	restoreQueuedRequests,
@@ -120,11 +121,7 @@ export class BackgroundAskRuntime {
 
 	/** Verify routed claims against finalized transcript entries before the next model turn. */
 	reconcileDelivery(ctx: ExtensionContext): void {
-		const delivered = new Set(
-			restoreQueuedRequests(ctx.sessionManager.getBranch())
-				.filter((request) => request.delivered)
-				.map((request) => request.requestId)
-		);
+		const delivered = getDeliveredRequestIds(ctx.sessionManager.getBranch());
 		for (const request of this.requests) {
 			request.delivered = delivered.has(request.requestId);
 			if (request.delivered) {
