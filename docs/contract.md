@@ -192,7 +192,7 @@ The questions and drafts remain pending. `results` includes only completed outco
 
 Results already delivered asynchronously are not repeated. Forms completed during the wait return through its result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued. Explicit cancellation finishes only that background questionnaire and does not abort unrelated agent work. UI failures are reported with an error, never invented answers.
 
-Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
+Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery independently of the queue journal. If a session rewrite removes queue records but retains delivery evidence, requests still in memory are not redelivered. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
 
 Recovered panels wait for the native editor without replacing it. Drafts, skipped questions, and panel visibility follow the active branch across reload and resume. Other input dialogs retain their own input surface.
 
