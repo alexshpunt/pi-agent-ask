@@ -12,6 +12,12 @@ import {
 	toolCall,
 } from "pi-coding-agent-test";
 
+import {
+	ASK_ANSWER_MESSAGE,
+	ASK_COMPLETED_ENTRY,
+	ASK_QUEUED_ENTRY,
+} from "../../src/background-ask-state.ts";
+
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const form = (id: string) => ({
 	background: true,
@@ -24,6 +30,93 @@ const call = (id: string, name: string, args: Record<string, unknown>) =>
 	assistantMessage([toolCall({ id, name, arguments: args })], {
 		stopReason: "toolUse",
 	});
+
+for (const waited of [false, true]) {
+	test(`real Pi does not redeliver a ${waited ? "waited" : "background"} answer after session replacement drops queue records`, {
+		timeout: 60_000,
+	}, async () => {
+		const result = await new PiIntegrationTest({
+			testName: `background-replaced-${waited ? "waited" : "automatic"}`,
+			artifactsDir: testArtifactsDir(import.meta.filename),
+			cwd: root,
+			isolateUserResources: true,
+			extensions: [
+				fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
+				fileURLToPath(
+					new URL("../fixtures/background-driver.ts", import.meta.url)
+				),
+			],
+			tools: ["ask_user", "wait_for_answers", "queue_probe"],
+			rawMode: false,
+			conversation: [
+				call("retained-form", "ask_user", form("retained")),
+				waited
+					? call("first-wait", "wait_for_answers", {})
+					: call("answer", "queue_probe", { action: "research" }),
+				call("replace-session", "queue_probe", {
+					action: "drop_queue_records",
+				}),
+				call("next-turn", "queue_probe", { action: "stats" }),
+				call("repeat-wait", "wait_for_answers", {}),
+				call("later-turn", "queue_probe", { action: "stats" }),
+				assistantMessage([text("Verification complete.")]),
+			],
+		}).run(
+			"Answer the form once, replace the session without queue records, and continue."
+		);
+		for (const id of [
+			"replace-session",
+			"next-turn",
+			"repeat-wait",
+			"later-turn",
+		]) {
+			assert.equal(getToolExecution(result, id).isError, false);
+		}
+		for (const id of ["replace-session", "next-turn", "later-turn"]) {
+			const stats = getToolExecutionDetails(getToolExecution(result, id)) as {
+				answerMessages: number;
+				queueRecords: number;
+			};
+			assert.equal(stats.queueRecords, 0);
+			assert.equal(stats.answerMessages, waited ? 0 : 1);
+		}
+		const repeated = getToolExecutionDetails(
+			getToolExecution(result, "repeat-wait")
+		) as {
+			results: unknown[];
+		};
+		assert.deepEqual(repeated.results, []);
+		if (waited) {
+			const initial = getToolExecutionDetails(
+				getToolExecution(result, "first-wait")
+			) as {
+				results: unknown[];
+			};
+			assert.equal(initial.results.length, 1);
+		}
+		const snapshot = result.traceEvents
+			.filter((event) => event.type === "session_snapshot")
+			.at(-1);
+		assert(Array.isArray(snapshot?.branch));
+		assert.equal(
+			snapshot.branch.filter(
+				(entry) =>
+					entry.type === "custom_message" &&
+					entry.customType === ASK_ANSWER_MESSAGE
+			).length,
+			waited ? 0 : 1
+		);
+		assert.equal(
+			snapshot.branch.filter(
+				(entry) =>
+					entry.type === "custom" &&
+					(entry.customType === ASK_QUEUED_ENTRY ||
+						entry.customType === ASK_COMPLETED_ENTRY)
+			).length,
+			0
+		);
+	});
+}
 
 test("real Pi keeps researching, delivers the first answer, and waits for the second", {
 	timeout: 60_000,
