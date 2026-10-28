@@ -82,7 +82,7 @@ export function restoreQueuedRequests(
 	branch: readonly SessionEntry[]
 ): QueuedRequest[] {
 	const requests = new Map<string, QueuedRequest>();
-	const delivered = new Set(branch.flatMap(deliveredRequestIds));
+	const delivered = getDeliveredRequestIds(branch);
 	for (const entry of branch) {
 		const queued = queuedRequest(entry);
 		if (queued && !requests.has(queued.requestId)) {
@@ -164,6 +164,13 @@ function completedAnswer(entry: SessionEntry): QueuedAnswer | undefined {
 		return;
 	}
 	return entry.data.result || entry.data.error ? entry.data : undefined;
+}
+
+/** Delivery evidence survives independently of the queue's recovery journal. */
+export function getDeliveredRequestIds(
+	branch: readonly SessionEntry[]
+): Set<string> {
+	return new Set(branch.flatMap(deliveredRequestIds));
 }
 
 function deliveredRequestIds(entry: SessionEntry): string[] {
