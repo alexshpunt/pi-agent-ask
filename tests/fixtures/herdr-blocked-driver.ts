@@ -14,6 +14,14 @@ const exec = promisify(execFile);
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 25));
 
 async function readStatus(): Promise<string> {
+	if (process.env.ASK_HERDR_CORE === "1") {
+		const { stdout } = await exec(
+			"hc",
+			["get", process.env.HC_TERMINAL_ID ?? "", "--json"],
+			{ timeout: 5000 }
+		);
+		return JSON.parse(stdout).status?.state ?? "unknown";
+	}
 	const { stdout } = await exec(
 		"herdr",
 		["pane", "get", process.env.HERDR_PANE_ID ?? ""],
@@ -44,10 +52,18 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 		question: string;
 	}> = [];
 	let answerOnIdle = false;
+	let answerOnForeground = false;
+	let answerOnWait = false;
 	let saveOnIdle = false;
 	pi.events.on(PI_ASK_STARTED_EVENT, (payload) => {
 		const flow = payload as RemoteAskStartedEvent;
 		active.set(flow.flowId, flow);
+		if (answerOnForeground) {
+			answerOnForeground = false;
+			setImmediate(() => {
+				observe("foreground", "foreground").then(answer);
+			});
+		}
 	});
 	pi.events.on(PI_ASK_COMPLETED_EVENT, (payload) => {
 		active.delete((payload as { flowId: string }).flowId);
@@ -93,6 +109,14 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 			},
 		});
 	};
+	pi.on("tool_execution_start", (event) => {
+		if (answerOnWait && event.toolName === "wait_for_answers") {
+			answerOnWait = false;
+			setImmediate(() => {
+				observe("explicit-wait", "first").then(answer);
+			});
+		}
+	});
 	pi.on("agent_settled", (_event, ctx) => {
 		if (saveOnIdle) {
 			saveOnIdle = false;
@@ -134,10 +158,18 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 				Type.Literal("stats"),
 				Type.Literal("checkpoint"),
 				Type.Literal("recovered"),
+				Type.Literal("foreground"),
+				Type.Literal("wait"),
 			]),
 		}),
 		async execute(_id, params, _signal, _update, ctx) {
 			switch (params.action) {
+				case "foreground":
+					answerOnForeground = true;
+					break;
+				case "wait":
+					answerOnWait = true;
+					break;
 				case "first":
 					await observe("working-first", "first");
 					answer();

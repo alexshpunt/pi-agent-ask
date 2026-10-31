@@ -56,7 +56,9 @@ The agent can call `wait_for_answers` to wait for your answers. Hiding the panel
 
 Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into Background-only, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after the first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
 
-An open question panel marks the session as blocked in [Herdr](https://herdr.dev), so pending questions are visible outside the terminal. Hiding the panel clears that mark while keeping the queue.
+An open question panel marks the session as blocked in [Herdr](https://herdr.dev), so pending questions are visible outside the terminal. Hiding the panel clears that mark while keeping the queue, unless another form or explicit wait still needs input.
+
+The new Herdr desktop app receives OSC 7501 through Pi's `terminal.setProgramStatus` API (verified with Pi 1.4.0). Reporting uses terminal capability negotiation; `PI_PROGRAM_STATUS=0` disables it, and `PI_PROGRAM_STATUS=1` forces it when negotiation is unavailable. Older Pi hosts without this API keep the legacy `herdr:blocked` events. No Pi patch or legacy Herdr socket variables are needed for the desktop integration. See [status lifecycle and concurrency limits](docs/contract.md#herdr-blocked-lifecycle).
 
 ## Paste a screenshot into your answer
 

@@ -28,6 +28,22 @@ export const herdrBlockedConversation = [
 	assistantMessage([text("Herdr queue verification complete.")]),
 ];
 
+/** Exercise foreground custom UI and the explicit answer wait on a real host. */
+export const herdrForegroundConversation = [
+	call("arm-foreground", "herdr_queue_probe", { action: "foreground" }),
+	call("foreground-form", "ask_user", {
+		...form("foreground"),
+		background: false,
+	}),
+	call("background-form", "ask_user", form("first")),
+	call("arm-wait", "herdr_queue_probe", { action: "wait" }),
+	call("explicit-wait", "wait_for_answers", {}),
+	call("stats", "herdr_queue_probe", { action: "stats" }),
+	assistantMessage([
+		text("Foreground and explicit wait verification complete."),
+	]),
+];
+
 /** Leave the second form pending in a session that a new Pi process can resume. */
 export const herdrQueueCheckpointConversation = [
 	...herdrBlockedConversation.slice(0, 4),

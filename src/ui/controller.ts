@@ -19,6 +19,7 @@ import {
 	createQuestionWaitingNotification,
 	notifyQuestionWaiting,
 } from "../notifications.ts";
+import { bindQuestionTerminal } from "../program-status.ts";
 import {
 	applyRemoteAskResponse,
 	type RemoteAskFlowHandle,
@@ -196,6 +197,11 @@ function createAskFlowController(
 	],
 	params: AskFlowParams
 ) {
+	bindQuestionTerminal(
+		params.flowOptions.herdrEvents,
+		tui.terminal,
+		params.ctx
+	);
 	const controller: AskFlowController = {
 		mouseTargets: [],
 		abortOnCancel:

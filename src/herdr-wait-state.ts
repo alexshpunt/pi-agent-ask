@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { reportQuestionWait } from "./program-status.ts";
 
 type AskEvents = Pick<ExtensionAPI["events"], "emit">;
 const activeWaits = new WeakMap<AskEvents, Map<symbol, string>>();
@@ -34,6 +35,7 @@ export function beginUserWait(
 
 function publish(events: AskEvents, owners: Map<symbol, string>): void {
 	const label = [...owners.values()].at(-1);
+	reportQuestionWait(events, label);
 	try {
 		events.emit(
 			"herdr:blocked",
