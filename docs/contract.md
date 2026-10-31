@@ -310,7 +310,15 @@ When enabled, pi-agent-ask emits one best-effort external notification per ask s
 
 ## Herdr blocked lifecycle
 
-For foreground interactive TUI ask flows, the extension optionally emits on `pi.events`:
+Foreground forms, visible background panels, and explicit answer waits share a balanced wait aggregate. One owner cannot clear another owner's waiting status. Hiding/reopening, FIFO handoffs, answers, cancellation, aborts, UI errors, and disposal use this same aggregate.
+
+In TUI mode, hosts with `terminal.setProgramStatus` also report OSC 7501 through Pi's negotiated transport: `{ app: "pi", state: "blocked", kind: "question", message: <generic waiting label> }`. Only generic labels are sent, not question prompts, contexts, or answers. The terminal is captured when a native question surface opens; no terminal is opened for non-TUI or external UI flows. Hosts without this capability continue using legacy events only. `PI_PROGRAM_STATUS=0` disables OSC reporting; `PI_PROGRAM_STATUS=1` forces the host transport when negotiation is unavailable.
+
+After the last wait releases, the extension reports `working` if the agent is active, otherwise its last observed resting state (`idle`, `done`, or `error`). Restored statuses do not reproduce Pi's session-name or error-message text. Shutdown cancels pending reports and releases the terminal reference. Status transport errors do not affect question results.
+
+**Concurrency limit:** Pi has no public shared status-ownership API. The extension reasserts an active question after custom-dialog mounting and relevant agent/UI lifecycle hooks using a coalesced `setImmediate`. It reads current ownership at execution time and cancels pending writes on release/shutdown. This is best-effort coordination, not strict ordering: another extension that delays lifecycle hooks or an overlapping native dialog can overwrite, or be overwritten by, the question status. No Pi methods are patched and no polling loop is used.
+
+For legacy Herdr integration, the extension still emits on `pi.events`:
 
 - `herdr:blocked` with `{ active: true, label: "Waiting for user response" }`
   immediately before waiting for input;

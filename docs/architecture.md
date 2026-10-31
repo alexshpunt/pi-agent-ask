@@ -21,6 +21,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/ask-draft.ts` — validated question-panel snapshots for branch-local draft recovery
 - `src/herdr-wait-state.ts` — aggregates visible queue panels, foreground forms, and explicit waits into one balanced Herdr blocked acquisition/release; one owner cannot clear another's status
 
+- `src/program-status.ts` — optional negotiated OSC 7501 transport; binds the host terminal from question surfaces, consumes the existing wait aggregate, restores active/resting state, and coalesces best-effort lifecycle reassertion without patching Pi. Owns no separate wait count.
+
 - `src/index.ts` — extension entrypoint; registers history tools at session startup only when the persisted opt-in is enabled, without injecting configuration guidance
 - `src/ask-mode.ts` / `src/ask-mode-command.ts` — trusted mode resolution and confirmed mode changes; re-registers the question tool schema and wait-tool exposure without replacing the queue
 - `src/blocked-status.ts` — shared status ownership for the unresolved background queue and foreground surfaces
@@ -79,6 +81,8 @@ The codebase is split so the implementation reads through file boundaries and na
 
 ### Tests
 
+- `tests/program-status.test.ts` — optional OSC transport, shared wait ownership, lifecycle reassertion, and stale-write cleanup
+- `tests/integration/herdr-core-status.test.ts` — real Pi inside a Herdr core PTY; opt in with `ASK_HERDR_CORE_TEST=1 node --test tests/integration/herdr-core-status.test.ts` on a host with `hc` and Pi's status API. `ASK_HERDR_TEST_EXTENSION` can select an installed package entrypoint instead of the source checkout. The fixture owns and removes its terminals.
 - `tests/state.test.ts` — state transitions and serialization
 - `tests/input.test.ts` — editing/navigation key behavior
 - `tests/result.test.ts` — summaries and transcript output
