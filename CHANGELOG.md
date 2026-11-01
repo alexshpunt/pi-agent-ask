@@ -1,3 +1,11 @@
+# [2.0.2](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.1...v2.0.2) (2026-11-01)
+
+- Report open questions and explicit answer waits to the Herdr desktop app through Pi's negotiated OSC 7501 transport. Older hosts keep the legacy integration.
+- Keep the waiting status across background work and queue handoffs; release it when no visible form or explicit wait needs input.
+- Restore the correct status after compaction succeeds, fails, or is cancelled. Status coordination with other extensions remains best effort.
+
+Thanks to @mmainz for the Herdr desktop integration (#22).
+
 # [2.0.1](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.0...v2.0.1) (2026-11-01)
 
 - Show a compact count of questions in unfinished background forms, even when the panel is hidden. The indicator explains how to reopen the queue.
