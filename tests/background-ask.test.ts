@@ -28,6 +28,8 @@ const answer: AskResult = {
 	questions: [{ id: "choice", label: "Q1", prompt: "Choose?", type: "single" }],
 	answers: { choice: { values: ["yes"], labels: ["Yes"], indices: [1] } },
 };
+const THREE = /3/;
+const ONE = /1/;
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 function harness() {
@@ -42,6 +44,7 @@ function harness() {
 	let signal: AbortSignal | undefined;
 	let focused: unknown = { getText: () => "", setText: () => undefined };
 	const widgets = new Map<string, { render: (width: number) => string[] }>();
+	const widgetLines = new Map<string, string[]>();
 	const tui = {
 		requestRender: () => undefined,
 		get children() {
@@ -115,6 +118,11 @@ function harness() {
 				});
 			},
 			setWidget(key: string, factory: any) {
+				if (Array.isArray(factory)) {
+					widgetLines.set(key, factory);
+					return;
+				}
+				widgetLines.delete(key);
 				if (!factory) {
 					widgets.delete(key);
 					return;
@@ -143,6 +151,7 @@ function harness() {
 		tools,
 		events,
 		forms,
+		widgetLines,
 		handlers,
 		ctx,
 		runtime,
@@ -199,6 +208,30 @@ test("a branch restore during config loading cannot mount the abandoned backgrou
 		h.runtime.dispose();
 	}
 });
+
+test("pending question indicator tracks unfinished forms and survives hiding and restore", async () => {
+	const h = harness();
+	const twoQuestions = {
+		questions: [...params.questions, { ...params.questions[0], id: "second" }],
+	};
+	h.runtime.enqueue("first", twoQuestions, h.ctx as never, false);
+	h.runtime.enqueue("second", params, h.ctx as never, false);
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", THREE);
+	await tick();
+	h.runtime.defer("hidden");
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", THREE);
+	h.runtime.restore(h.ctx as never);
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", THREE);
+	await tick();
+	h.forms.at(-1)?.(answer);
+	await tick();
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", ONE);
+	h.forms.at(-1)?.(answer);
+	await tick();
+	assert.equal(h.widgetLines.has("ask:pending"), false);
+	h.runtime.dispose();
+});
+
 test("background receipts return before answers and forms run in FIFO order", async () => {
 	const h = harness();
 	const first = h.runtime.enqueue("first", params, h.ctx as never, false);
