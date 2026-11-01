@@ -7,12 +7,14 @@ import { registerAskTool } from "./ask-tool.ts";
 import { registerBackgroundAnswerRenderer } from "./background-answer.ts";
 import { createBackgroundAskRuntime } from "./background-ask.ts";
 import { getAskConfigStore, resetAskConfigStore } from "./config/store.ts";
+import { registerQuestionStatus } from "./program-status.ts";
 import { createRemoteAskRuntime } from "./remote-ask.ts";
 import { registerPendingAskResume } from "./resume-pending-ask.ts";
 import { registerWaitForAnswersTool } from "./wait-for-answers-tool.ts";
 
 export default function askExtension(pi: ExtensionAPI) {
 	resetAskConfigStore();
+	registerQuestionStatus(pi);
 	const remoteAsk = createRemoteAskRuntime(pi.events);
 	pi.on("session_shutdown", () => {
 		remoteAsk.disposeAll();
