@@ -4,6 +4,7 @@ import type {
 	ExtensionContext,
 	SessionBoundaryDraft,
 } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { AskDraft } from "./ask-draft.ts";
 import { appendAskHistoryCompletion } from "./ask-history.ts";
 import { formatQueuedAnswer } from "./background-answer.ts";
@@ -13,6 +14,7 @@ import {
 	ASK_DRAFT_ENTRY,
 	ASK_QUEUE_UI_ENTRY,
 	ASK_QUEUED_ENTRY,
+	getDeliveredRequestIds,
 	type QueuedAnswer,
 	type QueuedRequest,
 	restoreQueuedRequests,
@@ -120,11 +122,7 @@ export class BackgroundAskRuntime {
 
 	/** Verify routed claims against finalized transcript entries before the next model turn. */
 	reconcileDelivery(ctx: ExtensionContext): void {
-		const delivered = new Set(
-			restoreQueuedRequests(ctx.sessionManager.getBranch())
-				.filter((request) => request.delivered)
-				.map((request) => request.requestId)
-		);
+		const delivered = getDeliveredRequestIds(ctx.sessionManager.getBranch());
 		for (const request of this.requests) {
 			request.delivered = delivered.has(request.requestId);
 			if (request.delivered) {
@@ -328,6 +326,9 @@ export class BackgroundAskRuntime {
 			this.waiter.reject(waitInterrupted());
 			this.waiter = undefined;
 		}
+		if (this.context?.mode === "tui") {
+			this.context.ui.setWidget("ask:pending", undefined);
+		}
 		this.context = undefined;
 		this.pumping = false;
 	}
@@ -405,11 +406,35 @@ export class BackgroundAskRuntime {
 			this.endQueueStatus?.();
 			this.endQueueStatus = undefined;
 		}
-		this.context?.ui.setStatus(
-			"ask:queue",
-			pending
-				? `Questionnaires pending: ${pending}${this.hidden ? " · /ask-queue" : ""}`
-				: undefined
+		this.updatePendingWidget();
+	}
+
+	private updatePendingWidget(): void {
+		if (this.context?.mode !== "tui") {
+			return;
+		}
+		const questions = this.requests.reduce(
+			(count, request) =>
+				count + (request.completion ? 0 : request.params.questions.length),
+			0
+		);
+		this.context.ui.setWidget(
+			"ask:pending",
+			questions
+				? (_tui, theme) => ({
+						render: (width) => [
+							truncateToWidth(
+								theme.fg(
+									"dim",
+									`${questions} question${questions === 1 ? "" : "s"} waiting${this.hidden ? " · /ask-queue to reopen" : ""}`
+								),
+								width
+							),
+						],
+						invalidate: () => undefined,
+					})
+				: undefined,
+			{ placement: "belowEditor" }
 		);
 	}
 

@@ -50,6 +50,8 @@ The agent calls `ask_user`. You get a form with choices, the context you need to
 
 With `background: true`, the form appears above your normal input and takes keyboard focus. `Alt+Q` or a click switches between answering and writing a message. Your answer arrives between turns, or wakes an idle agent. Forms queue one at a time, in order.
 
+A small indicator below the editor shows how many questions belong to unfinished forms, even when the panel is hidden. The count clears as forms are submitted or cancelled.
+
 Press `Esc` in the question panel or run `/ask-defer` to put all questions aside. The queue and drafts stay saved; `/ask-queue` reopens them. Press `D` on a question to skip just that question. Cancelling a background form cancels that question, not the agent.
 
 The agent can call `wait_for_answers` to wait for your answers. Hiding the panel or sending a normal message releases that wait without cancelling the questions.

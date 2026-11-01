@@ -28,6 +28,8 @@ const answer: AskResult = {
 	questions: [{ id: "choice", label: "Q1", prompt: "Choose?", type: "single" }],
 	answers: { choice: { values: ["yes"], labels: ["Yes"], indices: [1] } },
 };
+const THREE = /3/;
+const ONE = /1/;
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 function harness() {
@@ -42,6 +44,7 @@ function harness() {
 	let signal: AbortSignal | undefined;
 	let focused: unknown = { getText: () => "", setText: () => undefined };
 	const widgets = new Map<string, { render: (width: number) => string[] }>();
+	const widgetLines = new Map<string, string[]>();
 	const tui = {
 		requestRender: () => undefined,
 		get children() {
@@ -115,12 +118,22 @@ function harness() {
 				});
 			},
 			setWidget(key: string, factory: any) {
+				if (Array.isArray(factory)) {
+					widgetLines.set(key, factory);
+					return;
+				}
+				widgetLines.delete(key);
 				if (!factory) {
 					widgets.delete(key);
 					return;
 				}
-				const widget = factory(tui);
+				const widget = factory(tui, {
+					fg: (_color: string, text: string) => text,
+				});
 				widgets.set(key, widget);
+				if (key === "ask:pending") {
+					widgetLines.set(key, widget.render(80));
+				}
 				queueMicrotask(() => widget.render(80));
 			},
 			setStatus: () => undefined,
@@ -143,6 +156,7 @@ function harness() {
 		tools,
 		events,
 		forms,
+		widgetLines,
 		handlers,
 		ctx,
 		runtime,
@@ -199,6 +213,30 @@ test("a branch restore during config loading cannot mount the abandoned backgrou
 		h.runtime.dispose();
 	}
 });
+
+test("pending question indicator tracks unfinished forms and survives hiding and restore", async () => {
+	const h = harness();
+	const twoQuestions = {
+		questions: [...params.questions, { ...params.questions[0], id: "second" }],
+	};
+	h.runtime.enqueue("first", twoQuestions, h.ctx as never, false);
+	h.runtime.enqueue("second", params, h.ctx as never, false);
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", THREE);
+	await tick();
+	h.runtime.defer("hidden");
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", THREE);
+	h.runtime.restore(h.ctx as never);
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", THREE);
+	await tick();
+	h.forms.at(-1)?.(answer);
+	await tick();
+	assert.match(h.widgetLines.get("ask:pending")?.join(" ") ?? "", ONE);
+	h.forms.at(-1)?.(answer);
+	await tick();
+	assert.equal(h.widgetLines.has("ask:pending"), false);
+	h.runtime.dispose();
+});
+
 test("background receipts return before answers and forms run in FIFO order", async () => {
 	const h = harness();
 	const first = h.runtime.enqueue("first", params, h.ctx as never, false);
@@ -854,6 +892,44 @@ test("unknown ancestry stays unowned instead of guessing a root from an ID", asy
 	await tick();
 	h.boundary();
 	assert.equal(h.messages[0].details.parentToolCallId, undefined);
+});
+
+test("recorded answers stay delivered across turns without queue records", async (t) => {
+	for (const waited of [false, true]) {
+		const h = harness();
+		t.after(() => h.runtime.dispose());
+		h.runtime.enqueue("retained", params, h.ctx as never, false);
+		await tick();
+		const waiting = waited ? h.runtime.wait(undefined) : undefined;
+		h.forms[0](answer);
+		await tick();
+		if (waiting) {
+			h.branch.push({
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "wait_for_answers",
+					isError: false,
+					details: await waiting,
+				},
+			});
+		} else {
+			h.boundary();
+		}
+		const retained = h.branch.filter((entry) => entry.type !== "custom");
+		h.branch.splice(0, h.branch.length, ...retained);
+		assert.equal(h.branch.length, 1);
+		for (let turn = 0; turn < 3; turn += 1) {
+			h.handlers.get("turn_start")?.({}, h.ctx);
+			assert.equal(h.boundary(), undefined);
+			assert.equal(
+				h.handlers.get("agent_before_settle")?.({ entries: [] }, h.ctx),
+				undefined
+			);
+			assert.deepEqual((await h.runtime.wait(undefined)).results, []);
+		}
+		assert.equal(h.messages.length, waited ? 0 : 1);
+	}
 });
 
 test("a rejected delivery boundary can retry without duplicating the visible card", async (t) => {
