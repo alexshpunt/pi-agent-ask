@@ -127,8 +127,13 @@ function harness() {
 					widgets.delete(key);
 					return;
 				}
-				const widget = factory(tui);
+				const widget = factory(tui, {
+					fg: (_color: string, text: string) => text,
+				});
 				widgets.set(key, widget);
+				if (key === "ask:pending") {
+					widgetLines.set(key, widget.render(80));
+				}
 				queueMicrotask(() => widget.render(80));
 			},
 			setStatus: () => undefined,

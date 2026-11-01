@@ -4,6 +4,7 @@ import type {
 	ExtensionContext,
 	SessionBoundaryDraft,
 } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { AskDraft } from "./ask-draft.ts";
 import { appendAskHistoryCompletion } from "./ask-history.ts";
 import { formatQueuedAnswer } from "./background-answer.ts";
@@ -420,9 +421,18 @@ export class BackgroundAskRuntime {
 		this.context.ui.setWidget(
 			"ask:pending",
 			questions
-				? [
-						`${questions} pending question${questions === 1 ? "" : "s"} · /ask-queue`,
-					]
+				? (_tui, theme) => ({
+						render: (width) => [
+							truncateToWidth(
+								theme.fg(
+									"dim",
+									`  ${questions} question${questions === 1 ? "" : "s"} waiting${this.hidden ? " · /ask-queue" : ""}`
+								),
+								width
+							),
+						],
+						invalidate: () => undefined,
+					})
 				: undefined,
 			{ placement: "belowEditor" }
 		);
