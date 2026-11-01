@@ -328,6 +328,9 @@ export class BackgroundAskRuntime {
 			this.waiter.reject(waitInterrupted());
 			this.waiter = undefined;
 		}
+		if (this.context?.mode === "tui") {
+			this.context.ui.setWidget("ask:pending", undefined);
+		}
 		this.context = undefined;
 		this.pumping = false;
 	}
@@ -405,11 +408,26 @@ export class BackgroundAskRuntime {
 			this.endQueueStatus?.();
 			this.endQueueStatus = undefined;
 		}
-		this.context?.ui.setStatus(
-			"ask:queue",
-			pending
-				? `Questionnaires pending: ${pending}${this.hidden ? " · /ask-queue" : ""}`
-				: undefined
+		this.updatePendingWidget();
+	}
+
+	private updatePendingWidget(): void {
+		if (this.context?.mode !== "tui") {
+			return;
+		}
+		const questions = this.requests.reduce(
+			(count, request) =>
+				count + (request.completion ? 0 : request.params.questions.length),
+			0
+		);
+		this.context.ui.setWidget(
+			"ask:pending",
+			questions
+				? [
+						`${questions} pending question${questions === 1 ? "" : "s"} · /ask-queue`,
+					]
+				: undefined,
+			{ placement: "belowEditor" }
 		);
 	}
 
