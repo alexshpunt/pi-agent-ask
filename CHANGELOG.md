@@ -1,3 +1,8 @@
+# [2.0.1](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.0...v2.0.1) (2026-11-01)
+
+- Show a compact count of questions in unfinished background forms, even when the panel is hidden. The indicator explains how to reopen the queue.
+- Avoid delivering a background answer again when session replacement removes queue records but keeps the answer in the transcript.
+
 # [2.0.0](https://github.com/alexshpunt/pi-agent-ask/compare/v1.2.11...v2.0.0) (2026-10-24)
 
 ### Breaking changes
