@@ -44,6 +44,14 @@ export const herdrForegroundConversation = [
 	]),
 ];
 
+/** Fail manual compaction while a question remains visible, then hide it. */
+export const herdrCompactionConversation = [
+	call("compaction-form", "ask_user", form("second")),
+	call("arm-compaction", "herdr_queue_probe", { action: "compact-idle" }),
+	assistantMessage([text("Compact with the question still open.")]),
+	call("stats", "herdr_queue_probe", { action: "stats" }),
+	assistantMessage([text("Compaction status verification complete.")]),
+];
 /** Leave the second form pending in a session that a new Pi process can resume. */
 export const herdrQueueCheckpointConversation = [
 	...herdrBlockedConversation.slice(0, 4),

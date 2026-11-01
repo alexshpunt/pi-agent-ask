@@ -55,6 +55,7 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 	let answerOnForeground = false;
 	let answerOnWait = false;
 	let saveOnIdle = false;
+	let compactOnIdle = false;
 	pi.events.on(PI_ASK_STARTED_EVENT, (payload) => {
 		const flow = payload as RemoteAskStartedEvent;
 		active.set(flow.flowId, flow);
@@ -118,6 +119,18 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 		}
 	});
 	pi.on("agent_settled", (_event, ctx) => {
+		if (compactOnIdle) {
+			ctx.compact({
+				onError: async () => {
+					compactOnIdle = false;
+					await observe("compaction-failed", "second");
+					process.stdin.emit("data", "\u001b[27u");
+					await observe("compaction-hidden", "second", "error");
+					answer();
+				},
+			});
+			return;
+		}
 		if (saveOnIdle) {
 			saveOnIdle = false;
 			const source = ctx.sessionManager.getSessionFile();
@@ -158,12 +171,16 @@ export default function herdrBlockedDriver(pi: ExtensionAPI): void {
 				Type.Literal("stats"),
 				Type.Literal("checkpoint"),
 				Type.Literal("recovered"),
+				Type.Literal("compact-idle"),
 				Type.Literal("foreground"),
 				Type.Literal("wait"),
 			]),
 		}),
 		async execute(_id, params, _signal, _update, ctx) {
 			switch (params.action) {
+				case "compact-idle":
+					compactOnIdle = true;
+					break;
 				case "foreground":
 					answerOnForeground = true;
 					break;

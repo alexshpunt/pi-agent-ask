@@ -15,6 +15,7 @@ interface StatusTerminal {
 	setProgramStatus?(status: Status): void;
 }
 interface QuestionStatus {
+	active: boolean;
 	context?: ExtensionContext;
 	label?: string;
 	outcome: RestingState;
@@ -28,7 +29,7 @@ const statuses = new WeakMap<AskEvents, QuestionStatus>();
 function getStatus(events: AskEvents): QuestionStatus {
 	let status = statuses.get(events);
 	if (!status) {
-		status = { outcome: "done", resting: "idle" };
+		status = { active: false, outcome: "done", resting: "idle" };
 		statuses.set(events, status);
 	}
 	return status;
@@ -119,6 +120,7 @@ export function registerQuestionStatus(pi: ExtensionAPI): void {
 		}
 	};
 	pi.on("agent_start", (event, context) => {
+		status.active = true;
 		status.outcome = "done";
 		reassert(event, context);
 	});
@@ -128,16 +130,31 @@ export function registerQuestionStatus(pi: ExtensionAPI): void {
 		}
 	});
 	pi.on("agent_settled", (event, context) => {
+		status.active = false;
 		status.resting =
 			"aborted" in event && event.aborted ? "idle" : status.outcome;
 		reassert(event, context);
 	});
 	pi.on("ui_prompt_end", reassert);
 	pi.on("session_before_compact", reassert);
-	pi.on("session_compact", reassert);
-	pi.on("session_compact_failed", reassert);
+	pi.on("session_compact", (event, context) => {
+		if (!status.active && event.reason === "manual") {
+			status.resting = "done";
+		}
+		reassert(event, context);
+	});
+	pi.on("session_compact_failed", (event, context) => {
+		const outcome = event.aborted ? "idle" : "error";
+		if (status.active) {
+			status.outcome = outcome;
+		} else if (event.aborted || event.reason === "manual") {
+			status.resting = outcome;
+		}
+		reassert(event, context);
+	});
 	pi.on("session_start", () => {
 		cancelPending(status);
+		status.active = false;
 		status.resting = "idle";
 		status.outcome = "done";
 	});

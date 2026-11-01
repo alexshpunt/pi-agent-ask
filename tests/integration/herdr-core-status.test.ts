@@ -14,6 +14,7 @@ import {
 } from "pi-coding-agent-test";
 import {
 	herdrBlockedConversation,
+	herdrCompactionConversation,
 	herdrForegroundConversation,
 } from "../fixtures/herdr-blocked-scenario.ts";
 
@@ -115,6 +116,25 @@ test("Herdr core receives OSC 7501 from real Pi custom question panels", {
 		assert.equal(foregroundStats.activeForms, 0);
 		assert.notEqual(foregroundStats.status, "blocked");
 		t.diagnostic(JSON.stringify(foregroundStats));
+		const foregroundAddress = await readFile(addressFile, "utf8");
+		await exec("hc", ["kill", foregroundAddress]);
+		await exec("hc", ["rm", foregroundAddress]);
+		const compaction = await run(
+			"herdr-core-compaction-status",
+			herdrCompactionConversation
+		);
+		for (const id of ["compaction-form", "arm-compaction", "stats"]) {
+			assert.equal(getToolExecution(compaction, id).isError, false, id);
+		}
+		const compactionStats = getToolExecutionDetails(
+			getToolExecution(compaction, "stats")
+		) as typeof stats;
+		assert.deepEqual(compactionStats.observations, [
+			{ phase: "compaction-failed", status: "blocked", question: "second" },
+			{ phase: "compaction-hidden", status: "error", question: "second" },
+		]);
+		assert.equal(compactionStats.activeForms, 0);
+		t.diagnostic(JSON.stringify(compactionStats));
 	} finally {
 		const address = await readFile(addressFile, "utf8").catch(() => undefined);
 		if (address) {

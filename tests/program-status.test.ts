@@ -149,6 +149,46 @@ test("idle, failed and aborted runs restore distinct resting states", async () =
 	}
 });
 
+test("releasing a question restores manual compaction outcomes", async () => {
+	for (const [event, payload, expected] of [
+		["session_compact", { reason: "manual" }, "done"],
+		["session_compact_failed", { reason: "manual", aborted: false }, "error"],
+		["session_compact_failed", { reason: "manual", aborted: true }, "idle"],
+	] as const) {
+		const h = harness();
+		h.idle(true);
+		h.bind();
+		const end = beginUserWait(h.events, "Waiting");
+		h.fire("session_before_compact");
+		h.fire(event, payload);
+		await tick();
+		assert.equal(h.reports.at(-1)?.state, "blocked");
+		end();
+		assert.equal(h.reports.at(-1)?.state, expected);
+	}
+});
+
+test("automatic compaction failure determines the settled run outcome", async () => {
+	for (const [aborted, expected] of [
+		[false, "error"],
+		[true, "idle"],
+	] as const) {
+		const h = harness();
+		h.bind();
+		const end = beginUserWait(h.events, "Waiting");
+		h.fire("agent_start");
+		h.fire("message_end", {
+			message: { role: "assistant", stopReason: "stop" },
+		});
+		h.fire("session_compact_failed", { reason: "threshold", aborted });
+		h.idle(true);
+		h.fire("agent_settled");
+		await tick();
+		assert.equal(h.reports.at(-1)?.state, "blocked");
+		end();
+		assert.equal(h.reports.at(-1)?.state, expected);
+	}
+});
 test("shutdown cancels pending writes and cannot clear a later session", async () => {
 	const h = harness();
 	h.bind();
