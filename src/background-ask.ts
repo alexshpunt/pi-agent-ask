@@ -429,7 +429,7 @@ export class BackgroundAskRuntime {
 							truncateToWidth(
 								theme.fg(
 									"dim",
-									`  ${questions} question${questions === 1 ? "" : "s"} waiting${this.hidden ? " · /ask-queue" : ""}`
+									`${questions} question${questions === 1 ? "" : "s"} waiting${this.hidden ? " · /ask-queue" : ""}`
 								),
 								width
 							),
