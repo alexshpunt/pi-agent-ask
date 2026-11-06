@@ -8,6 +8,7 @@ import {
 	assistantMessage,
 	getToolExecution,
 	getToolExecutionDetails,
+	getToolResultText,
 	PiIntegrationTest,
 	testArtifactsDir,
 	text,
@@ -120,6 +121,11 @@ test("real Pi records both ask paths and silently reads and exports exact histor
 		}
 		for (const id of ["missing", "bad-export", "existing"]) {
 			assert.equal(getToolExecution(result, id).isError, true, id);
+		}
+		const foreground = getToolResultText(result, "foreground");
+		for (const question of form(false, contextFile).questions) {
+			assert(foreground.includes(question.id));
+			assert(foreground.includes(question.prompt));
 		}
 		const details = (id: string) =>
 			getToolExecutionDetails(getToolExecution(result, id));
