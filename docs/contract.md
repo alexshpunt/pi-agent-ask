@@ -104,8 +104,11 @@ The package adds no system-prompt rules, configuration paragraph, or skill. Each
 The tool declares `outputSchema` for `structuredContent` only: the compact
 answers above, or the queued receipt for background calls. Codemode receives that
 object directly, not `content` text and not `details`. `details` keeps the full
-result for rendering, history, and background answers. Normal calls keep the text
-summary and TUI rendering. Submitted, cancelled, invalid-input, and non-TUI
+result for rendering, history, and background answers. Normal completed calls
+explicitly report submission in their text, repeat each question's ID and full
+prompt, and associate answer summaries with both ID and label. Cancellation and invalid input have separate text; submission alone does
+not imply approval of skipped or unanswered questions. Native TUI rendering stays
+compact and uses the full result. Submitted, cancelled, invalid-input, and non-TUI
 results all use these structures. Pi schema-validation failures before execution
 remain standard tool errors.
 
@@ -174,9 +177,11 @@ A compact indicator below the editor counts questions in all unfinished backgrou
 
 Each completed form is saved before delivery. Its saved completion renders the answer card, linked by `parentToolCallId` to the original visible execution. Nested calls retain their real outer execution root; missing ownership stays unlinked rather than being guessed. During work the complete answer enters context at the next turn boundary as a hidden `ask:background-answer` custom message with `{ requestId, parentToolCallId?, result?: AskResult, error?: string }` in details. While idle, answers start a new agent turn; cancellation only adds context and never wakes the agent. Cancellation is a terminal form result, not approval.
 
+Ready answers also enter context at the final settle boundary. Finishing independent work while a background form is pending does not consume or cancel it: a later submitted answer wakes the settled agent without an explicit `wait_for_answers`. Each completion is delivered once. Already returned foreground answers and already consumed background answers are not replayed when the agent stops.
+
 An idle wake keeps its delivery claim until the answer is recorded in the transcript. Pi starts that turn before recording its opening message; later turn boundaries must not deliver the same answer again.
 
-Background answer text includes the form title when present, its request ID, and every question's ID and full prompt. Answer summaries identify questions by ID as well as label, so repeated labels are unambiguous even without the original call in context. Direct wait results use the same text format. In the TUI, accepted asynchronous answers use the questionnaire's Review style: accent lines, a status and form title, question prompts, arrow-prefixed answers, and saved notes. They have no tabs, buttons, or keyboard hints. Internal message types and request/question IDs are not shown. Normal foreground ask tool results are unchanged. Explicit Wait shows only a brief consumption confirmation; full answer cards stay at the initiating calls in Activity, including their searchable late text, without a second full card in Conversation or Wait. Cancellation and errors have distinct statuses.
+Background answer text includes the form title when present, its request ID, and every question's ID and full prompt. Answer summaries identify questions by ID as well as label, so repeated labels are unambiguous even without the original call in context. Direct wait results use the same text format. In the TUI, accepted asynchronous answers use the questionnaire's Review style: accent lines, a status and form title, question prompts, arrow-prefixed answers, and saved notes. They have no tabs, buttons, or keyboard hints. Internal message types and request/question IDs are not shown. Foreground tool results retain their compact native rendering. Explicit Wait shows only a brief consumption confirmation; full answer cards stay at the initiating calls in Activity, including their searchable late text, without a second full card in Conversation or Wait. Cancellation and errors have distinct statuses.
 
 `wait_for_answers({})` is a direct, model-only tool. It waits for all outstanding background forms, including forms added while waiting, without a built-in timeout. It returns:
 
