@@ -34,6 +34,18 @@ function answeredState() {
 	);
 }
 
+test("completed answer text carries each question ID, prompt and selected label", () => {
+	const result = toAskResult(answeredState());
+	const response = successfulResponse(result);
+	for (const question of result.questions) {
+		assert(response.content[0].text.includes(question.id));
+		assert(response.content[0].text.includes(question.prompt));
+		for (const label of result.answers[question.id].labels) {
+			assert(response.content[0].text.includes(label));
+		}
+	}
+});
+
 test("submitted and cancelled results match the structured output schema", () => {
 	for (const cancelled of [false, true]) {
 		const result = toAskResult({ ...answeredState(), cancelled });
