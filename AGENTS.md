@@ -13,4 +13,4 @@ Keep state logic in plain TypeScript modules and the Pi and TUI wiring thin, so 
 
 ## Commits and releases
 
-Commit messages follow Conventional Commits (`commitlint.config.cjs`). A release is published by `.github/workflows/release.yml` when a `v*` tag is pushed; `CONTRIBUTING.md` still describes the upstream semantic-release flow, which this fork does not use.
+Commit messages follow Conventional Commits (`commitlint.config.cjs`). A release is published by `.github/workflows/release.yml` when a `v*` tag is pushed. The workflow publishes to npm and creates the GitHub Release from that version's `CHANGELOG.md` section (`scripts/release-notes.ts`), so add the section before tagging; `CONTRIBUTING.md` still describes the upstream semantic-release flow, which this fork does not use.

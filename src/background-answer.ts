@@ -7,6 +7,7 @@ import {
 	type QueuedAnswer,
 } from "./background-ask-state.ts";
 import { isResultAnswerCommitted } from "./state/answers.ts";
+import { summarizeResult } from "./state/result.ts";
 import { pushSavedNote } from "./ui/render-helpers.ts";
 import { renderReviewQuestion } from "./ui/render-submit.ts";
 import { toReviewQuestionModel } from "./ui/view-models/review.ts";
@@ -21,13 +22,13 @@ export function formatQueuedAnswer(answer: QueuedAnswer): string {
 	const questions = result.questions.map(
 		(question) => `- [${question.id}] ${question.label}: ${question.prompt}`
 	);
-	const summary = successfulResponse({
+	const summary = summarizeResult({
 		...result,
 		questions: result.questions.map((question) => ({
 			...question,
 			label: `${question.label} [${question.id}]`,
 		})),
-	}).content[0].text;
+	});
 	return `${header}\nQuestions:\n${questions.join("\n")}\nResponse:\n${summary}`;
 }
 

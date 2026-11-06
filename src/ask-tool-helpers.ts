@@ -74,7 +74,7 @@ export function nonInteractiveResponse(
 
 export function successfulResponse(result: AskResult) {
 	const content: [TextContent, ...(TextContent | ImageContent)[]] = [
-		{ type: "text", text: summarizeResult(result) },
+		{ type: "text", text: formatCompletedResult(result) },
 		...imageContent(result),
 	];
 	return {
@@ -82,6 +82,34 @@ export function successfulResponse(result: AskResult) {
 		details: result,
 		structuredContent: toAskOutput(result),
 	};
+}
+
+/** Agent-facing completion text; native rendering continues to use the full result. */
+function formatCompletedResult(result: AskResult): string {
+	if (result.error) {
+		return formatValidationError(result.error.issues);
+	}
+	if (result.cancelled) {
+		return summarizeResult(result);
+	}
+	const questions = result.questions.map(
+		(question) => `- [${question.id}] ${question.label}: ${question.prompt}`
+	);
+	const summary = summarizeResult({
+		...result,
+		questions: result.questions.map((question) => ({
+			...question,
+			label: `${question.label} [${question.id}]`,
+		})),
+	});
+	return [
+		"User submitted the question form. Answers are included below; skipped or unanswered questions are not approval.",
+		...(result.title ? [`Title: ${result.title}`] : []),
+		"Questions:",
+		...questions,
+		"Response:",
+		summary,
+	].join("\n");
 }
 
 type ToolTheme = ExtensionContext["ui"]["theme"];
