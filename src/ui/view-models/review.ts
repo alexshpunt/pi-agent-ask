@@ -33,7 +33,7 @@ export interface ReviewQuestionModel {
 
 export interface ReviewScreenModel {
 	actionColumnWidth: number;
-	actions: Array<{ label: string; selected: boolean }>;
+	actions: Array<{ label: string; selected: boolean; note?: string }>;
 	layout: "stacked" | "wide";
 	questions: ReviewQuestionModel[];
 }
@@ -47,11 +47,15 @@ export function buildReviewScreenModel(
 		actionColumnWidth,
 		actions: SUBMIT_CHOICES.map((label, index) => ({
 			label,
+			note: state.submitNotes?.[index === 1 ? "cancel" : "submit"],
 			selected: index === state.activeSubmitActionIndex,
 		})),
-		layout: shouldUseWideSubmitLayout(width, actionColumnWidth)
-			? "wide"
-			: "stacked",
+		layout:
+			state.view.kind !== "submit-note" &&
+			!(state.submitNotes?.submit || state.submitNotes?.cancel) &&
+			shouldUseWideSubmitLayout(width, actionColumnWidth)
+				? "wide"
+				: "stacked",
 		questions: getResultQuestions(state).map((question) => ({
 			...toReviewQuestionModel(
 				question.label,

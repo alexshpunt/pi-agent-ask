@@ -89,6 +89,7 @@ export interface AskQuestionSummary {
 export interface AskResult {
 	answers: Record<string, AskResultAnswer>;
 	cancelled: boolean;
+	comment?: string;
 	error?: AskValidationError;
 	questions: AskQuestionSummary[];
 	/** Stable journal request key for an ask_user tool call. */
@@ -101,6 +102,7 @@ export interface AskResult {
 export type ViewState =
 	| { kind: "navigate" }
 	| { kind: "submit" }
+	| { kind: "submit-note"; action: "submit" | "cancel" }
 	| { kind: "input"; questionId: string }
 	| { kind: "note"; questionId: string; optionValue?: string };
 
@@ -120,6 +122,7 @@ export interface AskState {
 	questions: AskQuestion[];
 	/** Removed from active navigation but retained for ordered result metadata. */
 	skippedQuestions?: SkippedQuestion[];
+	submitNotes?: { submit?: string; cancel?: string };
 	title?: string;
 	view: ViewState;
 }

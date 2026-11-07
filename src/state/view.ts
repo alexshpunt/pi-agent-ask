@@ -24,5 +24,9 @@ export function optionNoteView(
 }
 
 export function isEditingView(state: AskState): boolean {
-	return state.view.kind === "input" || state.view.kind === "note";
+	return (
+		state.view.kind === "input" ||
+		state.view.kind === "note" ||
+		state.view.kind === "submit-note"
+	);
 }

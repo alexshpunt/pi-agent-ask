@@ -24,7 +24,9 @@ export function shouldAutoSubmit(state: AskState, config: AskConfig): boolean {
 		!state.questions.length ||
 		state.completed ||
 		state.cancelled ||
-		!isSubmitTab(state)
+		!isSubmitTab(state) ||
+		state.view.kind === "submit-note" ||
+		Boolean(state.submitNotes?.submit || state.submitNotes?.cancel)
 	) {
 		return false;
 	}

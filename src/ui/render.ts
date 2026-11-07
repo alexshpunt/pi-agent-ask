@@ -52,7 +52,8 @@ export function renderAskScreen(args: {
 			width,
 			reviewShortcutHint,
 			markActiveRow,
-			args.targets
+			args.targets,
+			editor
 		);
 	} else if (question) {
 		renderQuestionScreen({

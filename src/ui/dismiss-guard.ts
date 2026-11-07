@@ -16,7 +16,11 @@ export function shouldConfirmDirtyDismiss(args: {
 }
 
 export function hasDirtyFlowState(state: AskState, editingText = ""): boolean {
-	return Object.keys(state.answers).length > 0 || editingText.length > 0;
+	return (
+		Object.keys(state.answers).length > 0 ||
+		Boolean(state.submitNotes?.submit || state.submitNotes?.cancel) ||
+		editingText.length > 0
+	);
 }
 
 export function shouldDiscardAfterConfirmation(

@@ -10,8 +10,13 @@ export function renderResultText(result: AskResult): string {
 		return "Invalid tool payload";
 	}
 	if (result.cancelled) {
-		return CANCELLED_RESULT_TEXT;
+		return result.comment
+			? `${CANCELLED_RESULT_TEXT}\nComment: ${result.comment}`
+			: CANCELLED_RESULT_TEXT;
 	}
 	const lines = formatResultLines(result, { mode: "render" });
+	if (result.comment) {
+		lines.push(`Comment: ${result.comment}`);
+	}
 	return lines.join("\n") || SUBMITTED_RESULT_TEXT;
 }
