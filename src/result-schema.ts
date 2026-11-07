@@ -40,6 +40,7 @@ export const AskResultSchema = Type.Object({
 	requestId: Type.Optional(Type.String()),
 	title: Type.Optional(Type.String()),
 	cancelled: Type.Boolean(),
+	comment: Type.Optional(Type.String()),
 	questions: Type.Array(QuestionSummarySchema),
 	skippedQuestionIds: Type.Optional(Type.Array(Type.String())),
 	answers: Type.Record(Type.String(), AnswerSchema),
@@ -68,6 +69,7 @@ const OutputAnswerSchema = Type.Object({
 export const AskOutputSchema = Type.Object({
 	requestId: Type.Optional(Type.String()),
 	cancelled: Type.Boolean(),
+	comment: Type.Optional(Type.String()),
 	answers: Type.Record(Type.String(), OutputAnswerSchema),
 	skippedQuestionIds: Type.Optional(Type.Array(Type.String())),
 	error: Type.Optional(
@@ -108,6 +110,7 @@ export function toAskOutput(result: AskResult): AskOutput {
 	return {
 		...(result.requestId ? { requestId: result.requestId } : {}),
 		cancelled: result.cancelled,
+		...(result.comment ? { comment: result.comment } : {}),
 		answers,
 		...(result.skippedQuestionIds?.length
 			? { skippedQuestionIds: result.skippedQuestionIds }

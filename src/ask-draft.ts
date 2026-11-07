@@ -56,6 +56,12 @@ export const AskDraftSchema = Type.Object({
 		}),
 		activeTabIndex: Type.Integer({ minimum: 0 }),
 		answers: Type.Record(Type.String(), DraftAnswerSchema),
+		submitNotes: Type.Optional(
+			Type.Object({
+				submit: Type.Optional(Type.String()),
+				cancel: Type.Optional(Type.String()),
+			})
+		),
 		cancelled: Type.Literal(false),
 		completed: Type.Literal(false),
 		questions: Type.Array(DraftQuestionSchema),
@@ -69,6 +75,13 @@ export const AskDraftSchema = Type.Object({
 		),
 		title: Type.Optional(Type.String()),
 		view: Type.Union([
+			Type.Object(
+				{
+					kind: Type.Literal("submit-note"),
+					action: StringEnum(["submit", "cancel"] as const),
+				},
+				{ additionalProperties: false }
+			),
 			Type.Object(
 				{ kind: Type.Literal("navigate") },
 				{ additionalProperties: false }
@@ -173,6 +186,13 @@ function hasValidNavigation(state: AskState): boolean {
 		return false;
 	}
 	const view = state.view;
+	if (view.kind === "submit-note") {
+		return (
+			!question &&
+			view.action ===
+				(state.activeSubmitActionIndex === 1 ? "cancel" : "submit")
+		);
+	}
 	if (view.kind === "submit") {
 		return !question;
 	}

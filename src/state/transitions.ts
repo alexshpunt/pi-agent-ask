@@ -115,6 +115,19 @@ export function enterOptionNoteMode(
 	});
 }
 
+export function enterSubmitNoteMode(state: AskState): AskState {
+	if (!isSubmitTab(state)) {
+		return state;
+	}
+	return {
+		...state,
+		view: {
+			kind: "submit-note",
+			action: state.activeSubmitActionIndex === 1 ? "cancel" : "submit",
+		},
+	};
+}
+
 export function toggleCurrentOption(state: AskState): AskState {
 	return activateCurrentOption(state, "toggle");
 }

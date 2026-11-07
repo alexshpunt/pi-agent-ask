@@ -45,7 +45,7 @@ export function getInputCommand(
 	if (state.view.kind === "input") {
 		return getAnswerEditorInputCommand(config, data, editingText);
 	}
-	if (state.view.kind === "note") {
+	if (state.view.kind === "note" || state.view.kind === "submit-note") {
 		return getNoteEditorInputCommand(config, data, editingText);
 	}
 

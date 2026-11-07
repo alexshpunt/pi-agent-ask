@@ -5,8 +5,13 @@ import {
 	mergeColumns,
 	pushSavedNote,
 	pushWrappedText,
+	renderEditorBlock,
 } from "./render-helpers.ts";
-import type { AskMouseTarget, Theme } from "./render-types.ts";
+import type {
+	AskMouseTarget,
+	QuestionRenderContext,
+	Theme,
+} from "./render-types.ts";
 import { buildReviewScreenModel } from "./view-models/review.ts";
 
 export function renderSubmitScreen(
@@ -16,7 +21,8 @@ export function renderSubmitScreen(
 	width: number,
 	reviewShortcutHint?: string,
 	markActiveRow = false,
-	targets?: AskMouseTarget[]
+	targets?: AskMouseTarget[],
+	editor?: QuestionRenderContext["editor"]
 ) {
 	const model = buildReviewScreenModel(state, width);
 	if (model.layout === "wide") {
@@ -28,7 +34,9 @@ export function renderSubmitScreen(
 			model.actionColumnWidth,
 			markActiveRow,
 			targets,
-			lines.length
+			lines.length,
+			state,
+			editor
 		);
 		for (const line of mergeColumns(
 			actionLines,
@@ -49,7 +57,9 @@ export function renderSubmitScreen(
 		width,
 		markActiveRow,
 		targets,
-		lines.length + reviewLines.length + 1
+		lines.length + reviewLines.length + 1,
+		state,
+		editor
 	);
 	lines.push(...reviewLines);
 	lines.push("");
@@ -155,8 +165,10 @@ function renderSubmitActions(
 	theme: Theme,
 	width: number,
 	markActiveRow: boolean,
-	targets?: AskMouseTarget[],
-	rowOffset = 0
+	targets: AskMouseTarget[] | undefined,
+	rowOffset: number,
+	state: AskState,
+	editor: QuestionRenderContext["editor"] | undefined
 ): string[] {
 	const lines: string[] = [];
 	for (const [index, action] of model.actions.entries()) {
@@ -173,6 +185,7 @@ function renderSubmitActions(
 			prefix,
 			prefix
 		);
+		renderActionNote(lines, action, state, editor, theme, width);
 		targets?.push({
 			kind: "submit",
 			index,
@@ -183,6 +196,30 @@ function renderSubmitActions(
 		});
 	}
 	return lines;
+}
+
+function renderActionNote(
+	lines: string[],
+	action: ReturnType<typeof buildReviewScreenModel>["actions"][number],
+	state: AskState,
+	editor: QuestionRenderContext["editor"] | undefined,
+	theme: Theme,
+	width: number
+) {
+	if (state.view.kind === "submit-note" && action.selected && editor) {
+		renderEditorBlock({
+			lines,
+			editorLines: editor.render(Math.max(8, width - 7)),
+			width,
+			theme,
+			indent: "     ",
+			availableWidth: width - 5,
+			placeholder: UI_TEXT.editorPlaceholderNote,
+			isEmpty: editor.getText().length === 0,
+		});
+	} else if (action.note) {
+		pushSavedNote({ lines, note: action.note, width, theme, indent: "     " });
+	}
 }
 
 function appendReviewShortcutHint(

@@ -52,6 +52,7 @@ import {
 	dismissFlow,
 	enterOptionNoteMode,
 	enterQuestionNoteMode,
+	enterSubmitNoteMode,
 	moveOption,
 	moveTab,
 	toggleCurrentMultiOption,
@@ -422,6 +423,11 @@ function clipboardErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 async function pasteImage(controller: AskFlowController): Promise<void> {
+	if (controller.state.view.kind === "submit-note") {
+		controller.clipboardNotice = "Final action comments support text only.";
+		refresh(controller);
+		return;
+	}
 	if (controller.clipboardReading) {
 		return;
 	}
@@ -461,7 +467,10 @@ function isNativeEditorSubmitEnabled(controller: AskFlowController): boolean {
 	if (controller.state.view.kind === "input") {
 		return controller.config.keymaps.editor.submit.includes("enter");
 	}
-	if (controller.state.view.kind === "note") {
+	if (
+		controller.state.view.kind === "note" ||
+		controller.state.view.kind === "submit-note"
+	) {
 		return controller.config.keymaps.noteEditor.save.includes("enter");
 	}
 	return true;
@@ -531,6 +540,7 @@ function handleNavigationCommand(
 			openQuestionNote(controller);
 			return;
 		case "openOptionNote":
+			clearReviewShortcutPending(controller);
 			clearQuestionTypeChangePending(controller);
 			openOptionNote(controller);
 			return;
@@ -618,6 +628,12 @@ function openQuestionNote(controller: AskFlowController) {
 }
 
 function openOptionNote(controller: AskFlowController) {
+	if (isSubmitTab(controller.state)) {
+		commitState(controller, enterSubmitNoteMode(controller.state), {
+			syncSelection: false,
+		});
+		return;
+	}
 	const question = getCurrentQuestion(controller.state);
 	const option = getCurrentOption(controller.state);
 	if (
@@ -774,7 +790,10 @@ function getFooterNotice(controller: AskFlowController): string | undefined {
 		controller.clipboardNotice ??
 		controller.dismissNotice ??
 		controller.configNotice;
-	if (!isEditingView(controller.state)) {
+	if (
+		!isEditingView(controller.state) ||
+		controller.state.view.kind === "submit-note"
+	) {
 		return notice;
 	}
 	const keys = controller.keybindings
@@ -822,7 +841,7 @@ function maybeFinish(controller: AskFlowController) {
 		const result = toAskResult(controller.state);
 		controller.remoteFlow?.complete(result);
 		controller.done(result);
-		if (result.cancelled && controller.abortOnCancel) {
+		if (result.cancelled && !result.comment && controller.abortOnCancel) {
 			controller.ctx.abort();
 		}
 	}

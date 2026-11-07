@@ -221,7 +221,7 @@ function renderFooter(
 	let footer: string;
 	if (state.view.kind === "input") {
 		footer = renderFooterText(config, "input", background);
-	} else if (state.view.kind === "note") {
+	} else if (state.view.kind === "note" || state.view.kind === "submit-note") {
 		footer = renderFooterText(config, "note", background);
 	} else if (isSubmitTab(state)) {
 		footer = renderFooterText(config, "submit", background);

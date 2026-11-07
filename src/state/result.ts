@@ -43,6 +43,9 @@ export function toAskResult(state: AskState): AskResult {
 	return {
 		title: state.title,
 		cancelled: state.cancelled,
+		...(state.submitNotes?.[state.cancelled ? "cancel" : "submit"]
+			? { comment: state.submitNotes[state.cancelled ? "cancel" : "submit"] }
+			: {}),
 		questions: questions.map((question) => ({
 			id: question.id,
 			label: question.label,
@@ -60,9 +63,14 @@ export function toAskResult(state: AskState): AskResult {
 
 export function summarizeResult(result: AskResult): string {
 	if (result.cancelled) {
-		return CANCELLED_SUMMARY;
+		return result.comment
+			? `${CANCELLED_SUMMARY}\nComment: ${result.comment}`
+			: CANCELLED_SUMMARY;
 	}
 	const lines = formatResultLines(result, { mode: "summary" });
+	if (result.comment) {
+		lines.push(`Comment: ${result.comment}`);
+	}
 	return lines.join("\n") || SUBMITTED_SUMMARY;
 }
 

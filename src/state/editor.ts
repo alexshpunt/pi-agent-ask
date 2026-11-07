@@ -74,6 +74,9 @@ function updateEditorImages(
 	return answer;
 }
 export function getEditorDraft(state: AskState): string {
+	if (state.view.kind === "submit-note") {
+		return state.submitNotes?.[state.view.action] ?? "";
+	}
 	if (state.view.kind === "input") {
 		return getAnswer(state, state.view.questionId)?.customText ?? "";
 	}
@@ -90,6 +93,9 @@ export function getEditorDraft(state: AskState): string {
 }
 
 export function saveEditorDraft(state: AskState, text: string): AskState {
+	if (state.view.kind === "submit-note") {
+		return saveSubmitNote(state, text);
+	}
 	if (state.view.kind === "input") {
 		return saveCustomAnswer(state, text);
 	}
@@ -100,6 +106,9 @@ export function saveEditorDraft(state: AskState, text: string): AskState {
 }
 
 export function submitEditorDraft(state: AskState, text: string): AskState {
+	if (state.view.kind === "submit-note") {
+		return saveSubmitNote(state, text);
+	}
 	if (state.view.kind === "input") {
 		return submitCustomAnswer(state, text);
 	}
@@ -107,6 +116,17 @@ export function submitEditorDraft(state: AskState, text: string): AskState {
 		return saveNote(state, text);
 	}
 	return state;
+}
+
+function saveSubmitNote(state: AskState, text: string): AskState {
+	if (state.view.kind !== "submit-note") {
+		return state;
+	}
+	const notes = {
+		...state.submitNotes,
+		[state.view.action]: text.trim() || undefined,
+	};
+	return { ...state, submitNotes: notes, view: { kind: "submit" } };
 }
 
 export function syncStateToSelection(state: AskState): AskState {

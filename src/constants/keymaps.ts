@@ -337,6 +337,7 @@ export function renderFooterKeymaps(
 			footerHint(global.settings, "settings"),
 		],
 		submit: [
+			footerHint(main.optionNote, "note"),
 			footerHint(bindings.numberShortcut, "hotkeys"),
 			footerHint(main.confirm, "confirm"),
 			footerHint(main.cancel, "cancel"),

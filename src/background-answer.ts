@@ -98,7 +98,10 @@ function answerBody(
 		return [theme.fg("error", successfulResponse(result).content[0].text)];
 	}
 	if (result.cancelled) {
-		return [theme.fg("muted", "No approval given.")];
+		return [
+			theme.fg("muted", "No approval given."),
+			...(result.comment ? [theme.fg("muted", result.comment)] : []),
+		];
 	}
 	const lines: string[] = [];
 	for (const question of result.questions) {
@@ -132,7 +135,19 @@ function answerBody(
 			)
 		);
 	}
+	appendFinalComment(lines, result.comment, theme, width);
 	return lines;
+}
+
+function appendFinalComment(
+	lines: string[],
+	note: string | undefined,
+	theme: Pick<Theme, "fg" | "bold">,
+	width: number
+) {
+	if (note) {
+		pushSavedNote({ lines, note, width, theme, indent: " " });
+	}
 }
 
 /** Give asynchronous answer messages their own transcript renderer. */
