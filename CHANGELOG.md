@@ -1,3 +1,8 @@
+# [2.0.3](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.2...v2.0.3) (2026-11-07)
+
+- Add separate text comments to Submit and Cancel on Review. A commented foreground cancellation returns the cancellation and its explanation to the agent; an uncommented cancellation keeps the existing behavior.
+- Identify submitted answers with their question IDs and full prompts. Deliver unconsumed background answers when the agent settles or becomes idle, without treating cancellation as approval.
+
 # [2.0.2](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.1...v2.0.2) (2026-11-01)
 
 - Report open questions and explicit answer waits to the Herdr desktop app through Pi's negotiated OSC 7501 transport. Older hosts keep the legacy integration.
