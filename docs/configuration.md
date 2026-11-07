@@ -123,7 +123,7 @@ Each action accepts a pi-tui key string or an array of aliases. Contexts:
 - `global`: dismissal and settings in the main flow and editors.
 - `main`: questions and Review.
 - `editor`: custom answers.
-- `noteEditor`: question and option notes.
+- `noteEditor`: question, option, and final-action comments.
 - `settingsModal`: the settings list.
 
 Use supported pi-tui key IDs. Common aliases normalize: `escape` to `esc`, `return` to `enter`, `control+c` to `ctrl+c`, `Shift+N` to `shift+n`, and `pageup` to `pageUp`.
@@ -131,6 +131,8 @@ Use supported pi-tui key IDs. Common aliases normalize: `escape` to `esc`, `retu
 Bindings must be unique within each context. Global bindings must not overlap with main, editor, or note-editor bindings. Keep all required contexts and actions. Numeric shortcuts `1..9` are fixed and cannot be configured. `@` remains the file-reference affordance.
 
 In a non-empty editor, arrows and Tab move the cursor rather than changing questions. Empty editors use the `*WhenEmpty` actions for navigation.
+
+On Review, `main.optionNote` (default `n`) edits the highlighted Submit or Cancel comment using `noteEditor` bindings.
 
 For multi-select questions, `Space` toggles the highlighted choice. `Enter` keeps the choices and moves to the next question or Review, including when a saved custom answer is highlighted. In the custom-answer editor, `Enter` saves the text and advances; `Esc` saves it without advancing.
 

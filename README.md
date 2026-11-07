@@ -54,6 +54,8 @@ A small indicator below the editor shows how many questions belong to unfinished
 
 Press `Esc` in the question panel or run `/ask-defer` to put all questions aside. The queue and drafts stay saved; `/ask-queue` reopens them. Press `D` on a question to skip just that question. Cancelling a background form cancels that question, not the agent.
 
+On Review, highlight Submit or Cancel and press `n` to add a text comment. Enter saves it; then confirm the action. A commented cancellation reaches the agent as a cancellation, not approval.
+
 The agent can call `wait_for_answers` to wait for your answers. Hiding the panel or sending a normal message releases that wait without cancelling the questions.
 
 Want the agent to stay available instead of waiting? Run `/ask-mode` and opt into Background-only, globally or for a trusted project. Every question then uses the queue, and the agent has no wait tool. Changing the mode after the first model request asks for confirmation because changing tools can invalidate the prompt cache. See [question modes](docs/configuration.md#question-mode).
