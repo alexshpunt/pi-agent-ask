@@ -54,6 +54,7 @@ The package adds no system-prompt rules, configuration paragraph, or skill. Each
   details: {
     title?: string;
     cancelled: boolean;
+    comment?: string;
     error?: {
       kind: "invalid_input";
       issues: Array<{
@@ -84,6 +85,7 @@ The package adds no system-prompt rules, configuration paragraph, or skill. Each
   structuredContent: {
     requestId?: string;
     cancelled: boolean;
+    comment?: string;
     answers: Record<
       string,
       {
@@ -130,6 +132,7 @@ remain standard tool errors.
 - submitting free-form text on a multi-select question stays on the same question tab and marks the custom row selected
 - on multi-select questions, toggling an empty custom row opens the free-form editor, while toggling a custom row with saved free-form text selects or deselects it without opening the editor or clearing the text
 - saving or clearing free-form text on a multi-select question does not clear other selected options
+- `comment` contains the optional text comment for the final action taken; comments on the other action are not returned
 - `note` stores a question-level note
 - `optionNotes` includes notes for every option, selected or not; result text marks notes on unselected options as `<value> (not selected)`
 - question notes may exist without a selected answer
@@ -137,7 +140,7 @@ remain standard tool errors.
 
 ## Clipboard images
 
-The custom-answer, question-note, and option-note editors accept images through Pi's configured `app.clipboard.pasteImage` shortcut. The form displays the active shortcut. Text paste stays with the native editor. `Ctrl+Alt+D` removes the last image in the current editor; configured Ask commands take precedence over these image actions.
+Final-action comments accept text only. The custom-answer, question-note, and option-note editors accept images through Pi's configured `app.clipboard.pasteImage` shortcut. The form displays the active shortcut. Text paste stays with the native editor. `Ctrl+Alt+D` removes the last image in the current editor; configured Ask commands take precedence over these image actions.
 
 - Text is optional; an image-only custom answer counts as answered.
 - Multiple images stay with their editor when saving, reopening, or changing tabs.
@@ -240,7 +243,7 @@ The npm package and product name are `pi-agent-ask`. Settings use `extensions/pi
 - question notes via `Shift+N`
 - option notes via `n`
 - number-key quick selection
-- submit/cancel review tab
+- submit/cancel review tab; `main.optionNote` opens a text comment on the highlighted final action, with the usual note-editor controls; each action retains its own comment and draft recovery preserves both
 - the review tab shows every question note and every option note, including notes on unselected options
 - transcript-friendly call and result rendering
 - automatic recovery of the newest unresolved `ask_user` form on startup, resume, or fork
@@ -268,7 +271,7 @@ Main flow:
 - `main.confirm`, `main.cancel`, and `main.toggle` confirm, cancel, or toggle; defaults: `Enter`, `Esc`, `Space`
 - on multi-select questions, `Space` toggles the highlighted choice without advancing; `Enter` keeps all choices and advances to the next question or Review, even when a saved custom answer is highlighted
 - submitting custom-answer text with `Enter` also advances; closing that editor with `Esc` saves without advancing
-- cancelling or dismissing a foreground form stops the current agent operation; cancelling a background form closes only that form, in either question mode; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
+- cancelling or dismissing a foreground form without a final-action comment stops the current agent operation; cancellation with a comment returns the cancelled result to the agent so it can read the comment. Cancelling a background form closes only that form, in either question mode; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent
 - a background cancellation is recorded and can be delivered as context, but never starts a new agent turn by itself
 - `main.changeQuestionType` changes the active question type (`single <-> multi`); default: `t`; destructive `multi -> single` changes require pressing the type hotkey again, with no timeout, and the pending confirmation clears on other navigation/actions
 - `main.optionNote` and `main.questionNote` open option/question notes; defaults: `n`, `Shift+N`
