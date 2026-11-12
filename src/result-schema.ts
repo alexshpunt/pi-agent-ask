@@ -1,6 +1,6 @@
-import { StringEnum } from "@earendil-works/pi-ai";
 import { type Static, Type } from "typebox";
 import { AskQuestionSchema } from "./schema.ts";
+import { StringEnum } from "./string-enum.ts";
 import type { AskResult } from "./types.ts";
 
 export const AskImageSchema = Type.Object({
