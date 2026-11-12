@@ -1,5 +1,5 @@
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
+import { StringEnum } from "./string-enum.ts";
 
 export const AskOptionSchema = Type.Object({
 	value: Type.String({

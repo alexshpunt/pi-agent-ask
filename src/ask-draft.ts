@@ -1,4 +1,3 @@
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { SUBMIT_CHOICES } from "./constants/text.ts";
@@ -7,6 +6,7 @@ import { AskParamsSchema, AskQuestionSchema } from "./schema.ts";
 import { hasCustomAnswer } from "./state/answers.ts";
 import { normalizeQuestions } from "./state/normalize.ts";
 import { getResultQuestions } from "./state/skip.ts";
+import { StringEnum } from "./string-enum.ts";
 import type {
 	AskParams,
 	AskQuestion,
