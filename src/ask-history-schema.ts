@@ -1,8 +1,8 @@
-import { StringEnum } from "@earendil-works/pi-ai";
 import { type Static, Type } from "typebox";
 import { QueuedAnswerSchema } from "./background-ask-state.ts";
 import { AnswerSchema } from "./result-schema.ts";
 import { AskQuestionSchema } from "./schema.ts";
+import { StringEnum } from "./string-enum.ts";
 
 const QuestionType = StringEnum(["single", "multi"] as const);
 export const HistoryQuestionSchema = Type.Object({
