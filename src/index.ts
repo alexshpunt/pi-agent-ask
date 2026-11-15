@@ -46,5 +46,5 @@ export default function askExtension(pi: ExtensionAPI) {
 	pi.on("session_shutdown", () => mode.endSession());
 	registerAskModeCommand(pi, mode);
 	registerAskSettingsCommand(pi);
-	registerPendingAskResume(pi, remoteAsk);
+	registerPendingAskResume(pi, remoteAsk, backgroundAsk);
 }
