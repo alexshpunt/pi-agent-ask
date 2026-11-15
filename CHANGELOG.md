@@ -1,3 +1,9 @@
+# [2.0.4](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.3...v2.0.4) (2026-11-15)
+
+- Show foreground, background and recovered question forms one at a time, in request order, so concurrent forms cannot block keyboard input.
+- Preserve drafts and queue order when deferring or reopening forms, including while a form is loading. Discard stale recovery callbacks after switching session branches.
+- Keep question and answer schemas compatible with TypeBox when using Pi 1.5.
+
 # [2.0.3](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.2...v2.0.3) (2026-11-07)
 
 - Add separate text comments to Submit and Cancel on Review. A commented foreground cancellation returns the cancellation and its explanation to the agent; an uncommented cancellation keeps the existing behavior.
