@@ -202,19 +202,14 @@ async function executeRecordedAsk(
 			structuredContent: receipt,
 		};
 	}
-	ctx.ui.setWorkingVisible(false);
-	try {
-		const result = await runAskFlow(ctx, params, {
-			signal,
-			remote: remoteAsk
-				? { runtime: remoteAsk, source: "tool", toolCallId }
-				: undefined,
-			herdrEvents: pi.events,
-		});
-		return recordResponse(pi, requestId, successfulResponse(result));
-	} finally {
-		ctx.ui.setWorkingVisible(true);
-	}
+	const result = await runAskFlow(ctx, params, {
+		signal,
+		remote: remoteAsk
+			? { runtime: remoteAsk, source: "tool", toolCallId }
+			: undefined,
+		herdrEvents: pi.events,
+	});
+	return recordResponse(pi, requestId, successfulResponse(result));
 }
 
 function recordResponse(

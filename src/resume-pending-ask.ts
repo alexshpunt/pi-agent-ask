@@ -7,7 +7,10 @@ import {
 	appendAskHistoryCompletion,
 	findPendingHistoryRequest,
 } from "./ask-history.ts";
+import { reserveRecoverySurfaces } from "./ask-recovery-order.ts";
+import type { AskSurfaceReservation } from "./ask-surface.ts";
 import { successfulResponse } from "./ask-tool-helpers.ts";
+import type { BackgroundAskRuntime } from "./background-ask.ts";
 import {
 	appendPendingAskDismissal,
 	findPendingAskToolCall,
@@ -25,60 +28,97 @@ const DISMISS_NOTICE = "Unanswered ask_user form dismissed.";
 
 export function registerPendingAskResume(
 	pi: ExtensionAPI,
-	remoteAsk: RemoteAskRuntime
+	remoteAsk: RemoteAskRuntime,
+	backgroundAsk?: BackgroundAskRuntime
 ): void {
-	let reopening = false;
+	let generation = new AbortController();
+	let pendingAsk: PendingAskToolCall | undefined;
+	let foreground: AskSurfaceReservation | undefined;
+	const invalidate = () => {
+		generation.abort();
+		foreground?.cancel();
+		foreground = undefined;
+		generation = new AbortController();
+		pendingAsk = undefined;
+	};
 
 	pi.on("session_start", (event, ctx) => {
-		if (reopening || ctx.mode !== "tui" || !REOPEN_REASONS.has(event.reason)) {
+		invalidate();
+		if (ctx.mode === "tui" && REOPEN_REASONS.has(event.reason)) {
+			pendingAsk = findPendingAskToolCall(ctx);
+		}
+	});
+	pi.on("resources_discover", (_event, ctx) => {
+		const pending = pendingAsk;
+		pendingAsk = undefined;
+		if (ctx.mode !== "tui") {
+			backgroundAsk?.restore(ctx);
 			return;
 		}
-
-		const pendingAsk = findPendingAskToolCall(ctx);
-		if (!pendingAsk) {
+		const surfaces = reserveRecoverySurfaces(
+			ctx.sessionManager.getBranch(),
+			pending
+		);
+		foreground = surfaces.foreground;
+		backgroundAsk?.restore(ctx, surfaces.background);
+		if (!backgroundAsk) {
+			for (const surface of surfaces.background.values()) {
+				surface.cancel();
+			}
+		}
+		if (!pending) {
 			return;
 		}
-
-		reopening = true;
+		const signal = generation.signal;
+		const surface = surfaces.foreground;
 		queueMicrotask(() => {
-			reopenPendingAsk(pi, ctx, pendingAsk, remoteAsk)
-				.catch((error) => {
-					ctx.ui.notify(
-						`Could not reopen unanswered ask_user form: ${formatError(error)}`,
-						"error"
-					);
+			if (signal.aborted) {
+				surface?.cancel();
+				return;
+			}
+			reopenPendingAsk(pi, ctx, pending, remoteAsk, signal, surface)
+				.catch((error: unknown) => {
+					if (!signal.aborted) {
+						ctx.ui.notify(
+							`Could not reopen unanswered ask_user form: ${formatError(error)}`,
+							"error"
+						);
+					}
 				})
-				.finally(() => {
-					reopening = false;
-				});
+				.finally(() => surface?.cancel());
 		});
 	});
+	pi.on("session_tree", (_event, ctx) => {
+		invalidate();
+		backgroundAsk?.restore(ctx);
+	});
+	pi.on("session_shutdown", invalidate);
 }
 
 async function reopenPendingAsk(
 	pi: Pick<ExtensionAPI, "appendEntry" | "events" | "sendUserMessage">,
 	ctx: ExtensionContext,
 	pendingAsk: PendingAskToolCall,
-	remoteAsk: RemoteAskRuntime
+	remoteAsk: RemoteAskRuntime,
+	signal: AbortSignal,
+	surface?: AskSurfaceReservation
 ): Promise<void> {
 	ctx.ui.notify(
 		`Reopening unanswered ask_user form: ${pendingAsk.params.questions.length} question(s).`,
 		"info"
 	);
-	ctx.ui.setWorkingVisible(false);
-
-	let result: Awaited<ReturnType<typeof runAskFlow>>;
-	try {
-		result = await runAskFlow(ctx, pendingAsk.params, {
-			remote: {
-				runtime: remoteAsk,
-				source: "ask:resume",
-				toolCallId: pendingAsk.toolCallId,
-			},
-			herdrEvents: pi.events,
-		});
-	} finally {
-		ctx.ui.setWorkingVisible(true);
+	const result = await runAskFlow(ctx, pendingAsk.params, {
+		remote: {
+			runtime: remoteAsk,
+			source: "ask:resume",
+			toolCallId: pendingAsk.toolCallId,
+		},
+		herdrEvents: pi.events,
+		signal,
+		surface,
+	});
+	if (signal.aborted) {
+		return;
 	}
 
 	const requestId = findPendingHistoryRequest(
