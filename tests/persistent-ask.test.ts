@@ -6,6 +6,8 @@ import {
 	showPersistentAsk,
 } from "../src/ui/persistent-ask.ts";
 
+const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 const answer: AskResult = {
 	cancelled: false,
 	questions: [],
@@ -110,6 +112,7 @@ test("a new question widget takes focus and retains its controller when deferred
 			},
 		}
 	);
+	await tick();
 	assert.notEqual(h.focused, h.editor);
 	assert.equal(h.editor.draft, "ordinary message");
 	panel?.focus();
@@ -129,6 +132,7 @@ test("a new question widget takes focus and retains its controller when deferred
 	assert.equal(disposed, 0);
 	draft = "preserved answer draft";
 	panel?.toggleFocus();
+	await tick();
 	assert(
 		[...h.widgets.values()].some((widget) => widget.render(80).includes(draft))
 	);
@@ -156,15 +160,18 @@ test("hidden questions keep ordinary input focused until explicitly shown", asyn
 			},
 		}
 	);
+	await tick();
 	assert.equal(h.focused, h.editor);
 	assert(
 		[...h.widgets.values()].every((widget) => widget.render(80).length === 0)
 	);
 	panel?.setHidden(false);
+	await tick();
 	assert.notEqual(h.focused, h.editor);
 	panel?.setHidden(true);
 	assert.equal(h.focused, h.editor);
 	panel?.toggleFocus();
+	await tick();
 	assert.notEqual(
 		h.focused,
 		h.editor,

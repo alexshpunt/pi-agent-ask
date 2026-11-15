@@ -65,6 +65,7 @@ for (const custom of [false, true]) {
 					// Cleanup uses the explicit test signal, not an agent operation.
 				},
 				ui: {
+					setWorkingVisible: () => undefined,
 					custom(factory: (...args: unknown[]) => unknown) {
 						return new Promise((resolve) => {
 							component = factory(

@@ -241,6 +241,7 @@ test("remote submit resolves an active ask flow and emits lifecycle events", asy
 			cwd: process.cwd(),
 			mode: "tui",
 			ui: {
+				setWorkingVisible: () => undefined,
 				custom(callback: (...args: unknown[]) => unknown) {
 					return new Promise((resolve) => {
 						component = callback(

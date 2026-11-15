@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { appendAskHistoryRequest } from "../src/ask-history.ts";
+import { reserveRecoverySurfaces } from "../src/ask-recovery-order.ts";
+import { reserveAskSurface } from "../src/ask-surface.ts";
 import { DEFAULT_ASK_CONFIG } from "../src/config/defaults.ts";
 import { getAskConfigStore } from "../src/config/store.ts";
 import {
@@ -15,6 +18,7 @@ import {
 	type RemoteAskStartedEvent,
 } from "../src/remote-ask.ts";
 import { registerPendingAskResume } from "../src/resume-pending-ask.ts";
+import { createInitialState } from "../src/state/create.ts";
 import type { AskParams } from "../src/types.ts";
 
 const CANVAS_RE = /Canvas/;
@@ -390,19 +394,24 @@ function createResumeHarness(
 	} = {}
 ) {
 	let sessionStartHandler: ((event: any, ctx: any) => void) | undefined;
+	const handlers = new Map<string, (event: any, ctx: any) => void>();
 	const dismissedToolCallIds: string[] = [];
 	const sentMessages: Array<{ text: string; options: unknown }> = [];
 
 	registerPendingAskResume(
 		{
 			on(event: string, handler: (event: any, ctx: any) => void) {
+				handlers.set(event, handler);
 				if (event === "session_start") {
 					sessionStartHandler = handler;
 				}
 			},
 			appendEntry(customType: string, data: { toolCallId: string }) {
 				branch.push({ type: "custom", customType, data });
-				dismissedToolCallIds.push(data.toolCallId);
+				if (customType === ASK_PENDING_DISMISSED_ENTRY_TYPE) {
+					dismissedToolCallIds.push(data.toolCallId);
+					options.onDismissNotice?.();
+				}
 			},
 			sendUserMessage(text: string, sendOptions: unknown) {
 				sentMessages.push({ text, options: sendOptions });
@@ -422,7 +431,12 @@ function createResumeHarness(
 		ui: {
 			custom(callback: (...args: any[]) => unknown) {
 				return new Promise((resolve) => {
-					callback(
+					let component: { dispose?(): void } | undefined;
+					const done = (value: unknown) => {
+						queueMicrotask(() => component?.dispose?.());
+						resolve(value);
+					};
+					component = callback(
 						{
 							requestRender() {
 								// Rendering is not needed for this lifecycle test.
@@ -430,14 +444,12 @@ function createResumeHarness(
 						},
 						plainTheme(),
 						{},
-						resolve
-					);
+						done
+					) as { dispose?(): void };
 				});
 			},
-			notify(message: string) {
-				if (message.startsWith("Unanswered ask_user form dismissed")) {
-					options.onDismissNotice?.();
-				}
+			notify() {
+				// Notifications are not the lifecycle assertion surface.
 			},
 			setWorkingVisible() {
 				// The harness only checks completion behavior.
@@ -449,10 +461,190 @@ function createResumeHarness(
 		dismissedToolCallIds,
 		sentMessages,
 		start(reason: "startup" | "resume" | "fork") {
-			return sessionStartHandler?.({ type: "session_start", reason }, ctx);
+			sessionStartHandler?.({ type: "session_start", reason }, ctx);
+			return handlers.get("resources_discover")?.(
+				{ type: "resources_discover" },
+				ctx
+			);
+		},
+		navigate() {
+			handlers.get("session_tree")?.({ type: "session_tree" }, ctx);
+		},
+		dispose() {
+			handlers.get("session_shutdown")?.({ type: "session_shutdown" }, ctx);
 		},
 	};
 }
+
+function queueEntry(requestId: string) {
+	return {
+		type: "custom",
+		customType: "ask:queued",
+		data: {
+			version: 1,
+			requestId,
+			toolCallId: "background-call",
+			params,
+			presentSingleAsMulti: false,
+		},
+	};
+}
+
+for (const backgroundFirst of [true, false]) {
+	test(`mixed recovery preserves accepted arrival order: backgroundFirst=${backgroundFirst}`, async () => {
+		const branch: unknown[] = [askToolCall("foreground-call")];
+		const writer = {
+			appendEntry: (customType: string, data: unknown) => {
+				branch.push({ type: "custom", customType, data });
+			},
+		};
+		let backgroundId: string;
+		if (backgroundFirst) {
+			backgroundId = appendAskHistoryRequest(
+				writer,
+				"background-call",
+				createInitialState(params),
+				true
+			);
+			appendAskHistoryRequest(
+				writer,
+				"foreground-call",
+				createInitialState(params),
+				false
+			);
+		} else {
+			appendAskHistoryRequest(
+				writer,
+				"foreground-call",
+				createInitialState(params),
+				false
+			);
+			backgroundId = appendAskHistoryRequest(
+				writer,
+				"background-call",
+				createInitialState(params),
+				true
+			);
+		}
+		branch.push(queueEntry(backgroundId));
+		const surfaces = reserveRecoverySurfaces(branch as never, {
+			toolCallId: "foreground-call",
+			params,
+		});
+		const background = surfaces.background.get(backgroundId);
+		assert(background);
+		assert(surfaces.foreground);
+		const opened: string[] = [];
+		const foreground = surfaces.foreground.run(undefined, () => {
+			opened.push("foreground");
+			return Promise.resolve();
+		});
+		await background.run(undefined, () => {
+			opened.push("background");
+			return Promise.resolve();
+		});
+		await foreground;
+		assert.deepEqual(
+			opened,
+			backgroundFirst
+				? ["background", "foreground"]
+				: ["foreground", "background"]
+		);
+	});
+}
+
+test("legacy recovery falls back to queued and assistant entry positions", async () => {
+	const branch = [
+		queueEntry("background-request"),
+		askToolCall("foreground-call"),
+	];
+	const surfaces = reserveRecoverySurfaces(branch as never, {
+		toolCallId: "foreground-call",
+		params,
+	});
+	const background = surfaces.background.get("background-request");
+	assert(background);
+	assert(surfaces.foreground);
+	const opened: string[] = [];
+	const foreground = surfaces.foreground.run(undefined, () => {
+		opened.push("foreground");
+		return Promise.resolve();
+	});
+	await background.run(undefined, () => {
+		opened.push("background");
+		return Promise.resolve();
+	});
+	await foreground;
+	assert.deepEqual(opened, ["background", "foreground"]);
+});
+
+test("hidden background recovery does not reserve a foreground-blocking slot", async () => {
+	const branch = [
+		queueEntry("hidden-request"),
+		{ type: "custom", customType: "ask:queue-ui", data: { hidden: true } },
+		askToolCall("foreground-call"),
+	];
+	const surfaces = reserveRecoverySurfaces(branch as never, {
+		toolCallId: "foreground-call",
+		params,
+	});
+	assert.equal(surfaces.background.size, 0);
+	assert(surfaces.foreground);
+	await surfaces.foreground.run(undefined, () => Promise.resolve());
+});
+
+test("leaving a branch aborts a queued recovered form before it can open or dismiss", async () => {
+	const held = reserveAskSurface();
+	await held.acquire();
+	const branch: unknown[] = [askToolCall("old-call")];
+	const bus = new TestEventBus();
+	const remote = createRemoteAskRuntime(bus as never);
+	const harness = createResumeHarness(branch, remote);
+	try {
+		harness.start("resume");
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		branch.length = 0;
+		harness.navigate();
+		held.cancel();
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.deepEqual(harness.dismissedToolCallIds, []);
+		assert.deepEqual(harness.sentMessages, []);
+		assert.equal(
+			bus.events.filter((event) => event.channel === PI_ASK_STARTED_EVENT)
+				.length,
+			0
+		);
+	} finally {
+		held.cancel();
+		harness.dispose();
+		remote.disposeAll();
+	}
+});
+
+test("leaving a branch closes an active recovered form without saving an outcome to the new branch", async () => {
+	getAskConfigStore().setConfig(disabledNotificationConfig());
+	const branch: unknown[] = [askToolCall("active-old-call")];
+	const bus = new TestEventBus();
+	const remote = createRemoteAskRuntime(bus as never);
+	const opened = new Promise<void>((resolve) =>
+		bus.on(PI_ASK_STARTED_EVENT, () => resolve())
+	);
+	const harness = createResumeHarness(branch, remote);
+	try {
+		harness.start("resume");
+		await opened;
+		branch.length = 0;
+		harness.navigate();
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.deepEqual(branch, []);
+		assert.deepEqual(harness.dismissedToolCallIds, []);
+		assert.deepEqual(harness.sentMessages, []);
+	} finally {
+		harness.dispose();
+		remote.disposeAll();
+		getAskConfigStore().setConfig(DEFAULT_ASK_CONFIG);
+	}
+});
 
 function disabledNotificationConfig() {
 	return {
