@@ -11,6 +11,12 @@ Keep state logic in plain TypeScript modules and the Pi and TUI wiring thin, so 
 - `pnpm typecheck` and `pnpm check` (Ultracite on Biome).
 - `pnpm dev [dir]`: run Pi in `dir` with only this extension loaded.
 
+## Verification fixtures
+
+When a real-Pi driver intercepts a singleton module, import and invoke the production entry point from that driver so both use the same module graph. Confirm that the loading gate was entered before accepting a RED result.
+
+For UI-only background-question demonstrations, use a deterministic provider or suppress answer-message delivery through the driver's API proxy. Changing only the enqueue context does not isolate inference: the runtime can retain its lifecycle context.
+
 ## Commits and releases
 
 Commit messages follow Conventional Commits (`commitlint.config.cjs`). A release is published by `.github/workflows/release.yml` when a `v*` tag is pushed. The workflow publishes to npm and creates the GitHub Release from that version's `CHANGELOG.md` section (`scripts/release-notes.ts`), so add the section before tagging; `CONTRIBUTING.md` still describes the upstream semantic-release flow, which this fork does not use.
