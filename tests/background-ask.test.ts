@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Value } from "typebox/value";
+import { reserveAskSurface } from "../src/ask-surface.ts";
 import { registerAskTool } from "../src/ask-tool.ts";
 import { createBackgroundAskRuntime } from "../src/background-ask.ts";
 import { DEFAULT_ASK_CONFIG } from "../src/config/defaults.ts";
@@ -137,6 +138,7 @@ function harness() {
 				queueMicrotask(() => widget.render(80));
 			},
 			setStatus: () => undefined,
+			setWorkingVisible: () => undefined,
 			notify: () => undefined,
 		},
 	};
@@ -214,6 +216,98 @@ test("a branch restore during config loading cannot mount the abandoned backgrou
 	}
 });
 
+test("reopening during background loading keeps the first request ahead of its batch", async () => {
+	const h = harness();
+	const store = getAskConfigStore();
+	const ensureLoaded = store.ensureLoaded.bind(store);
+	let release!: () => void;
+	const loading = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	store.ensureLoaded = async () => {
+		await loading;
+		return ensureLoaded();
+	};
+	try {
+		h.runtime.defer("hidden");
+		h.runtime.enqueue("first", params, h.ctx as never, false);
+		h.runtime.enqueue("second", params, h.ctx as never, false);
+		await tick();
+		h.runtime.open(h.ctx as never);
+		release();
+		await tick();
+		assert.equal(h.forms.length, 1);
+		h.forms[0](answer);
+		await tick();
+		assert.equal(h.forms.length, 2);
+		h.forms[1](answer);
+		await tick();
+		h.boundary();
+		assert.deepEqual(
+			h.messages.map((message) => message.details.requestId),
+			["first", "second"]
+		);
+	} finally {
+		release();
+		store.ensureLoaded = ensureLoaded;
+		h.runtime.dispose();
+	}
+});
+for (const afterHandoff of [false, true]) {
+	test(`deferring during background loading releases its slot${afterHandoff ? " after a handoff" : ""}`, async () => {
+		const h = harness();
+		if (afterHandoff) {
+			h.runtime.enqueue("previous", params, h.ctx as never, false);
+			await tick();
+			h.forms[0](answer);
+			await tick();
+		}
+		const initialForms = h.forms.length;
+		const store = getAskConfigStore();
+		const ensureLoaded = store.ensureLoaded.bind(store);
+		let release!: () => void;
+		const loading = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		store.ensureLoaded = async () => {
+			await loading;
+			return ensureLoaded();
+		};
+		let next: ReturnType<typeof reserveAskSurface> | undefined;
+		try {
+			h.runtime.enqueue("loading", params, h.ctx as never, false);
+			await tick();
+			h.runtime.defer("hidden");
+			next = reserveAskSurface();
+			let foregroundOpened = false;
+			const acquired = next.acquire().then(
+				() => {
+					foregroundOpened = true;
+					return true;
+				},
+				(error: unknown) => error
+			);
+			await tick();
+			assert.equal(foregroundOpened, true);
+			h.runtime.open(h.ctx as never);
+			release();
+			await tick();
+			assert.equal(h.forms.length, initialForms);
+			next.cancel();
+			assert.equal(await acquired, true);
+			await tick();
+			assert.equal(h.forms.length, initialForms + 1);
+			h.forms.at(-1)?.(answer);
+			await tick();
+			assert.equal(h.runtime.pendingCount(), 0);
+		} finally {
+			release();
+			next?.cancel();
+			store.ensureLoaded = ensureLoaded;
+			h.runtime.dispose();
+		}
+	});
+}
 test("pending question indicator tracks unfinished forms and survives hiding and restore", async () => {
 	const h = harness();
 	const twoQuestions = {
@@ -294,6 +388,7 @@ test("hiding and reopening a queue changes Herdr status without completing its q
 	await tick();
 	assert.equal(active(), false);
 	h.runtime.open(h.ctx as never);
+	await tick();
 	assert.equal(active(), true);
 	h.forms[0](answer);
 	await tick();
@@ -316,6 +411,7 @@ test("restoring a deferred queue keeps Herdr unblocked until the panel is reopen
 	assert.equal(h.events.at(-1)?.data.active, false);
 	assert.equal(h.runtime.pendingCount(), 1);
 	h.runtime.open(h.ctx as never);
+	await tick();
 	assert.equal(h.events.at(-1)?.data.active, true);
 });
 test("disposing or switching away from a visible queue releases its Herdr block", async () => {
@@ -351,7 +447,7 @@ test("recovering an unanswered queue does not block while the editor is unavaila
 	assert.deepEqual(h.events, []);
 });
 
-test("hiding a queue cannot clear an overlapping foreground block", async (t) => {
+test("deferring a queued panel lets the foreground hold its own blocked status", async (t) => {
 	const h = harness();
 	t.after(() => h.runtime.dispose());
 	h.runtime.enqueue("background", params, h.ctx as never, false);
@@ -360,8 +456,10 @@ test("hiding a queue cannot clear an overlapping foreground block", async (t) =>
 		herdrEvents: h.pi.events as never,
 	});
 	await tick();
-	assert.equal(h.forms.length, 2);
+	assert.equal(h.forms.length, 1);
 	h.runtime.defer("hidden");
+	await tick();
+	assert.equal(h.forms.length, 2);
 	assert.equal(h.events.at(-1)?.data.active, true);
 	h.forms[1](answer);
 	await foreground;

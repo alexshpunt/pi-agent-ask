@@ -7,7 +7,10 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import type { AskDraft } from "../ask-draft.ts";
-import { withAskSurface } from "../ask-surface.ts";
+import {
+	type AskSurfaceReservation,
+	reserveAskSurface,
+} from "../ask-surface.ts";
 import { invalidPayloadResponse } from "../ask-tool-helpers.ts";
 import type { AskEvents } from "../blocked-status.ts";
 import { readClipboardImage } from "../clipboard-image.ts";
@@ -104,6 +107,7 @@ interface AskFlowOptions {
 		toolCallId?: string;
 	};
 	signal?: AbortSignal;
+	surface?: AskSurfaceReservation;
 }
 
 type AskFlowParams = AskParams &
@@ -139,10 +143,22 @@ interface AskFlowController {
 	unsubscribeConfig: () => void;
 }
 
-export async function runAskFlow(
+export function runAskFlow(
 	ctx: ExtensionContext,
 	input: AskParams,
 	options: AskFlowOptions = {}
+): Promise<AskResult> {
+	const run = () => runAskFlowOnSurface(ctx, input, options);
+	if (ctx.mode !== "tui" || options.background) {
+		return run();
+	}
+	return (options.surface ?? reserveAskSurface()).run(options.signal, run);
+}
+
+async function runAskFlowOnSurface(
+	ctx: ExtensionContext,
+	input: AskParams,
+	options: AskFlowOptions
 ): Promise<AskResult> {
 	const resolved = await resolveContextFiles(input);
 	if (!resolved.ok) {
@@ -166,6 +182,9 @@ export async function runAskFlow(
 		if (options.signal?.aborted) {
 			throw new DOMException("Question form interrupted", "AbortError");
 		}
+		if (!options.background) {
+			ctx.ui.setWorkingVisible(false);
+		}
 		const endWait = options.background
 			? undefined
 			: beginUserWait(options.herdrEvents, "Waiting for user response");
@@ -180,13 +199,19 @@ export async function runAskFlow(
 					flowOptions,
 				});
 			return options.background
-				? await showPersistentAsk(ctx, factory, options.background)
+				? await showPersistentAsk(ctx, factory, {
+						...options.background,
+						signal: options.signal,
+					})
 				: await ctx.ui.custom<AskResult>(factory);
 		} finally {
+			if (!options.background) {
+				ctx.ui.setWorkingVisible(true);
+			}
 			endWait?.();
 		}
 	};
-	return options.background ? run() : withAskSurface(options.signal, run);
+	return run();
 }
 
 function createAskFlowController(

@@ -165,6 +165,12 @@ export default function nonModalDriver(pi: ExtensionAPI): void {
 		};
 	});
 	pi.on("tool_call", (event) => {
+		if (overlap && event.toolName === "wait_for_answers") {
+			const pending = active.values().next().value;
+			if (pending) {
+				setImmediate(() => submitAnswer(pi, pending));
+			}
+		}
 		if (event.toolName !== "wait_for_answers" || !nextWait) {
 			return;
 		}

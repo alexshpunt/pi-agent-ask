@@ -8,6 +8,8 @@ import {
 	type TuiMouseEventResult,
 	truncateToWidth,
 } from "@earendil-works/pi-tui";
+import type { AskSurfaceReservation } from "../ask-surface.ts";
+import { AskSurfaceLease } from "../ask-surface-lease.ts";
 import type { AskResult } from "../types.ts";
 import { panelViewport } from "./panel-viewport.ts";
 
@@ -25,6 +27,7 @@ type AskFactory = (
 
 export interface PersistentAskHandle {
 	focus(): void;
+	isVisible(): boolean;
 	setHidden(hidden: boolean): void;
 	toggleFocus(): void;
 }
@@ -33,6 +36,8 @@ export interface PersistentAskOptions {
 	hidden: boolean;
 	onHandle(handle: PersistentAskHandle | undefined): void;
 	onHiddenChange?(hidden: boolean): void;
+	signal?: AbortSignal;
+	surface?: AskSurfaceReservation;
 }
 
 const SURFACE_WIDGET = "ask:active-surface";
@@ -45,6 +50,7 @@ export async function showPersistentAsk(
 ): Promise<AskResult> {
 	const panel = new QuestionPanel(ctx, options);
 	try {
+		await panel.prepare();
 		return await ctx.ui.custom<AskResult>(
 			(tui, theme, keys, done) => panel.mount(factory, tui, theme, keys, done),
 			{
@@ -65,7 +71,7 @@ class QuestionPanel implements PersistentAskHandle {
 	private overlay?: OverlayHandle;
 	private tui?: FocusAwareTui;
 	private messageEditor?: Component | null;
-	private hidden: boolean;
+	private readonly lease: AskSurfaceLease;
 	private disposed = false;
 	private scrollTop = 0;
 	private followSelection = true;
@@ -78,7 +84,28 @@ class QuestionPanel implements PersistentAskHandle {
 	constructor(ctx: ExtensionContext, options: PersistentAskOptions) {
 		this.ctx = ctx;
 		this.options = options;
-		this.hidden = options.hidden;
+		this.lease = new AskSurfaceLease({
+			...options,
+			changed: () => this.updateVisibility(),
+		});
+	}
+
+	prepare(): Promise<void> {
+		this.options.onHandle(this);
+		return this.lease.ready();
+	}
+
+	isVisible(): boolean {
+		return !!this.component && this.lease.visible;
+	}
+
+	private updateVisibility(): void {
+		this.overlay?.setHidden(!this.lease.visible);
+		if (this.lease.visible) {
+			this.overlay?.focus();
+		}
+		this.options.onHandle(this);
+		this.tui?.requestRender();
 	}
 
 	mount(
@@ -122,20 +149,21 @@ class QuestionPanel implements PersistentAskHandle {
 
 	attach(overlay: OverlayHandle): void {
 		this.overlay = overlay;
-		if (this.hidden) {
-			overlay.setHidden(true);
-		} else {
-			overlay.focus();
-		}
-		this.options.onHandle(this);
+		this.updateVisibility();
 	}
 
 	setHidden(hidden: boolean): void {
-		this.hidden = hidden;
-		this.overlay?.setHidden(hidden);
-		if (!hidden) {
-			this.overlay?.focus();
+		if (this.disposed) {
+			return;
 		}
+		this.lease.setHidden(hidden).catch((error: unknown) => {
+			if (!(this.disposed || this.options.signal?.aborted)) {
+				this.ctx.ui.notify(
+					`Cannot reopen questions: ${String(error)}`,
+					"error"
+				);
+			}
+		});
 		this.options.onHiddenChange?.(hidden);
 		this.tui?.requestRender();
 	}
@@ -148,7 +176,7 @@ class QuestionPanel implements PersistentAskHandle {
 		if (!this.overlay) {
 			return;
 		}
-		if (this.hidden) {
+		if (!this.lease.visible) {
 			this.setHidden(false);
 			return;
 		}
@@ -167,8 +195,11 @@ class QuestionPanel implements PersistentAskHandle {
 		this.disposed = true;
 		this.unsubscribeInput?.();
 		this.options.onHandle(undefined);
-		this.ctx.ui.setWidget(SURFACE_WIDGET, undefined);
-		this.component?.dispose?.();
+		if (this.component) {
+			this.ctx.ui.setWidget(SURFACE_WIDGET, undefined);
+			this.component.dispose?.();
+		}
+		this.lease.dispose();
 	}
 
 	private onFocusChange(focused: boolean): void {
@@ -179,7 +210,7 @@ class QuestionPanel implements PersistentAskHandle {
 		queueMicrotask(() => {
 			if (
 				this.disposed ||
-				this.hidden ||
+				!this.lease.visible ||
 				this.overlay?.isFocused() ||
 				this.tui?.getFocusedComponent?.() !== this.messageEditor
 			) {
@@ -192,7 +223,7 @@ class QuestionPanel implements PersistentAskHandle {
 
 	private handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
 		if (
-			this.hidden ||
+			!this.lease.visible ||
 			this.disposed ||
 			event.shift ||
 			event.alt ||
@@ -263,7 +294,7 @@ class QuestionPanel implements PersistentAskHandle {
 	}
 
 	private renderWidget(width: number, theme: CustomArgs[1]): string[] {
-		if (this.hidden || this.disposed) {
+		if (!this.lease.visible || this.disposed) {
 			return [];
 		}
 		this.pageSize = Math.max(

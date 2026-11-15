@@ -7,6 +7,10 @@ import type {
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { AskDraft } from "./ask-draft.ts";
 import { appendAskHistoryCompletion } from "./ask-history.ts";
+import {
+	type AskSurfaceReservation,
+	reserveAskSurface,
+} from "./ask-surface.ts";
 import { formatQueuedAnswer } from "./background-answer.ts";
 import {
 	ASK_ANSWER_MESSAGE,
@@ -46,9 +50,11 @@ export class BackgroundAskRuntime {
 	private pumping = false;
 	private hidden = false;
 	private panel?: PersistentAskHandle;
+	private activeRequestId?: string;
 	private readonly draftSignatures = new Map<string, string>();
 	private readonly remoteAsk?: RemoteAskRuntime;
 	private requests: QueuedRequest[] = [];
+	private readonly surfaces = new Map<string, AskSurfaceReservation>();
 	private readonly routed = new Set<string>();
 	private readonly executionOwners = new Map<string, string | undefined>();
 	private waiter?: Waiter;
@@ -108,6 +114,9 @@ export class BackgroundAskRuntime {
 				presentSingleAsMulti,
 				delivered: false,
 			});
+			if (!this.hidden && ctx.mode === "tui") {
+				this.surfaces.set(requestId, reserveAskSurface());
+			}
 			this.waiter?.requestIds.add(requestId);
 		}
 		this.updateStatus();
@@ -230,6 +239,20 @@ export class BackgroundAskRuntime {
 		this.hidden = hidden;
 		this.pi.appendEntry(ASK_QUEUE_UI_ENTRY, { hidden });
 		this.panel?.setHidden(hidden);
+		for (const request of this.requests) {
+			if (
+				request.completion ||
+				(request.requestId === this.activeRequestId && this.panel)
+			) {
+				continue;
+			}
+			if (hidden) {
+				this.surfaces.get(request.requestId)?.cancel();
+				this.surfaces.delete(request.requestId);
+			} else if (!this.surfaces.has(request.requestId)) {
+				this.surfaces.set(request.requestId, reserveAskSurface());
+			}
+		}
 		this.updateStatus();
 	}
 
@@ -282,7 +305,10 @@ export class BackgroundAskRuntime {
 		waiter.reject(error);
 	}
 	/** Rebuild from the current branch and invalidate every older surface and callback. */
-	restore(ctx: ExtensionContext): void {
+	restore(
+		ctx: ExtensionContext,
+		surfaces?: ReadonlyMap<string, AskSurfaceReservation>
+	): void {
 		this.dispose();
 		this.generation = new AbortController();
 		this.context = ctx;
@@ -291,6 +317,14 @@ export class BackgroundAskRuntime {
 		this.routed.clear();
 		if (ctx.mode !== "tui") {
 			return;
+		}
+		for (const request of this.requests) {
+			if (!(request.completion || this.hidden)) {
+				this.surfaces.set(
+					request.requestId,
+					surfaces?.get(request.requestId) ?? reserveAskSurface()
+				);
+			}
 		}
 		this.updateStatus();
 		const signal = this.generation.signal;
@@ -314,12 +348,17 @@ export class BackgroundAskRuntime {
 		this.stopWaitingForEditor?.();
 		this.stopWaitingForEditor = undefined;
 		this.generation.abort();
+		for (const surface of this.surfaces.values()) {
+			surface.cancel();
+		}
+		this.surfaces.clear();
 		this.endQueueStatus?.();
 		this.endQueueStatus = undefined;
 		this.pendingIdleDelivery.clear();
 		this.executionOwners.clear();
 		this.draftSignatures.clear();
 		this.panel = undefined;
+		this.activeRequestId = undefined;
 		if (this.waiter) {
 			this.setWaitingStatus(false);
 			this.waiter.cleanup();
@@ -397,7 +436,11 @@ export class BackgroundAskRuntime {
 	private updateStatus(): void {
 		const pending = this.pendingCount();
 		// Acquire only after mounting; keep the owner through FIFO panel handoffs.
-		if (pending && !this.hidden && (this.panel || this.endQueueStatus)) {
+		if (
+			pending &&
+			!this.hidden &&
+			(this.panel?.isVisible() || this.endQueueStatus)
+		) {
 			this.endQueueStatus ??= beginUserWait(
 				this.pi.events,
 				"Questions awaiting your response"
@@ -470,11 +513,17 @@ export class BackgroundAskRuntime {
 		request: QueuedRequest,
 		signal: AbortSignal
 	): Promise<QueuedAnswer> {
+		const runtime = this;
 		try {
 			const result = await runAskFlow(ctx, request.params, {
 				abortOnCancel: false,
 				background: {
-					hidden: this.hidden,
+					get surface() {
+						return runtime.surfaces.get(request.requestId);
+					},
+					get hidden() {
+						return runtime.hidden;
+					},
 					draft: request.draft,
 					onHandle: (handle) => {
 						if (signal.aborted) {
@@ -512,6 +561,10 @@ export class BackgroundAskRuntime {
 				requestId: request.requestId,
 				error: error instanceof Error ? error.message : String(error),
 			};
+		} finally {
+			if (!signal.aborted) {
+				this.surfaces.get(request.requestId)?.cancel();
+			}
 		}
 	}
 
@@ -527,6 +580,7 @@ export class BackgroundAskRuntime {
 				if (!request) {
 					break;
 				}
+				this.activeRequestId = request.requestId;
 				const completion = {
 					...(await this.completeForm(ctx, request, signal)),
 					...(request.parentToolCallId
@@ -542,6 +596,9 @@ export class BackgroundAskRuntime {
 					...completion,
 					display: true,
 				});
+				this.activeRequestId = undefined;
+				this.panel = undefined;
+				this.surfaces.delete(request.requestId);
 				request.completion = completion;
 				request.draft = undefined;
 				this.draftSignatures.delete(request.requestId);
@@ -587,9 +644,6 @@ export function createBackgroundAskRuntime(
 	pi.on("tool_execution_end", (event) =>
 		runtime.forgetExecution(event.toolCallId)
 	);
-	// Wait for all session_start handlers, including Herdr's status consumer.
-	pi.on("resources_discover", (_event, ctx) => runtime.restore(ctx));
-	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", () => runtime.dispose());
 	pi.on("input", (event) => {
 		if (event.source === "interactive") {

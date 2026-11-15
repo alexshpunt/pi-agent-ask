@@ -282,6 +282,7 @@ test("custom editor submit key controls actual editor submission", async () => {
 			cwd: process.cwd(),
 			mode: "tui",
 			ui: {
+				setWorkingVisible: () => undefined,
 				custom(callback: (...args: unknown[]) => unknown) {
 					return new Promise((resolve) => {
 						const tui = {
@@ -365,6 +366,7 @@ test("ask flow forwards focus and invalidation to its editor", async () => {
 					abortCalls += 1;
 				},
 				ui: {
+					setWorkingVisible: () => undefined,
 					custom(callback: (...args: unknown[]) => unknown) {
 						return new Promise((resolve) => {
 							component = callback(
