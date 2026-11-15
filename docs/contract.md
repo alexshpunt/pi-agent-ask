@@ -172,7 +172,9 @@ The global setting is inherited unless a trusted project explicitly overrides it
 { status: "queued", requestId: string, questionIds: string[], pendingRequests: number }
 ```
 
-A receipt is not an answer or approval. By default the queue shows one questionnaire at a time, in FIFO order, above the ordinary editor. Each newly shown visible form takes keyboard focus, including the next queued form and recovered forms. The ordinary editor's draft stays intact. Agent work continues; the panel does not hide the working indicator or hold the foreground input lock.
+A receipt is not an answer or approval. Foreground, background, and recovered forms share one visible question surface, in accepted-request order (after validation and context-file loading). Background requests reserve their place when enqueued, not when the previous background form finishes. Each newly shown visible form takes keyboard focus. The ordinary editor's draft stays intact. Agent work continues; the background panel does not hide the working indicator or replace ordinary input.
+
+Deferring the background queue releases its surface reservations without cancelling requests or discarding drafts, including while a form is still loading. Foreground forms can then open. Reopening the queue reserves new positions behind forms already waiting and preserves the background batch's order, even during loading. A hidden panel cannot steal focus from an active foreground form.
 
 A compact indicator below the editor counts questions in all unfinished background forms, including hidden forms. Draft answers and skipped questions remain in the count until their form is submitted or cancelled. The muted indicator offers `/ask-queue` when the panel is hidden, clears when no forms remain, and is restored with the active branch.
 
@@ -202,7 +204,7 @@ The questions and drafts remain pending. `results` includes only completed outco
 
 Results already delivered asynchronously are not repeated. Forms completed during the wait return through its result, not duplicate messages. An empty queue returns immediately. Aborting the wait leaves the forms queued. Explicit cancellation finishes only that background questionnaire and does not abort unrelated agent work. UI failures are reported with an error, never invented answers.
 
-Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery independently of the queue journal. If a session rewrite removes queue records but retains delivery evidence, requests still in memory are not redelivered. Completed but undelivered results are recovered. Old surfaces cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
+Queue state is rebuilt from the active branch on startup, reload, resume, fork, and tree navigation. Completed forms do not reopen; actual answer messages and successful direct wait results mark delivery independently of the queue journal. If a session rewrite removes queue records but retains delivery evidence, requests still in memory are not redelivered. Completed but undelivered results are recovered. Foreground and background recovery reserve their positions together from the branch journal after resource discovery. Old surfaces and queued foreground recoveries cannot write answers into a different branch after a session change. In non-TUI modes background calls keep the normal cancelled fallback and do not enqueue; waiting is unavailable.
 
 Recovered panels wait for the native editor without replacing it. Drafts, skipped questions, and panel visibility follow the active branch across reload and resume. Other input dialogs retain their own input surface.
 

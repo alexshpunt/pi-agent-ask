@@ -17,7 +17,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/background-answer.ts` — complete agent context and durable completion-entry cards, independent of answer consumption; accepted cards reuse the questionnaire's review model and question renderer
 - `src/background-ask.ts` — detached FIFO runtime, execution-root ownership, recovery, and completion routing; restores at `resources_discover` after status consumers initialize, and holds Herdr indication only while the queue panel is visible, including FIFO handoffs
 - `src/wait-for-answers-tool.ts` — explicit wait gate with complete model results and brief visible consumption confirmations
-- `src/ask-surface.ts` — shared input-surface lock for foreground tool and recovery flows; background widgets do not hold this lock
+- `src/ask-surface.ts` — shared FIFO question-surface reservations for foreground, background, and recovery flows; detached background requests reserve their place at enqueue, release it on deferral, and reacquire before becoming visible
+- `src/ask-surface-lease.ts` — renderer-free ownership lifecycle for persistent panels: hiding releases the surface, reopening waits for a new FIFO position, and stale acquisitions cannot revive a disposed panel
 - `src/ask-draft.ts` — validated question-panel snapshots for branch-local draft recovery
 - `src/herdr-wait-state.ts` — aggregates visible queue panels, foreground forms, and explicit waits into one balanced Herdr blocked acquisition/release; one owner cannot clear another's status
 
@@ -32,7 +33,8 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/ask-history-export.ts` — literal Markdown snapshots and exclusive file creation
 - `src/ask-payload-store.ts` — persisted tool payloads for interrupted-form recovery
 - `src/pending-ask.ts` — active-branch unresolved tool-call detection and recovery dismissal persistence
-- `src/resume-pending-ask.ts` — detached lifecycle wiring and recovered answer delivery
+- `src/ask-recovery-order.ts` — merges foreground and background recovery candidates by their branch journal positions before reserving surfaces
+- `src/resume-pending-ask.ts` — coordinates background and foreground recovery after resource discovery, cancels abandoned foreground generations, and delivers recovered answers
 - `src/notifications.ts` — best-effort ask notification payload rendering and channel execution
 - `src/remote-ask.ts` — package-prefixed local event contract, active-flow registry, and explicit remote submission validation
 - `src/external-ui.ts` — per-call external UI negotiation and foreground wait, using the same input lock, remote validation, and result serialization
