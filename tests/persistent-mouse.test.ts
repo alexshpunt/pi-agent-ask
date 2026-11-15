@@ -84,6 +84,7 @@ test("the visible widget routes a click to its scrolled question row and takes f
 		}),
 		{ hidden: false, onHandle: () => undefined }
 	);
+	await new Promise<void>((resolve) => setImmediate(resolve));
 	assert(widget);
 	widget.render(80);
 	assert.equal(typeof widget.handleMouse, "function");
