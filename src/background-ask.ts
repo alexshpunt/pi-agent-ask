@@ -25,6 +25,10 @@ import {
 	restoreQueueHidden,
 	type WaitForAnswersResult,
 } from "./background-ask-state.ts";
+import {
+	type ExtensionAskAnsweredEvent,
+	PI_ASK_ANSWERED_EVENT,
+} from "./extension-ask.ts";
 import { beginUserWait } from "./herdr-wait-state.ts";
 import { imageContent } from "./images.ts";
 import type { RemoteAskRuntime } from "./remote-ask.ts";
@@ -91,7 +95,8 @@ export class BackgroundAskRuntime {
 		params: AskParams,
 		ctx: ExtensionContext,
 		presentSingleAsMulti: boolean,
-		toolCallId?: string
+		toolCallId?: string,
+		owner?: string
 	) {
 		this.context ??= ctx;
 		const parentToolCallId = toolCallId
@@ -103,6 +108,7 @@ export class BackgroundAskRuntime {
 				requestId,
 				...(toolCallId ? { toolCallId } : {}),
 				...(parentToolCallId ? { parentToolCallId } : {}),
+				...(owner ? { owner } : {}),
 				params,
 				presentSingleAsMulti,
 			});
@@ -110,6 +116,7 @@ export class BackgroundAskRuntime {
 				requestId,
 				toolCallId,
 				parentToolCallId,
+				owner,
 				params,
 				presentSingleAsMulti,
 				delivered: false,
@@ -395,7 +402,7 @@ export class BackgroundAskRuntime {
 					...answerMessage(answer),
 				})),
 			],
-			continue: answers.some((answer) => !answer.result?.cancelled),
+			continue: answers.some(wakesAgent),
 		};
 	}
 
@@ -424,9 +431,9 @@ export class BackgroundAskRuntime {
 		}
 		for (const answer of this.readyAnswers()) {
 			this.pendingIdleDelivery.add(answer.requestId);
-			const triggerTurn = !answer.result?.cancelled;
+			const triggerTurn = wakesAgent(answer);
 			this.pi.sendMessage(answerMessage(answer), { triggerTurn });
-			// Cancellation is context only; the first answer starts a turn.
+			// Cancelled and quiet answers are context only; the first other answer starts a turn.
 			if (triggerTurn) {
 				break;
 			}
@@ -581,7 +588,7 @@ export class BackgroundAskRuntime {
 					break;
 				}
 				this.activeRequestId = request.requestId;
-				const completion = {
+				const answered: QueuedAnswer = {
 					...(await this.completeForm(ctx, request, signal)),
 					...(request.parentToolCallId
 						? { parentToolCallId: request.parentToolCallId }
@@ -590,27 +597,62 @@ export class BackgroundAskRuntime {
 				if (signal.aborted) {
 					return;
 				}
-				appendAskHistoryCompletion(this.pi, completion);
-				// The existing completion journal owns the visible card, not the consumption path.
-				this.pi.appendEntry(ASK_COMPLETED_ENTRY, {
-					...completion,
-					display: true,
-				});
-				this.activeRequestId = undefined;
-				this.panel = undefined;
-				this.surfaces.delete(request.requestId);
-				request.completion = completion;
-				request.draft = undefined;
-				this.draftSignatures.delete(request.requestId);
-				this.updateStatus();
-				this.finishWait();
-				this.deliverIdle();
+				this.complete(request, answered);
 			}
 		} finally {
 			if (signal === this.generation.signal) {
 				this.pumping = false;
 			}
 		}
+	}
+
+	/** Journal the outcome, let its owner decide on quiet delivery, then route it. */
+	private complete(request: QueuedRequest, answered: QueuedAnswer): void {
+		appendAskHistoryCompletion(this.pi, answered);
+		const completion = this.emitAnswered(request, answered)
+			? { ...answered, quiet: true }
+			: answered;
+		// The existing completion journal owns the visible card, not the consumption path.
+		this.pi.appendEntry(ASK_COMPLETED_ENTRY, {
+			...completion,
+			display: true,
+		});
+		this.activeRequestId = undefined;
+		this.panel = undefined;
+		this.surfaces.delete(request.requestId);
+		request.completion = completion;
+		request.draft = undefined;
+		this.draftSignatures.delete(request.requestId);
+		this.updateStatus();
+		this.finishWait();
+		this.deliverIdle();
+	}
+
+	/** Tell other extensions before the answer reaches the agent. Returns whether its owner asked for quiet delivery. */
+	private emitAnswered(
+		request: QueuedRequest,
+		completion: QueuedAnswer
+	): boolean {
+		let quiet = false;
+		try {
+			this.pi.events.emit(PI_ASK_ANSWERED_EVENT, {
+				version: 1,
+				requestId: request.requestId,
+				...(request.owner ? { owner: request.owner } : {}),
+				...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
+				...(completion.result ? { result: completion.result } : {}),
+				...(completion.error ? { error: completion.error } : {}),
+				deliverQuietly: () => {
+					quiet = Boolean(request.owner);
+				},
+			} satisfies ExtensionAskAnsweredEvent);
+		} catch (error) {
+			this.context?.ui.notify(
+				`Answer listener failed: ${String(error)}`,
+				"error"
+			);
+		}
+		return quiet;
 	}
 
 	private start(): void {
@@ -666,6 +708,11 @@ export function createBackgroundAskRuntime(
 		runtime.deliverBoundary(event, ctx)
 	);
 	return runtime;
+}
+
+/** Cancelled and quiet answers are context for the next turn; others start or extend one. */
+function wakesAgent(answer: QueuedAnswer): boolean {
+	return !(answer.result?.cancelled || answer.quiet);
 }
 
 function waitInterrupted(): DOMException {

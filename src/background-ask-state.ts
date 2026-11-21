@@ -34,6 +34,8 @@ export const QueuedAnswerSchema = Type.Object({
 	parentToolCallId: Type.Optional(Type.String()),
 	result: Type.Optional(AskResultSchema),
 	error: Type.Optional(Type.String()),
+	/** The owning extension asked not to wake the agent for this answer. */
+	quiet: Type.Optional(Type.Boolean()),
 });
 
 /** Results not already delivered asynchronously, returned by the explicit wait. */
@@ -58,6 +60,7 @@ const QueuedEntrySchema = Type.Object({
 	params: AskParamsSchema,
 	toolCallId: Type.Optional(Type.String()),
 	parentToolCallId: Type.Optional(Type.String()),
+	owner: Type.Optional(Type.String()),
 	presentSingleAsMulti: Type.Boolean(),
 });
 
@@ -68,6 +71,8 @@ export interface QueuedRequest {
 	completion?: QueuedAnswer;
 	delivered: boolean;
 	draft?: AskDraft;
+	/** Extension that queued the form through the enqueue event. */
+	owner?: string;
 	params: AskParams;
 	/** Real visible execution root captured before the receipt returns. */
 	parentToolCallId?: string;
