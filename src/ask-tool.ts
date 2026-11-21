@@ -27,7 +27,7 @@ import type { RemoteAskRuntime } from "./remote-ask.ts";
 import { AskOutputSchema, toAskOutput } from "./result-schema.ts";
 import { AskBackgroundOnlyParamsSchema, AskParamsSchema } from "./schema.ts";
 import { prepareAskParams } from "./state/normalize.ts";
-import type { AskParams, AskState } from "./types.ts";
+import type { AskParams, AskState, AskValidationIssue } from "./types.ts";
 import { runAskFlow } from "./ui/controller.ts";
 
 export function registerAskTool(
@@ -95,6 +95,40 @@ async function executeNonTuiAsk(
 	}
 	return successfulResponse(result);
 }
+
+/**
+ * Resolve context files and validate a form with the user's config, as `ask_user` does before recording it.
+ * `isBackgroundOnly` is read after the asynchronous steps, so a mode switch meanwhile still applies.
+ */
+export async function prepareAsk(
+	input: AskParams,
+	isBackgroundOnly: () => boolean
+): Promise<
+	| { backgroundOnly: boolean; ok: true; params: AskParams; state: AskState }
+	| { issues: AskValidationIssue[]; ok: false; params: AskParams }
+> {
+	const resolved = await resolveContextFiles(input);
+	if (!resolved.ok) {
+		return { ok: false, params: input, issues: resolved.issues };
+	}
+	const config = await getAskConfigStore().getConfig();
+	const backgroundOnly = isBackgroundOnly();
+	const params = backgroundOnly
+		? { ...resolved.params, background: true }
+		: resolved.params;
+	const validation = validateParams(params, {
+		presentSingleAsMulti: config.behaviour.presentSingleAsMulti,
+	});
+	return validation.ok
+		? { ok: true, backgroundOnly, params, state: validation.state }
+		: { ok: false, params, issues: validation.issues };
+}
+
+/** Whether the queue must keep presenting single-choice questions as multi-choice after recovery. */
+export function presentsSingleAsMulti(state: AskState): boolean {
+	return state.questions.some((question) => question.presentedType === "multi");
+}
+
 async function executeAskTool(
 	pi: Pick<ExtensionAPI, "appendEntry" | "events">,
 	toolCallId: string,
@@ -106,21 +140,11 @@ async function executeAskTool(
 	backgroundAsk?: BackgroundAskRuntime,
 	isBackgroundOnly: () => boolean = () => false
 ) {
-	const resolved = await resolveContextFiles(input);
-	if (!resolved.ok) {
-		return invalidPayloadResponse(input, resolved.issues);
-	}
-	const config = await getAskConfigStore().getConfig();
-	const backgroundOnly = isBackgroundOnly();
-	const params = backgroundOnly
-		? { ...resolved.params, background: true }
-		: resolved.params;
-	const validation = validateParams(params, {
-		presentSingleAsMulti: config.behaviour.presentSingleAsMulti,
-	});
+	const validation = await prepareAsk(input, isBackgroundOnly);
 	if (!validation.ok) {
-		return invalidPayloadResponse(params, validation.issues);
+		return invalidPayloadResponse(validation.params, validation.issues);
 	}
+	const { backgroundOnly, params } = validation;
 	appendAskPayload(pi, {
 		params,
 		source: "tool",
@@ -186,9 +210,7 @@ async function executeRecordedAsk(
 			requestId,
 			params,
 			ctx,
-			Boolean(
-				state.questions.some((question) => question.presentedType === "multi")
-			),
+			presentsSingleAsMulti(state),
 			toolCallId
 		);
 		return {

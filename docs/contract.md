@@ -180,7 +180,7 @@ A compact indicator below the editor counts questions in all unfinished backgrou
 
 `Alt+Q` switches focus between the panel and ordinary input. `Esc` in the panel or `/ask-defer` defers all questions, preserving the queue and drafts. `/ask-queue` reopens and focuses the pending questionnaire. New requests do not reopen a deliberately hidden panel. `D` in question navigation skips only the current question, removing its answer and notes; in answer/note editors it is ordinary text. Review and completed results mark skipped questions explicitly, including when all questions were skipped. Skipping every question still requires explicit completion.
 
-Each completed form is saved before delivery. Its saved completion renders the answer card, linked by `parentToolCallId` to the original visible execution. Nested calls retain their real outer execution root; missing ownership stays unlinked rather than being guessed. During work the complete answer enters context at the next turn boundary as a hidden `ask:background-answer` custom message with `{ requestId, parentToolCallId?, result?: AskResult, error?: string }` in details. While idle, answers start a new agent turn; cancellation only adds context and never wakes the agent. Cancellation is a terminal form result, not approval.
+Each completed form is saved before delivery. Its saved completion renders the answer card, linked by `parentToolCallId` to the original visible execution. Nested calls retain their real outer execution root; missing ownership stays unlinked rather than being guessed. During work the complete answer enters context at the next turn boundary as a hidden `ask:background-answer` custom message with `{ requestId, parentToolCallId?, result?: AskResult, error?: string, quiet?: boolean }` in details. While idle, answers start a new agent turn; cancellation only adds context and never wakes the agent. The same holds for an answer whose owning extension asked for quiet delivery (`quiet: true`, see [remote events](remote-events.md#background-forms-for-other-extensions)). Cancellation is a terminal form result, not approval.
 
 Ready answers also enter context at the final settle boundary. Finishing independent work while a background form is pending does not consume or cancel it: a later submitted answer wakes the settled agent without an explicit `wait_for_answers`. Each completion is delivered once. Already returned foreground answers and already consumed background answers are not replayed when the agent stops.
 
@@ -350,6 +350,8 @@ Channels:
 - `pi-agent-ask:completed`
 - `pi-agent-ask:submit`
 - `pi-agent-ask:submit-result`
+- `pi-agent-ask:enqueue`: another extension queues a background form it owns
+- `pi-agent-ask:answered`: a background form completed; emitted before its answer reaches the agent
 
 Remote submissions must be explicit `{ kind: "answer" }` or `{ kind: "cancel" }` responses. Remote answers use question ids and normalized option values from the started event. pi-agent-ask validates ids and values, recomputes labels/indices, and does not infer approval semantics from labels.
 

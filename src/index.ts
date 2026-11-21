@@ -7,6 +7,7 @@ import { registerAskTool } from "./ask-tool.ts";
 import { registerBackgroundAnswerRenderer } from "./background-answer.ts";
 import { createBackgroundAskRuntime } from "./background-ask.ts";
 import { getAskConfigStore, resetAskConfigStore } from "./config/store.ts";
+import { registerExtensionAsk } from "./extension-ask.ts";
 import { registerQuestionStatus } from "./program-status.ts";
 import { createRemoteAskRuntime } from "./remote-ask.ts";
 import { registerPendingAskResume } from "./resume-pending-ask.ts";
@@ -21,6 +22,7 @@ export default function askExtension(pi: ExtensionAPI) {
 	});
 	const backgroundAsk = createBackgroundAskRuntime(pi, remoteAsk);
 	registerBackgroundAnswerRenderer(pi);
+	registerExtensionAsk(pi, backgroundAsk);
 	const mode = new AskModeController(getAskConfigStore(), (backgroundOnly) => {
 		registerQuestionTools();
 		if (backgroundOnly) {

@@ -37,6 +37,7 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/resume-pending-ask.ts` — coordinates background and foreground recovery after resource discovery, cancels abandoned foreground generations, and delivers recovered answers
 - `src/notifications.ts` — best-effort ask notification payload rendering and channel execution
 - `src/remote-ask.ts` — package-prefixed local event contract, active-flow registry, and explicit remote submission validation
+- `src/extension-ask.ts` — `pi-agent-ask:enqueue` handshake that lets another extension queue a background form with an owner, and the `pi-agent-ask:answered` event the queue emits before delivering any background answer
 - `src/external-ui.ts` — per-call external UI negotiation and foreground wait, using the same input lock, remote validation, and result serialization
 - `src/schema.ts` — TypeBox schema
 - `src/result-schema.ts` — full result schema for details and history, plus the compact output schema returned to programmatic callers
