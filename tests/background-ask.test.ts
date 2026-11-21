@@ -6,6 +6,7 @@ import { registerAskTool } from "../src/ask-tool.ts";
 import { createBackgroundAskRuntime } from "../src/background-ask.ts";
 import { DEFAULT_ASK_CONFIG } from "../src/config/defaults.ts";
 import { getAskConfigStore } from "../src/config/store.ts";
+import { PI_ASK_ANSWERED_EVENT } from "../src/extension-ask.ts";
 import type { AskParams, AskResult } from "../src/types.ts";
 import { runAskFlow } from "../src/ui/controller.ts";
 import { registerWaitForAnswersTool } from "../src/wait-for-answers-tool.ts";
@@ -69,7 +70,10 @@ function harness() {
 		},
 		events: {
 			emit(channel: string, data: unknown) {
-				events.push({ channel, data });
+				// Status assertions read Herdr events; answered events go to other extensions.
+				if (channel !== PI_ASK_ANSWERED_EVENT) {
+					events.push({ channel, data });
+				}
 			},
 		},
 	};
