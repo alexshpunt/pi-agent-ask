@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.4...v2.1.0) (2026-11-22)
+
+- Let extensions queue their own background forms with `pi-agent-ask:enqueue`. These forms use the same validation, context-file loading, session history, and recovery as `ask_user` background forms.
+- Emit `pi-agent-ask:answered` before a background form's answer reaches the agent. The owning extension can call `deliverQuietly()` to include the answer in the next turn without starting or extending a run.
+
+See [Background forms for other extensions](https://github.com/alexshpunt/pi-agent-ask/blob/v2.1.0/docs/remote-events.md#background-forms-for-other-extensions) for the event contract.
+
 # [2.0.4](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.3...v2.0.4) (2026-11-15)
 
 - Show foreground, background and recovered question forms one at a time, in request order, so concurrent forms cannot block keyboard input.
