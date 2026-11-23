@@ -7,6 +7,7 @@ import {
 	assistantMessage,
 	PiIntegrationTest,
 	testArtifactsDir,
+	text,
 	toolCall,
 } from "pi-coding-agent-test";
 
@@ -73,6 +74,7 @@ test("a huge foreground context stays inside the screen and scrolls", {
 					],
 					{ stopReason: "toolUse" }
 				),
+				assistantMessage([text("The proposal was accepted.")]),
 			],
 		}).run("Ask the question.");
 		const frames = JSON.parse(
