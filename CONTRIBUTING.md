@@ -10,6 +10,11 @@ Install dependencies:
 pnpm install
 ```
 
+In a Git checkout, this installs a pre-commit hook that formats the staged
+versions of files with Biome. It leaves partially staged working copies intact.
+If you already manage your own hooks, call `node scripts/format-staged.ts` from
+pre-commit; the installer does not replace your hooks.
+
 Run the extension locally:
 
 ```bash
