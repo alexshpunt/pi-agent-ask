@@ -108,12 +108,24 @@ function format(snapshot: string) {
 	}
 }
 
+const missingFileErrors = new Set(["ENOENT", "ENOTDIR"]);
+
 function hasUnstagedBytes(file: string, snapshot: string) {
-	const stat = lstatSync(file, { throwIfNoEntry: false });
-	return !(
-		stat?.isFile() &&
-		readFileSync(file).equals(readFileSync(path.join(snapshot, file)))
-	);
+	try {
+		return !(
+			lstatSync(file).isFile() &&
+			readFileSync(file).equals(readFileSync(path.join(snapshot, file)))
+		);
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			"code" in error &&
+			missingFileErrors.has(String(error.code))
+		) {
+			return true;
+		}
+		throw error;
+	}
 }
 
 function formattingPatch(snapshot: string) {
