@@ -18,8 +18,28 @@ export interface AskMouseTarget {
 	y: number;
 }
 
+/** Scrollable question context, in the rendered screen's coordinates. */
+export interface AskContextPane {
+	height: number;
+	maxOffset: number;
+	offset: number;
+	width: number;
+	x: number;
+	y: number;
+}
+
+/** What a render reports back besides its lines. */
+export interface AskRenderLayout {
+	contextPane?: AskContextPane;
+}
+
 export interface QuestionRenderContext {
+	/** Row budget for `lines`, which already hold the header; the footer is excluded. */
+	availableRows?: number;
+	/** Scroll offset of the context pane, in content rows. */
+	contextOffset?: number;
 	editor: Editor;
+	layout?: AskRenderLayout;
 	lines: string[];
 	markActiveRow?: boolean;
 	options: ReturnType<typeof getRenderableOptions>;

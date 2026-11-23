@@ -72,7 +72,9 @@ The codebase is split so the implementation reads through file boundaries and na
 - `src/ui/persistent-ask.ts` — shows the question controller beside the native editor; translates native widget mouse coordinates through the rendered viewport and explicitly focuses a non-capturing keyboard overlay without replacing normal input
 - `src/ui/input.ts` — raw input to commands using resolved context-aware config-backed keymaps
 - `src/ui/dismiss-guard.ts` — pure helpers for dirty-flow exit confirmation behavior
-- `src/ui/render.ts` and `src/ui/render-*.ts` — screen rendering, including config-backed footer/keymap hints
+- `src/ui/render.ts` and `src/ui/render-*.ts` — screen rendering, including config-backed footer/keymap hints. `renderAskScreen` takes a row budget (`maxRows`), measures the footer first, and reports the scrollable context pane through an `AskRenderLayout` out-parameter
+- `src/ui/scroll-pane.ts` — pure bordered, word-wrapped, scrollable text box with border hints and a scrollbar thumb
+- `src/ui/panel-viewport.ts` — row budgets for foreground forms and background panels, and the viewport that keeps the cursor or active row visible; the controller scrolls foreground forms with it, the persistent panel scrolls background ones
 - `src/ui/settings-list.ts` / `src/ui/show-settings.ts` — lightweight ask settings list rendering and launcher
 - `src/ui/constants.ts` and `src/ui/render-types.ts` — rendering constants/contracts
 

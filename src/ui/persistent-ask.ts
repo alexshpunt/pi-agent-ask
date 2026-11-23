@@ -11,13 +11,18 @@ import {
 import type { AskSurfaceReservation } from "../ask-surface.ts";
 import { AskSurfaceLease } from "../ask-surface-lease.ts";
 import type { AskResult } from "../types.ts";
-import { panelViewport } from "./panel-viewport.ts";
+import { backgroundPanelRows, panelViewport } from "./panel-viewport.ts";
 
 type CustomArgs = Parameters<Parameters<ExtensionContext["ui"]["custom"]>[0]>;
 type FocusAwareTui = CustomArgs[0] & {
 	getFocusedComponent?(): Component | null;
 };
-type AskComponent = Component & Partial<Focusable> & { dispose?(): void };
+type AskComponent = Component &
+	Partial<Focusable> & {
+		dispose?(): void;
+		/** Scroll content inside the form; false when nothing there can move. */
+		scrollPage?(direction: -1 | 1): boolean;
+	};
 type AskFactory = (
 	tui: CustomArgs[0],
 	theme: CustomArgs[1],
@@ -236,9 +241,7 @@ class QuestionPanel implements PersistentAskHandle {
 			return;
 		}
 		if (event.type === "wheel" && event.wheelDelta) {
-			this.followSelection = false;
-			this.scrollTop = Math.max(0, this.renderedOffset + event.wheelDelta);
-			return { handled: true };
+			return this.scrollByWheel(event, event.wheelDelta);
 		}
 		if (!this.overlay?.isFocused()) {
 			return this.focusFromMouse(event);
@@ -261,6 +264,25 @@ class QuestionPanel implements PersistentAskHandle {
 		return { handled: true };
 	}
 
+	/** Content inside the form, such as its context pane, scrolls before the panel does. */
+	private scrollByWheel(
+		event: TuiMouseEvent,
+		delta: number
+	): TuiMouseEventResult {
+		const inner =
+			event.y >= 1 && event.y <= this.renderedRows
+				? this.component?.handleMouse?.({
+						...event,
+						y: event.y - 1 + this.renderedOffset,
+					})
+				: undefined;
+		if (!inner?.handled) {
+			this.followSelection = false;
+			this.scrollTop = Math.max(0, this.renderedOffset + delta);
+		}
+		return { handled: true };
+	}
+
 	private focusFromMouse(
 		event: TuiMouseEvent
 	): TuiMouseEventResult | undefined {
@@ -280,6 +302,10 @@ class QuestionPanel implements PersistentAskHandle {
 	}
 	private handleInput(data: string): void {
 		if (matchesKey(data, "pageUp") || matchesKey(data, "pageDown")) {
+			if (this.component?.scrollPage?.(matchesKey(data, "pageUp") ? -1 : 1)) {
+				this.tui?.requestRender();
+				return;
+			}
 			this.followSelection = false;
 			this.scrollTop = Math.max(
 				0,
@@ -297,10 +323,7 @@ class QuestionPanel implements PersistentAskHandle {
 		if (!this.lease.visible || this.disposed) {
 			return [];
 		}
-		this.pageSize = Math.max(
-			1,
-			Math.floor(((this.tui?.terminal?.rows ?? 24) - 6) / 2)
-		);
+		this.pageSize = backgroundPanelRows(this.tui?.terminal?.rows ?? 24);
 		const lines = this.component?.render(width) ?? [];
 		const view = panelViewport(
 			lines,

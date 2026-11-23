@@ -16,6 +16,7 @@ import {
 	renderEditorBlock,
 } from "./render-helpers.ts";
 import type { QuestionRenderContext, Theme } from "./render-types.ts";
+import type { ScrollPane } from "./scroll-pane.ts";
 import {
 	buildQuestionScreenModel,
 	type OptionDetailModel,
@@ -125,26 +126,58 @@ function renderContextQuestion(
 		{ ...context, width: leftWidth },
 		lines.length
 	);
+	const detailLines: string[] = [];
+	renderOptionDetail(detailLines, model.selectedOptionDetail, context);
+	// Rows the pane may use: what the screen leaves after the lines around it.
+	const paneBudget = (reserved: number) =>
+		context.availableRows === undefined
+			? undefined
+			: context.availableRows - lines.length - reserved - detailLines.length;
+	const view = { offset: context.contextOffset };
 	if (wide) {
 		const rightWidth = Math.max(
 			UI_DIMENSIONS.previewMinRightWidth,
 			width - leftWidth - 2
 		);
-		lines.push(
-			...mergeColumns(
-				optionLines,
-				renderContextPane(model.context, theme, rightWidth),
-				leftWidth,
-				width
-			)
-		);
+		const pane = renderContextPane(model.context, theme, rightWidth, {
+			...view,
+			height: paneBudget(0),
+		});
+		reportContextPane(context, pane, leftWidth + 2, lines.length, rightWidth);
+		lines.push(...mergeColumns(optionLines, pane.lines, leftWidth, width));
 	} else {
 		lines.push(...optionLines);
 		if (model.contextLayout !== "custom") {
-			lines.push("", ...renderContextPane(model.context, theme, width));
+			const pane = renderContextPane(model.context, theme, width, {
+				...view,
+				height: paneBudget(1),
+			});
+			lines.push("");
+			reportContextPane(context, pane, 0, lines.length, width);
+			lines.push(...pane.lines);
 		}
 	}
-	renderOptionDetail(lines, model.selectedOptionDetail, context);
+	lines.push(...detailLines);
+}
+
+function reportContextPane(
+	context: QuestionRenderContext,
+	pane: ScrollPane,
+	x: number,
+	y: number,
+	width: number
+) {
+	if (!context.layout) {
+		return;
+	}
+	context.layout.contextPane = {
+		height: pane.lines.length,
+		maxOffset: pane.maxOffset,
+		offset: pane.offset,
+		width: Math.min(width, UI_DIMENSIONS.contextMaxWidth),
+		x,
+		y,
+	};
 }
 
 /** Render options in the context layout, with saved notes and custom text under their rows. */

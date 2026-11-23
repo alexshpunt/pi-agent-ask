@@ -8,6 +8,7 @@ import {
 import { UI_DIMENSIONS, UI_TEXT } from "../constants/ui.ts";
 import { clamp } from "../math.ts";
 import { wrapText } from "../text.ts";
+import { renderScrollPane, type ScrollPane } from "./scroll-pane.ts";
 
 type Theme = ExtensionContext["ui"]["theme"];
 type ThemeColor =
@@ -20,7 +21,8 @@ type ThemeColor =
 	| "syntaxString";
 
 const EDITOR_BORDER_PATTERN = /^[┌┐└┘─]+$/;
-const EDITOR_SCROLL_BORDER_PATTERN = /^─── [↑↓] \d+ more ─*$/;
+const EDITOR_SCROLL_BORDER_PATTERN = /^─+ [↑↓] \d+ more ─*$/;
+const EDITOR_SCROLL_COUNT_PATTERN = /([↑↓]) (\d+) more/;
 const ANSI_CONTROL_SEQUENCE = "\u001b[";
 const ANSI_TERMINATOR = "m";
 
@@ -82,7 +84,7 @@ export function renderEditorBlock(args: {
 		placeholderColor = "muted",
 		isEmpty = false,
 	} = args;
-	const innerLines = getEditorContentLines(editorLines);
+	const parsed = parseEditorLines(editorLines);
 
 	if (isEmpty && placeholder) {
 		lines.push(
@@ -99,7 +101,15 @@ export function renderEditorBlock(args: {
 		return;
 	}
 
-	for (const editorLine of innerLines) {
+	pushEditorScrollHint({
+		arrow: "↑",
+		hidden: parsed.above,
+		indent,
+		lines,
+		theme,
+		width,
+	});
+	for (const editorLine of parsed.content) {
 		lines.push(
 			truncateToWidth(
 				`${indent}${renderEditorLine(editorLine, availableWidth, theme)}`,
@@ -107,6 +117,14 @@ export function renderEditorBlock(args: {
 			)
 		);
 	}
+	pushEditorScrollHint({
+		arrow: "↓",
+		hidden: parsed.below,
+		indent,
+		lines,
+		theme,
+		width,
+	});
 }
 
 export function renderLabeledEditorBlock(args: {
@@ -155,17 +173,56 @@ export function renderLabeledEditorBlock(args: {
 }
 
 function getEditorContentLines(editorLines: string[]): string[] {
+	return parseEditorLines(editorLines).content;
+}
+
+/** Split the native editor output into its text rows and the rows scrolled out of view. */
+function parseEditorLines(editorLines: string[]): {
+	above: number;
+	below: number;
+	content: string[];
+} {
 	if (editorLines.length <= 2) {
-		return editorLines;
+		return { above: 0, below: 0, content: editorLines };
 	}
 
 	const contentLines = editorLines.slice(1);
 	const trailingBorderIndex = contentLines.findIndex(isEditorBorderLine);
+	const above = getHiddenLineCount(editorLines[0], "↑");
 	if (trailingBorderIndex === -1) {
-		return contentLines;
+		return { above, below: 0, content: contentLines };
 	}
 
-	return contentLines.filter((_, index) => index !== trailingBorderIndex);
+	return {
+		above,
+		below: getHiddenLineCount(contentLines[trailingBorderIndex], "↓"),
+		content: contentLines.filter((_, index) => index !== trailingBorderIndex),
+	};
+}
+
+function getHiddenLineCount(border: string, arrow: "↑" | "↓"): number {
+	const match = EDITOR_SCROLL_COUNT_PATTERN.exec(stripAnsiColorCodes(border));
+	return match?.[1] === arrow ? Number(match[2]) : 0;
+}
+
+function pushEditorScrollHint(args: {
+	hidden: number;
+	arrow: "↑" | "↓";
+	indent: string;
+	lines: string[];
+	theme: Pick<Theme, "fg">;
+	width: number;
+}) {
+	if (args.hidden <= 0) {
+		return;
+	}
+	const noun = args.hidden === 1 ? "line" : "lines";
+	args.lines.push(
+		truncateToWidth(
+			`${args.indent}${args.theme.fg("dim", `${args.arrow} ${args.hidden} more ${noun}`)}`,
+			args.width
+		)
+	);
 }
 
 function isEditorBorderLine(line: string): boolean {
@@ -258,17 +315,19 @@ export function renderBox(
 	return lines;
 }
 
-/** Render question context as a bordered block of plain text. */
+/** Render question context as a word-wrapped, scrollable block that keeps its spacing. */
 export function renderContextPane(
 	context: string,
 	theme: Theme,
-	width: number
-): string[] {
-	return renderBox(
-		context.split("\n").map((text) => ({ text, color: "text" as ThemeColor })),
-		width,
-		theme
-	);
+	width: number,
+	view: { height?: number; offset?: number } = {}
+): ScrollPane {
+	return renderScrollPane({
+		text: context,
+		theme,
+		width: Math.min(width, UI_DIMENSIONS.contextMaxWidth),
+		...view,
+	});
 }
 
 export function mergeColumns(
