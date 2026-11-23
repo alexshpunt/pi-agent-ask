@@ -40,6 +40,7 @@ export default function scrollDriver(pi: ExtensionAPI): void {
 								wheelDelta: 5,
 							}),
 					],
+					["review", () => component.handleInput?.("\r")],
 					["accept", () => component.handleInput?.("\r")],
 				];
 				let delay = STEP_MS;
