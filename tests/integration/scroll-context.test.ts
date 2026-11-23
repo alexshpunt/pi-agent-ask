@@ -52,6 +52,8 @@ test("a huge foreground context stays inside the screen and scrolls", {
 				assistantMessage(
 					[
 						toolCall({
+							// The large arguments arrive in one delta, not thousands.
+							chunks: { kind: "fixed", size: Number.MAX_SAFE_INTEGER },
 							id: "form",
 							name: "ask_user",
 							arguments: {
