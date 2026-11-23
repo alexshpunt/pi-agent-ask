@@ -144,6 +144,81 @@ test("an open comment editor keeps its rows out of the context budget", () => {
 	assert.equal(lines.filter((line) => line.includes("typed")).length, 12);
 });
 
+function renderWithNote(width: number, maxRows: number) {
+	const layout: AskRenderLayout = {};
+	const noteEditor = {
+		focused: true,
+		getText: () => "a long note",
+		render: () => [
+			"────",
+			...Array.from({ length: 6 }, () => "note text"),
+			"────",
+		],
+	} as never;
+	const lines = renderAskScreen({
+		config: DEFAULT_ASK_CONFIG,
+		editor: noteEditor,
+		layout,
+		maxRows,
+		state: enterOptionNoteMode(contextState(), "q", "yes"),
+		theme,
+		width,
+	});
+	return { layout, lines };
+}
+
+test("on a wide screen the note editor gets its own column and the context narrows", () => {
+	const wide = renderWithNote(184, 40);
+	const noteRows = wide.lines.filter((line) => line.includes("note text"));
+	assert.equal(noteRows.length, 6);
+	// Each note row shares its line with the context pane, not a line of its own.
+	assert(noteRows.some((row) => row.includes("lorem")));
+	const plain = render(184, 40);
+	assert(wide.layout.contextPane && plain.layout.contextPane);
+	assert(wide.layout.contextPane.width < plain.layout.contextPane.width);
+	// The pane keeps its full height because the editor no longer sits below it.
+	assert(wide.layout.contextPane.height >= plain.layout.contextPane.height - 1);
+	assert(wide.lines.length <= 40);
+});
+
+test("a screen too narrow for three columns keeps the note editor below the context", () => {
+	const { layout, lines } = renderWithNote(100, 40);
+	assert(layout.contextPane);
+	const pane = layout.contextPane;
+	const noteRow = lines.findIndex((line) => line.includes("note text"));
+	assert(noteRow >= pane.y + pane.height, "editor starts below the pane");
+	assert(lines.length <= 40);
+});
+
+test("an editor on a very wide stacked screen stops widening at a readable width", () => {
+	const state = enterOptionNoteMode(
+		createInitialState({
+			questions: [
+				{ id: "q", prompt: "Pick", options: [{ value: "a", label: "A" }] },
+			],
+		}),
+		"q",
+		"a"
+	);
+	const lines = renderAskScreen({
+		config: DEFAULT_ASK_CONFIG,
+		editor: {
+			focused: true,
+			getText: () => "x",
+			render: (width: number) => [
+				"─".repeat(width),
+				"y".repeat(width),
+				"─".repeat(width),
+			],
+		} as never,
+		state,
+		theme,
+		width: 200,
+	});
+	const row = lines.find((line) => line.includes("yyyy")) ?? "";
+	assert(row.length <= 111, `editor row is ${row.length} wide`);
+});
+
 test("editor rows scrolled out of view are announced", () => {
 	const lines: string[] = [];
 	renderEditorBlock({

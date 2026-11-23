@@ -5,6 +5,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { UI_DIMENSIONS, UI_TEXT } from "../constants/ui.ts";
 import { imageMarker } from "../images.ts";
+import { clamp } from "../math.ts";
 import { getEditorImages } from "../state/editor.ts";
 import type { AskImage } from "../types.ts";
 import {
@@ -113,7 +114,7 @@ function renderContextQuestion(
 	if (!(model.mode === "context" && model.context)) {
 		return;
 	}
-	const { lines, width, theme } = context;
+	const { lines, width } = context;
 	const wide = model.contextLayout === "wide";
 	const leftWidth = wide
 		? measurePreviewLeftWidth(
@@ -126,38 +127,89 @@ function renderContextQuestion(
 		{ ...context, width: leftWidth },
 		lines.length
 	);
-	const detailLines: string[] = [];
-	renderOptionDetail(detailLines, model.selectedOptionDetail, context);
-	// Rows the pane may use: what the screen leaves after the lines around it.
-	const paneBudget = (reserved: number) =>
-		context.availableRows === undefined
-			? undefined
-			: context.availableRows - lines.length - reserved - detailLines.length;
-	const view = { offset: context.contextOffset };
 	if (wide) {
-		const rightWidth = Math.max(
-			UI_DIMENSIONS.previewMinRightWidth,
-			width - leftWidth - 2
-		);
-		const pane = renderContextPane(model.context, theme, rightWidth, {
-			...view,
-			height: paneBudget(0),
-		});
-		reportContextPane(context, pane, leftWidth + 2, lines.length, rightWidth);
-		lines.push(...mergeColumns(optionLines, pane.lines, leftWidth, width));
-	} else {
-		lines.push(...optionLines);
-		if (model.contextLayout !== "custom") {
-			const pane = renderContextPane(model.context, theme, width, {
-				...view,
-				height: paneBudget(1),
-			});
-			lines.push("");
-			reportContextPane(context, pane, 0, lines.length, width);
-			lines.push(...pane.lines);
-		}
+		renderWideContext({ context, model, optionLines, leftWidth });
+		return;
 	}
-	lines.push(...detailLines);
+	lines.push(...optionLines);
+	if (model.contextLayout !== "custom") {
+		const pane = renderContextPane(model.context, context.theme, width, {
+			offset: context.contextOffset,
+			height: remainingRows(context, 1, 0),
+		});
+		lines.push("");
+		reportContextPane(context, pane, 0, lines.length, width);
+		lines.push(...pane.lines);
+	}
+	renderOptionDetail(lines, model.selectedOptionDetail, context);
+}
+
+/** Rows the pane may use: what the screen leaves after the lines around it. */
+function remainingRows(
+	context: QuestionRenderContext,
+	reserved: number,
+	detailRows: number
+): number | undefined {
+	return context.availableRows === undefined
+		? undefined
+		: context.availableRows - context.lines.length - reserved - detailRows;
+}
+
+/** Options, context pane and, while an editor is open, a note column of its own. */
+function renderWideContext(args: {
+	context: QuestionRenderContext;
+	leftWidth: number;
+	model: ReturnType<typeof buildQuestionScreenModel>;
+	optionLines: string[];
+}) {
+	const { context, leftWidth, model, optionLines } = args;
+	const { lines, width } = context;
+	const rightTotal = Math.max(
+		UI_DIMENSIONS.previewMinRightWidth,
+		width - leftWidth - 2
+	);
+	const sideWidth = model.selectedOptionDetail
+		? getSideEditorWidth(rightTotal)
+		: 0;
+	const detailLines: string[] = [];
+	renderOptionDetail(
+		detailLines,
+		model.selectedOptionDetail,
+		sideWidth ? { ...context, width: sideWidth } : context,
+		sideWidth ? { indent: " " } : {}
+	);
+	const paneWidth = sideWidth ? rightTotal - sideWidth - 2 : rightTotal;
+	const pane = renderContextPane(
+		model.context ?? "",
+		context.theme,
+		paneWidth,
+		{
+			offset: context.contextOffset,
+			height: remainingRows(context, 0, sideWidth ? 0 : detailLines.length),
+		}
+	);
+	reportContextPane(context, pane, leftWidth + 2, lines.length, paneWidth);
+	const withPane = mergeColumns(optionLines, pane.lines, leftWidth, width);
+	if (sideWidth) {
+		// The context narrows so the note stays readable and keeps its place beside it.
+		lines.push(
+			...mergeColumns(withPane, detailLines, leftWidth + 2 + paneWidth, width)
+		);
+		return;
+	}
+	lines.push(...withPane, ...detailLines);
+}
+
+/** Width of the editor column beside the context, or 0 when the screen is too narrow for three columns. */
+function getSideEditorWidth(rightTotal: number): number {
+	if (rightTotal < UI_DIMENSIONS.sideEditorMinTotal) {
+		return 0;
+	}
+	return clamp(
+		Math.floor(rightTotal * UI_DIMENSIONS.sideEditorRatio),
+		UI_DIMENSIONS.sideEditorMinWidth,
+		UI_DIMENSIONS.sideEditorMaxWidth
+	);
 }
 
 function reportContextPane(
@@ -271,7 +323,9 @@ function renderEditorWithIndent(args: {
 	placeholder: string;
 	images: AskImage[];
 }) {
-	const { lines, editor, width, theme, indent, padding, placeholder } = args;
+	const { lines, editor, theme, indent, padding, placeholder } = args;
+	// Lines much longer than ~100 characters are hard to read, so the editor stops widening there.
+	const width = Math.min(args.width, UI_DIMENSIONS.editorMaxWidth);
 	renderEditorBlock({
 		lines,
 		editorLines: editor.render(
