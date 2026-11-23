@@ -325,7 +325,7 @@ export function renderContextPane(
 	return renderScrollPane({
 		text: context,
 		theme,
-		width: Math.min(width, UI_DIMENSIONS.contextMaxWidth),
+		width,
 		...view,
 	});
 }

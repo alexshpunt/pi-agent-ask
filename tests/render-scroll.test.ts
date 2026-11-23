@@ -73,13 +73,12 @@ test("a huge context fits the row budget in the wide layout and scrolls", () => 
 	assert(scrolled.lines.length <= 40);
 });
 
-test("the context column is narrower than a very wide terminal", () => {
+test("on a very wide terminal the context pane fills the space beside the options", () => {
 	const { layout, lines } = render(220, 40);
 	assert(layout.contextPane);
-	assert(layout.contextPane.width <= 100);
-	const paneRow = lines[layout.contextPane.y + 1];
-	assert(paneRow.length <= 220);
-	assert(layout.contextPane.x + layout.contextPane.width <= 220);
+	assert.equal(layout.contextPane.x + layout.contextPane.width, 220);
+	const paneRow = lines[layout.contextPane.y];
+	assert.equal(paneRow.length, 220);
 });
 
 test("a huge context fits the row budget in the stacked layout", () => {

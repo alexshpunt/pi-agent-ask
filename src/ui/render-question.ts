@@ -174,7 +174,7 @@ function reportContextPane(
 		height: pane.lines.length,
 		maxOffset: pane.maxOffset,
 		offset: pane.offset,
-		width: Math.min(width, UI_DIMENSIONS.contextMaxWidth),
+		width,
 		x,
 		y,
 	};
