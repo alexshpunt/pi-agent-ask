@@ -11,12 +11,19 @@ import { renderQuestionScreen } from "./render-question.ts";
 import { renderSubmitScreen } from "./render-submit.ts";
 import type {
 	AskMouseTarget,
+	AskRenderLayout,
 	QuestionRenderContext,
 	Theme,
 } from "./render-types.ts";
 
 export function renderAskScreen(args: {
 	config: AskConfig;
+	/** Scroll offset of the question context pane, in content rows. */
+	contextOffset?: number;
+	/** Receives where the scrollable regions ended up. */
+	layout?: AskRenderLayout;
+	/** Rows the screen may use; the context pane shrinks to fit. Unbounded when omitted. */
+	maxRows?: number;
 	targets?: AskMouseTarget[];
 	footerNotice?: string;
 	background?: boolean;
@@ -42,6 +49,16 @@ export function renderAskScreen(args: {
 		args.background && editor.focused && !isEditingView(state)
 	);
 
+	const footerLines: string[] = [];
+	renderFrameFooter({
+		config,
+		footerNotice,
+		lines: footerLines,
+		state,
+		theme,
+		width,
+		background: args.background,
+	});
 	renderFrameHeader({ lines, state, theme, width, targets: args.targets });
 
 	if (isSubmitTab(state)) {
@@ -57,6 +74,12 @@ export function renderAskScreen(args: {
 		);
 	} else if (question) {
 		renderQuestionScreen({
+			availableRows:
+				args.maxRows === undefined
+					? undefined
+					: args.maxRows - footerLines.length,
+			contextOffset: args.contextOffset,
+			layout: args.layout,
 			lines,
 			state,
 			question,
@@ -69,14 +92,6 @@ export function renderAskScreen(args: {
 		});
 	}
 
-	renderFrameFooter({
-		config,
-		footerNotice,
-		lines,
-		state,
-		theme,
-		width,
-		background: args.background,
-	});
+	lines.push(...footerLines);
 	return lines;
 }

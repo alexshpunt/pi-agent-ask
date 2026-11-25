@@ -1,3 +1,12 @@
+# [2.2.0](https://github.com/alexshpunt/pi-agent-ask/compare/v2.1.0...v2.2.0) (2026-11-23)
+
+- Keep question forms inside the screen however much text they hold. A very long context, prompt, note, custom answer or Review screen no longer pushes the form off the terminal.
+- Show a question's context in its own word-wrapped pane that keeps tables, code and diagrams aligned. `PgUp`/`PgDn` and the mouse wheel scroll it, its borders say how many rows are hidden, and a thumb marks the position. When the pane cannot move further, the same keys scroll the whole form.
+- Adapt the layout to the screen width. On a wide terminal an open note gets its own column beside the context, and the context narrows to make room. On a narrower one the note sits below the context. Editors stop widening at a readable line length, and rows scrolled out of an editor are announced (`↑ 7 more lines`).
+- Stop `PgUp`/`PgDn` in a question form from scrolling the fullscreen conversation behind it.
+
+See [Long content and scrolling](https://github.com/alexshpunt/pi-agent-ask/blob/v2.2.0/docs/contract.md#long-content-and-scrolling).
+
 # [2.1.0](https://github.com/alexshpunt/pi-agent-ask/compare/v2.0.4...v2.1.0) (2026-11-22)
 
 - Let extensions queue their own background forms with `pi-agent-ask:enqueue`. These forms use the same validation, context-file loading, session history, and recovery as `ask_user` background forms.

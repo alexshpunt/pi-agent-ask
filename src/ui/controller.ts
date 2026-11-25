@@ -69,8 +69,18 @@ import {
 	shouldConfirmDirtyDismiss,
 	shouldDiscardAfterConfirmation,
 } from "./dismiss-guard.ts";
+import {
+	beginFormRender,
+	createFormScroll,
+	endFormRender,
+	type FormScroll,
+	fitToScreen,
+	scrollFormPage,
+	scrollFormWheel,
+} from "./form-scroll.ts";
 import type { AskInputCommand } from "./input.ts";
 import { getInputCommand } from "./input.ts";
+import { backgroundPanelRows, foregroundFormRows } from "./panel-viewport.ts";
 import {
 	type PersistentAskOptions,
 	showPersistentAsk,
@@ -82,6 +92,7 @@ import {
 	resolveReviewShortcutDoublePress,
 } from "./review-shortcuts.ts";
 import { showAskSettings } from "./show-settings.ts";
+import { waitForOverlay } from "./wait-for-overlay.ts";
 
 type CustomCallback = Parameters<ExtensionContext["ui"]["custom"]>[0];
 type CustomCallbackArgs = CustomCallback extends (...args: infer T) => unknown
@@ -135,6 +146,8 @@ interface AskFlowController {
 	pendingQuestionTypeChangeQuestionId?: string;
 	pendingReviewShortcutActionIndex?: number;
 	remoteFlow?: RemoteAskFlowHandle;
+	/** Scroll positions of the context pane and, in the foreground, the whole form. */
+	scroll: FormScroll;
 	settingsOpen: boolean;
 	state: AskState;
 	suppressAutoInputForSelection: boolean;
@@ -203,7 +216,10 @@ async function runAskFlowOnSurface(
 						...options.background,
 						signal: options.signal,
 					})
-				: await ctx.ui.custom<AskResult>(factory);
+				: await ctx.ui.custom<AskResult>((...args) => {
+						const wait = waitForOverlay(ctx.ui, args[0], options.signal);
+						return wait ? wait.then(() => factory(...args)) : factory(...args);
+					});
 		} finally {
 			if (!options.background) {
 				ctx.ui.setWorkingVisible(true);
@@ -229,6 +245,7 @@ function createAskFlowController(
 		params.ctx
 	);
 	const controller: AskFlowController = {
+		scroll: createFormScroll(),
 		mouseTargets: [],
 		abortOnCancel:
 			params.flowOptions.abortOnCancel ??
@@ -287,7 +304,19 @@ function createAskFlowController(
 		// Notification failures are best-effort and must not affect the ask flow.
 	});
 
+	return createFlowComponent(controller, () => {
+		params.flowOptions.signal?.removeEventListener("abort", abort);
+	});
+}
+
+function createFlowComponent(
+	controller: AskFlowController,
+	onDispose: () => void
+) {
 	return {
+		// Fullscreen hosts then route PgUp/PgDn here instead of scrolling the transcript.
+		capturesViewportInput: true,
+		scrollPage: (direction: -1 | 1) => scrollPage(controller, direction),
 		get focused() {
 			return controller.editor.focused;
 		},
@@ -306,7 +335,7 @@ function createAskFlowController(
 		},
 		dispose() {
 			controller.disposed = true;
-			params.flowOptions.signal?.removeEventListener("abort", abort);
+			onDispose();
 			controller.remoteFlow?.dispose();
 			controller.unsubscribeConfig();
 		},
@@ -318,27 +347,72 @@ function renderController(
 	width: number
 ): string[] {
 	controller.mouseTargets = [];
-	return renderAskScreen({
+	beginFormRender(controller.scroll, controller.state.activeTabIndex);
+	const background = !!controller.flowOptions.background;
+	const terminalRows = controller.tui.terminal?.rows ?? 24;
+	const maxRows = background
+		? backgroundPanelRows(terminalRows)
+		: foregroundFormRows(terminalRows);
+	const lines = renderAskScreen({
 		targets: controller.mouseTargets,
 		config: controller.config,
-		background: !!controller.flowOptions.background,
+		background,
+		contextOffset: controller.scroll.contextOffset,
 		editor: controller.editor,
 		footerNotice: getFooterNotice(controller),
+		layout: controller.scroll.layout,
+		maxRows,
 		reviewShortcutHint: getActiveReviewShortcutHint(controller),
 		state: controller.state,
 		theme: controller.theme,
 		width,
 	});
+	endFormRender(controller.scroll);
+	// A background panel scrolls its own frame; a foreground form owns the screen.
+	return background
+		? lines
+		: fitToScreen({
+				columns: width,
+				lines,
+				maxRows,
+				scroll: controller.scroll,
+				state: controller.state,
+				targets: controller.mouseTargets,
+				theme: controller.theme,
+			});
+}
+
+function scrollPage(controller: AskFlowController, direction: -1 | 1): boolean {
+	const moved = scrollFormPage(controller.scroll, {
+		background: !!controller.flowOptions.background,
+		direction,
+		terminalRows: controller.tui.terminal?.rows ?? 24,
+	});
+	if (moved) {
+		controller.tui.requestRender();
+	}
+	return moved;
 }
 
 function handleControllerMouse(
 	controller: AskFlowController,
 	event: TuiMouseEvent
 ): TuiMouseEventResult | undefined {
-	if (
+	const inactive =
 		controller.disposed ||
 		controller.settingsOpen ||
-		controller.state.completed ||
+		controller.state.completed;
+	if (event.type === "wheel") {
+		return inactive
+			? undefined
+			: scrollFormWheel(
+					controller.scroll,
+					event,
+					!!controller.flowOptions.background
+				);
+	}
+	if (
+		inactive ||
 		event.button !== "left" ||
 		event.shift ||
 		event.alt ||
@@ -360,6 +434,11 @@ function handleControllerMouse(
 	if (event.type === "press") {
 		return { handled: true, render: false };
 	}
+	clickTarget(controller, target);
+	return { handled: true };
+}
+
+function clickTarget(controller: AskFlowController, target: AskMouseTarget) {
 	if (target.kind === "tab") {
 		let next = saveEditorState(controller);
 		while (next.activeTabIndex !== target.index) {
@@ -385,21 +464,46 @@ function handleControllerMouse(
 			{ finish: true }
 		);
 	}
-	return { handled: true };
+}
+
+/** A foreground form scrolls itself; a background panel receives `PgUp`/`PgDn` first. */
+function handlePageKey(controller: AskFlowController, data: string): boolean {
+	if (controller.flowOptions.background) {
+		return false;
+	}
+	if (matchesKey(data, "pageUp")) {
+		return scrollPage(controller, -1);
+	}
+	return matchesKey(data, "pageDown") && scrollPage(controller, 1);
+}
+
+/** Keys only a background panel owns: `Esc` defers all questions, `D` skips one. */
+function handleBackgroundKey(
+	controller: AskFlowController,
+	data: string
+): boolean {
+	const background = controller.flowOptions.background;
+	if (!background) {
+		return false;
+	}
+	if (matchesKey(data, "esc")) {
+		refresh(controller);
+		background.onDefer();
+		return true;
+	}
+	if (!isEditingView(controller.state) && matchesKey(data, "d")) {
+		commitState(controller, skipCurrentQuestion(controller.state));
+		return true;
+	}
+	return false;
 }
 
 function handleControllerInput(controller: AskFlowController, data: string) {
-	if (controller.flowOptions.background && matchesKey(data, "esc")) {
-		refresh(controller);
-		controller.flowOptions.background.onDefer();
+	if (handlePageKey(controller, data)) {
 		return;
 	}
-	if (
-		controller.flowOptions.background &&
-		!isEditingView(controller.state) &&
-		matchesKey(data, "d")
-	) {
-		commitState(controller, skipCurrentQuestion(controller.state));
+	controller.scroll.followView = true;
+	if (handleBackgroundKey(controller, data)) {
 		return;
 	}
 	controller.editor.disableSubmit = !isNativeEditorSubmitEnabled(controller);
@@ -410,15 +514,23 @@ function handleControllerInput(controller: AskFlowController, data: string) {
 		isEditingView(controller.state) ? controller.editor.getText() : ""
 	);
 	if (isEditingView(controller.state)) {
-		if (
-			command.kind === "delegateToEditor" &&
-			controller.keybindings.matches(data, "app.clipboard.pasteImage")
-		) {
+		handleEditingInput(controller, command, data);
+		return;
+	}
+	handleNavigationCommand(controller, command);
+}
+
+function handleEditingInput(
+	controller: AskFlowController,
+	command: AskInputCommand,
+	data: string
+) {
+	if (command.kind === "delegateToEditor") {
+		if (controller.keybindings.matches(data, "app.clipboard.pasteImage")) {
 			pasteImage(controller);
 			return;
 		}
 		if (
-			command.kind === "delegateToEditor" &&
 			matchesKey(data, "ctrl+alt+d") &&
 			getEditorImages(controller.state).length
 		) {
@@ -429,10 +541,8 @@ function handleControllerInput(controller: AskFlowController, data: string) {
 			refresh(controller);
 			return;
 		}
-		handleEditingCommand(controller, command, data);
-		return;
 	}
-	handleNavigationCommand(controller, command);
+	handleEditingCommand(controller, command, data);
 }
 
 function isPasteTarget(

@@ -262,7 +262,21 @@ Fullscreen forms accept clicks on visible options, question tabs, Review, and re
 
 The whole visible background panel is a keyboard-focus area. When focus is outside the panel, the first click anywhere inside it only restores focus. This includes options, tabs, Review actions, headings, prompts, blank space, borders, and the scroll footer. That click does not select an answer, navigate, submit, or count toward a double-press safeguard. Subsequent clicks perform their normal actions while the panel is focused. Newly shown visible forms take focus automatically, so their first click can act immediately. No prior `Alt+Q` is needed, and ordinary input drafts stay intact. Clicking the ordinary editor releases panel focus without closing or answering the questionnaire; closing a settings overlay still restores the previous form focus. Wheel scrolling and resized layouts use the visible rows, not stale screen positions. Context and review text beside an action is not part of its click target. Regular terminal mode leaves mouse input to terminal selection and keeps keyboard controls.
 
+## Long content and scrolling
+
+A form never renders taller than the screen, whatever the size of its prompt, context, notes, or answers.
+
+- A foreground form uses the terminal height minus three rows for Pi's own lines. A background panel keeps its half-screen limit.
+- **Context** is shown in its own bordered pane, as wide as the space beside the option list (or the full width on narrow screens). It is word-wrapped, keeps its inner spacing (tables, code, diagrams), and shows only as many rows as the screen leaves after the header, prompt, option list, open editor, and footer, but never fewer than five. The borders say how many rows are hidden (`↑ 12 more · PgUp`, `↓ 340 more · PgDn`) and a thumb on the right border shows the position.
+- `PgUp` / `PgDn` scroll the context pane by a page, also while an editor is open. The mouse wheel scrolls the pane under the pointer. When the pane cannot move further, or there is none, the same keys and the wheel scroll the whole form (a foreground form shows `PgUp/PgDn or wheel: scroll · a–b / n` on its last row; a background panel keeps its own `PgUp/PgDn` footer). The scroll position resets when the tab changes.
+- Anything else that makes the form taller than the screen, such as a very long prompt, saved note, custom answer, or the Review screen, is covered by the whole-form scroll. Moving the selection or typing keeps the highlighted row or the editor cursor visible.
+- Open editors (custom answer, notes, comments) word-wrap and show at most 30% of the terminal height. Rows scrolled out of view are announced above and below the text (`↑ 7 more lines`, `↓ 3 more lines`); arrow keys move the cursor and scroll the text.
+- The layout adapts to the width so the note stays readable. On a wide screen (at least 110 columns beside the option list), an open option note gets its own column to the right of the context, 44–72 columns wide, and the context narrows to make room; the context then keeps its full height. On narrower screens the note sits below the context, which gives up rows for it. An editor never grows wider than 110 columns, so lines on a very wide terminal stay short enough to read.
+- A form component claims viewport keys, so fullscreen Pi does not scroll the transcript behind it with `PgUp` / `PgDn`.
+
 ## Keyboard behavior
+
+If another Pi overlay already has keyboard focus, the incoming foreground form waits. For example, `Esc` closes focused Stereo View settings without dismissing the pending question. The form opens and takes focus once no overlay owns it. `Esc` on the form itself keeps its usual behavior.
 
 Main flow:
 
