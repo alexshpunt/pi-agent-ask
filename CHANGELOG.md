@@ -1,3 +1,7 @@
+# [2.2.1](https://github.com/alexshpunt/pi-agent-ask/compare/v2.2.0...v2.2.1) (2026-11-25)
+
+- When an `ask_user` question arrives while Stereo View settings or another Pi dialog has keyboard focus, the question waits. Press `Esc` to close the dialog, then answer the question. `Esc` still cancels an untouched question when the form itself has focus.
+
 # [2.2.0](https://github.com/alexshpunt/pi-agent-ask/compare/v2.1.0...v2.2.0) (2026-11-23)
 
 - Keep question forms inside the screen however much text they hold. A very long context, prompt, note, custom answer or Review screen no longer pushes the form off the terminal.
