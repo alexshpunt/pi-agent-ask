@@ -92,6 +92,7 @@ import {
 	resolveReviewShortcutDoublePress,
 } from "./review-shortcuts.ts";
 import { showAskSettings } from "./show-settings.ts";
+import { waitForOverlay } from "./wait-for-overlay.ts";
 
 type CustomCallback = Parameters<ExtensionContext["ui"]["custom"]>[0];
 type CustomCallbackArgs = CustomCallback extends (...args: infer T) => unknown
@@ -215,7 +216,10 @@ async function runAskFlowOnSurface(
 						...options.background,
 						signal: options.signal,
 					})
-				: await ctx.ui.custom<AskResult>(factory);
+				: await ctx.ui.custom<AskResult>((...args) => {
+						const wait = waitForOverlay(ctx.ui, args[0], options.signal);
+						return wait ? wait.then(() => factory(...args)) : factory(...args);
+					});
 		} finally {
 			if (!options.background) {
 				ctx.ui.setWorkingVisible(true);
