@@ -276,6 +276,8 @@ A form never renders taller than the screen, whatever the size of its prompt, co
 
 ## Keyboard behavior
 
+If another Pi overlay already has keyboard focus, the incoming foreground form waits. For example, `Esc` closes focused Stereo View settings without dismissing the pending question. The form opens and takes focus once no overlay owns it. `Esc` on the form itself keeps its usual behavior.
+
 Main flow:
 
 - `global.settings` opens ask settings; default: `?`
