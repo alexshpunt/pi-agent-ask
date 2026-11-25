@@ -3,10 +3,13 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
 	assistantMessage,
+	getToolExecution,
+	getToolExecutionDetails,
 	PiIntegrationTest,
 	testArtifactsDir,
 	toolCall,
 } from "pi-coding-agent-test";
+import type { AskResult } from "../../src/types.ts";
 
 test("Escape stops the agent after cancelling a foreground form", {
 	timeout: 60_000,
@@ -45,4 +48,8 @@ test("Escape stops the agent after cancelling a foreground form", {
 	}).run("Ask the question and wait for the user.");
 	assert(result.traceEvents.some((event) => event.type === "agent_settled"));
 	assert.equal(result.providerRequests.length, 1);
+	const details = getToolExecutionDetails(
+		getToolExecution(result, "form")
+	) as AskResult;
+	assert.equal(details.cancelled, true);
 });
